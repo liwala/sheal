@@ -1,0 +1,24 @@
+{
+  "name": "sheal",
+  "version": "0.1.0",
+  "description": "Self-healing AI coding toolkit",
+  "type": "module",
+  "bin": {
+    "sheal": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
