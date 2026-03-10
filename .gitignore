@@ -9,3 +9,6 @@ coverage/
 tmp/
 .dolt/
 .doltcfg/
+
+# Dolt database files (added by bd init)
+*.db
