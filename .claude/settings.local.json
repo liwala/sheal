@@ -13,7 +13,16 @@
       "Bash(npx tsx:*)",
       "Bash(chmod +x:*)",
       "Bash(sheal check:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(bd list:*)",
+      "Bash(bd:*)",
+      "Bash(gh api:*)",
+      "Bash(sheal sessions:*)",
+      "Bash(sheal:*)",
+      "Bash(brew install:*)",
+      "Bash(entire init:*)",
+      "Bash(entire enable:*)",
+      "Bash(entire status:*)"
     ]
   }
 }
