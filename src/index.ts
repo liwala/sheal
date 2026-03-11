@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
+import { runSessions } from "./commands/sessions.js";
 
 const program = new Command();
 
@@ -20,6 +21,20 @@ program
       format: opts.format,
       projectRoot: opts.project,
       skip: opts.skip,
+    });
+  });
+
+program
+  .command("sessions")
+  .description("List and inspect Entire.io session data")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("-c, --checkpoint <id>", "Load a specific checkpoint by ID")
+  .action(async (opts) => {
+    await runSessions({
+      format: opts.format,
+      projectRoot: opts.project,
+      checkpointId: opts.checkpoint,
     });
   });
 
