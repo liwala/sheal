@@ -97,11 +97,12 @@ export async function listCheckpoints(
     if (!content) continue;
 
     try {
-      const root = JSON.parse(content) as CheckpointRoot;
+      const raw = JSON.parse(content);
+      const root = parseRootMetadata(raw);
       checkpoints.push({
         checkpointId: root.checkpointId,
         sessionId: root.sessions?.[0]?.metadata?.split("/").slice(-2, -1)[0] ?? "",
-        createdAt: "", // resolved from session metadata
+        createdAt: "",
         filesTouched: root.filesTouched ?? [],
         sessionCount: root.sessions?.length ?? 0,
         sessionIds: [],
@@ -129,7 +130,7 @@ export async function loadCheckpoint(
   const rootContent = await readBranchFile(repoPath, `${basePath}/metadata.json`);
   if (!rootContent) return null;
 
-  const root = JSON.parse(rootContent) as CheckpointRoot;
+  const root = parseRootMetadata(JSON.parse(rootContent));
 
   // Load each session
   const sessions: Session[] = [];
@@ -182,7 +183,35 @@ async function loadSession(
 }
 
 /**
- * Parse metadata.json, normalizing snake_case JSON keys to camelCase.
+ * Parse root-level metadata.json (checkpoint summary), normalizing snake_case to camelCase.
+ */
+function parseRootMetadata(raw: Record<string, unknown>): CheckpointRoot {
+  const sessions = (raw.sessions as Array<Record<string, string>> | undefined) ?? [];
+  return {
+    cliVersion: raw.cli_version as string | undefined,
+    checkpointId: raw.checkpoint_id as string,
+    strategy: raw.strategy as string,
+    branch: raw.branch as string | undefined,
+    checkpointsCount: raw.checkpoints_count as number,
+    filesTouched: (raw.files_touched as string[]) ?? [],
+    sessions: sessions.map((s) => ({
+      metadata: s.metadata,
+      transcript: s.transcript,
+      contentHash: s.content_hash,
+      prompt: s.prompt,
+    })),
+    tokenUsage: raw.token_usage ? {
+      inputTokens: (raw.token_usage as Record<string, number>).input_tokens,
+      cacheCreationTokens: (raw.token_usage as Record<string, number>).cache_creation_tokens,
+      cacheReadTokens: (raw.token_usage as Record<string, number>).cache_read_tokens,
+      outputTokens: (raw.token_usage as Record<string, number>).output_tokens,
+      apiCallCount: (raw.token_usage as Record<string, number>).api_call_count,
+    } : undefined,
+  };
+}
+
+/**
+ * Parse session-level metadata.json, normalizing snake_case to camelCase.
  */
 function parseMetadata(content: string): SessionMetadata {
   const raw = JSON.parse(content);
