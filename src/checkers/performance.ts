@@ -47,16 +47,16 @@ function measureConfigSize(projectRoot: string): { totalBytes: number; files: { 
 }
 
 /**
- * Try to read Claude Code settings to check for MCP and LSP plugin config.
+ * Read Claude Code settings across all scopes to check MCP servers and env config.
  */
 function checkClaudeCodeSettings(projectRoot: string): {
   mcpServers: string[];
-  lspPlugins: string[];
+  lspEnabled: boolean;
 } {
   const mcpServers: string[] = [];
-  const lspPlugins: string[] = [];
+  let lspEnabled = false;
 
-  // Check all settings scopes for enabled plugins and MCP servers
+  // Check all settings scopes
   const settingsPaths = [
     join(homedir(), ".claude", "settings.json"),
     join(projectRoot, ".claude", "settings.json"),
@@ -73,18 +73,22 @@ function checkClaudeCodeSettings(projectRoot: string): {
         if (!mcpServers.includes(name)) mcpServers.push(name);
       }
 
-      // LSP plugins (convention: plugin names containing "lsp")
-      for (const [name, enabled] of Object.entries(raw.enabledPlugins ?? {})) {
-        if (enabled && name.toLowerCase().includes("lsp") && !lspPlugins.includes(name)) {
-          lspPlugins.push(name);
-        }
+      // LSP enabled via env block in settings
+      const env = raw.env ?? {};
+      if (env.ENABLE_LSP_TOOLS === "1" || env.ENABLE_LSP_TOOLS === "true") {
+        lspEnabled = true;
       }
     } catch {
       // ignore parse errors
     }
   }
 
-  return { mcpServers, lspPlugins };
+  // Also check current process env (set when launching claude)
+  if (process.env.ENABLE_LSP_TOOLS === "1" || process.env.ENABLE_LSP_TOOLS === "true") {
+    lspEnabled = true;
+  }
+
+  return { mcpServers, lspEnabled };
 }
 
 // 10KB warn, 20KB fail for total agent config size
@@ -136,7 +140,7 @@ export const performanceChecker: Checker = {
 
     // MCP and LSP checks (Claude Code only)
     if (agent === "claude") {
-      const { mcpServers, lspPlugins } = checkClaudeCodeSettings(ctx.projectRoot);
+      const { mcpServers, lspEnabled } = checkClaudeCodeSettings(ctx.projectRoot);
 
       if (mcpServers.length > 0) {
         details.push({
@@ -145,14 +149,14 @@ export const performanceChecker: Checker = {
         });
       }
 
-      if (lspPlugins.length > 0) {
+      if (lspEnabled) {
         details.push({
-          message: `LSP plugins: ${lspPlugins.map((p) => p.split("@")[0]).join(", ")}`,
+          message: "LSP tools enabled (ENABLE_LSP_TOOLS=1)",
           severity: "pass",
         });
       } else {
         details.push({
-          message: "No LSP plugins enabled — LSP gives Claude Code diagnostics and go-to-definition",
+          message: "LSP tools not enabled — set ENABLE_LSP_TOOLS=1 in Claude Code settings env for diagnostics",
           severity: "warn",
         });
       }
