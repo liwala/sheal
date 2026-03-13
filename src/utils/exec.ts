@@ -10,7 +10,7 @@ export interface ExecResult {
 export function exec(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; cwd?: string } = {},
+  options: { timeoutMs?: number; cwd?: string; maxBuffer?: number } = {},
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
     const child = execFile(
@@ -19,7 +19,8 @@ export function exec(
       {
         timeout: options.timeoutMs ?? 10_000,
         cwd: options.cwd,
-        maxBuffer: 50 * 1024 * 1024, // 50MB — transcripts can be large
+        maxBuffer: options.maxBuffer ?? 50 * 1024 * 1024,
+        env: { ...process.env, CI: "true", NO_COLOR: "1" },
       },
       (error, stdout, stderr) => {
         const timedOut = error?.killed === true;
@@ -32,5 +33,7 @@ export function exec(
         });
       },
     );
+    // Close stdin so child processes don't wait for input
+    child.stdin?.end();
   });
 }

@@ -1,12 +1,14 @@
 import chalk from "chalk";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import { runRetrospective } from "../retro/index.js";
+import { generateRetroPrompt } from "../retro/prompt.js";
 import type { Retrospective, Learning } from "../retro/types.js";
 
 export interface RetroOptions {
   format: string;
   projectRoot: string;
   checkpointId?: string;
+  prompt?: boolean;
 }
 
 export async function runRetro(options: RetroOptions): Promise<void> {
@@ -44,6 +46,12 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   }
 
   const retro = runRetrospective(checkpoint);
+
+  if (options.prompt) {
+    // Output an LLM prompt for deep analysis (pipe to any agent)
+    console.log(generateRetroPrompt(retro, checkpoint));
+    return;
+  }
 
   if (options.format === "json") {
     // Strip entries from failure loops for cleaner JSON

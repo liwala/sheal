@@ -52,5 +52,6 @@ export async function runCheck(options: CheckOptions): Promise<void> {
   }
 
   const hasFail = results.some((r) => r.severity === "fail");
-  process.exitCode = hasFail ? 1 : 0;
+  // Use process.exit to prevent hanging from lingering child processes
+  process.exit(hasFail ? 1 : 0);
 }

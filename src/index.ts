@@ -45,11 +45,13 @@ program
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("-c, --checkpoint <id>", "Checkpoint ID (defaults to latest)")
+  .option("--prompt", "Output an LLM prompt for deep analysis (pipe to any agent)")
   .action(async (opts) => {
     await runRetro({
       format: opts.format,
       projectRoot: opts.project,
       checkpointId: opts.checkpoint,
+      prompt: opts.prompt,
     });
   });
 

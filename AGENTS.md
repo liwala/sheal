@@ -1,5 +1,7 @@
 # Agent Instructions
 
+See also: @CLAUDE.md for Claude Code-specific instructions.
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference
@@ -124,3 +126,24 @@ For more details, see README.md and docs/QUICKSTART.md.
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+
+## Self-Healing Workflow
+
+Run `sheal check` at the start of every session to catch environment issues early.
+Run `sheal retro` at the end of sessions to extract learnings (requires Entire.io).
+
+## Session Learnings
+
+- Before writing parsers for external data formats (JSON APIs, JSONL transcripts, config files),
+  always inspect 2-3 real samples first using `git show`, `curl`, or `cat`. Don't rely solely on
+  documentation or type definitions — real data often differs from specs.
+
+- When using an unfamiliar CLI tool for the first time, run `<tool> --help` and
+  `<tool> <subcommand> --help` before attempting commands. This prevents wasted iterations
+  on wrong flags.
+
+- After creating test fixtures, verify they match the real data format by comparing structure
+  side-by-side. Synthetic fixtures that diverge from reality cause parser bugs later.
+
+- When a background server process (dolt, postgres, redis) is required, add it to
+  .self-heal.json requiredServices so `sheal check` catches it at session start.

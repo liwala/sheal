@@ -49,6 +49,10 @@
           {
             "type": "command",
             "command": "entire hooks claude-code session-start"
+          },
+          {
+            "type": "command",
+            "command": "sheal check --format json --skip tests"
           }
         ]
       }
