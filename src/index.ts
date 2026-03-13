@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runSessions } from "./commands/sessions.js";
+import { runRetro } from "./commands/retro.js";
 
 const program = new Command();
 
@@ -32,6 +33,20 @@ program
   .option("-c, --checkpoint <id>", "Load a specific checkpoint by ID")
   .action(async (opts) => {
     await runSessions({
+      format: opts.format,
+      projectRoot: opts.project,
+      checkpointId: opts.checkpoint,
+    });
+  });
+
+program
+  .command("retro")
+  .description("Run a session retrospective on a completed session")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("-c, --checkpoint <id>", "Checkpoint ID (defaults to latest)")
+  .action(async (opts) => {
+    await runRetro({
       format: opts.format,
       projectRoot: opts.project,
       checkpointId: opts.checkpoint,
