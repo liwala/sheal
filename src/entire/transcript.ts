@@ -2,7 +2,7 @@
  * Parses JSONL transcripts from different agents into normalized SessionEntry format.
  *
  * Each agent stores transcripts in its own format:
- * - Claude Code: JSONL with Anthropic API message format
+ * - Claude Code: JSONL with envelope wrapper { type, message: { role, content }, uuid, timestamp }
  * - Cursor: SQLite-derived entries
  * - Gemini CLI: JSONL with Gemini API format
  * - OpenCode: JSONL with OpenAI-compatible format
@@ -42,9 +42,14 @@ function normalizeEntry(
   raw: Record<string, unknown>,
   agent?: AgentType,
 ): SessionEntry | null {
-  // Claude Code format: Anthropic API messages
-  if (agent === "Claude Code" || detectClaudeFormat(raw)) {
-    return normalizeClaudeEntry(raw);
+  // Claude Code envelope format (real transcripts): { type, message, uuid, timestamp }
+  if (detectClaudeEnvelopeFormat(raw)) {
+    return normalizeClaudeEnvelopeEntry(raw);
+  }
+
+  // Raw Anthropic API format (test fixtures, older transcripts): { role, content }
+  if (agent === "Claude Code" || detectClaudeRawFormat(raw)) {
+    return normalizeClaudeRawEntry(raw);
   }
 
   // Gemini CLI format
@@ -57,14 +62,27 @@ function normalizeEntry(
 }
 
 /**
- * Detect Claude Code transcript format.
- * Claude uses "role" + "content" with Anthropic content block structure.
+ * Detect Claude Code envelope format (real transcripts from Claude Code sessions).
+ * These have a top-level "type" field like "user", "assistant", "system", "progress"
+ * and a nested "message" object with { role, content }.
  */
-function detectClaudeFormat(raw: Record<string, unknown>): boolean {
+function detectClaudeEnvelopeFormat(raw: Record<string, unknown>): boolean {
+  const type = raw.type as string;
+  return (
+    (type === "user" || type === "assistant" || type === "system" || type === "progress") &&
+    "uuid" in raw
+  );
+}
+
+/**
+ * Detect raw Anthropic API message format (used in test fixtures).
+ */
+function detectClaudeRawFormat(raw: Record<string, unknown>): boolean {
   return (
     typeof raw.role === "string" &&
     (raw.role === "user" || raw.role === "assistant") &&
-    (Array.isArray(raw.content) || typeof raw.content === "string")
+    (Array.isArray(raw.content) || typeof raw.content === "string") &&
+    !("message" in raw)
   );
 }
 
@@ -76,17 +94,118 @@ function detectGeminiFormat(raw: Record<string, unknown>): boolean {
 }
 
 /**
- * Normalize a Claude Code transcript entry.
+ * Normalize a Claude Code envelope entry.
  *
- * Claude entries follow the Anthropic API format:
- * { "role": "user"|"assistant", "content": string | ContentBlock[] }
+ * Real Claude Code transcripts use an envelope format:
+ * {
+ *   type: "user" | "assistant" | "system" | "progress",
+ *   message: { role: "user"|"assistant", content: string | ContentBlock[] },
+ *   uuid: "...",
+ *   timestamp: "...",
+ *   sessionId: "...",
+ *   parentUuid: "...",
+ * }
  *
- * Content blocks can be:
- * - { "type": "text", "text": "..." }
- * - { "type": "tool_use", "id": "...", "name": "...", "input": {...} }
- * - { "type": "tool_result", "tool_use_id": "...", "content": "..." }
+ * Types we care about:
+ * - "user": user messages (message.content is the prompt text)
+ * - "assistant": assistant responses (message.content is ContentBlock[])
+ * - "system": system messages
+ * - "progress": hook events, tool progress — skip these
+ * - "file-history-snapshot": file snapshots — skip these
+ * - "queue-operation": queue ops — skip these
+ * - "last-prompt": session end marker — skip
  */
-function normalizeClaudeEntry(raw: Record<string, unknown>): SessionEntry | null {
+function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntry | null {
+  const type = raw.type as string;
+  const uuid = (raw.uuid as string) ?? "";
+  const timestamp = raw.timestamp as string | undefined;
+
+  // Skip non-message types
+  if (type === "progress" || type === "file-history-snapshot" || type === "queue-operation" || type === "last-prompt") {
+    return null;
+  }
+
+  const message = raw.message as Record<string, unknown> | undefined;
+  if (!message) return null;
+
+  const role = message.role as string;
+  const content = message.content;
+
+  // Simple text content (common for user messages)
+  if (typeof content === "string") {
+    return {
+      uuid,
+      type: mapRole(type),
+      timestamp,
+      content,
+    };
+  }
+
+  // Content block array (common for assistant messages)
+  if (Array.isArray(content)) {
+    const blocks = content as Array<Record<string, unknown>>;
+
+    // Collect all entries from this message
+    // A single assistant message can contain text + multiple tool_use blocks
+    const toolBlocks = blocks.filter((b) => b.type === "tool_use");
+    const resultBlocks = blocks.filter((b) => b.type === "tool_result");
+    const textBlocks = blocks.filter((b) => b.type === "text" && b.text);
+
+    // If there are tool_use blocks, return the first one
+    // (multi-tool messages will lose some data, but this is MVP)
+    if (toolBlocks.length > 0) {
+      const tb = toolBlocks[0];
+      return {
+        uuid: (tb.id as string) ?? uuid,
+        type: "tool",
+        timestamp,
+        content: `Tool: ${tb.name}`,
+        toolName: tb.name as string,
+        toolInput: tb.input,
+        filesAffected: extractFilesFromToolInput(
+          tb.name as string,
+          tb.input as Record<string, unknown>,
+        ),
+      };
+    }
+
+    // Tool results
+    if (resultBlocks.length > 0) {
+      const rb = resultBlocks[0];
+      const resultContent = typeof rb.content === "string"
+        ? rb.content
+        : JSON.stringify(rb.content);
+      return {
+        uuid: (rb.tool_use_id as string) ?? uuid,
+        type: "tool",
+        timestamp,
+        content: resultContent,
+        toolOutput: rb.content,
+      };
+    }
+
+    // Text blocks
+    if (textBlocks.length > 0) {
+      return {
+        uuid,
+        type: mapRole(role || type),
+        timestamp,
+        content: textBlocks.map((b) => b.text).join("\n"),
+      };
+    }
+
+    // Thinking blocks only — skip (contains signature data, not useful)
+    const hasOnlyThinking = blocks.every((b) => b.type === "thinking" || b.type === "redacted_thinking");
+    if (hasOnlyThinking) return null;
+  }
+
+  return null;
+}
+
+/**
+ * Normalize a raw Anthropic API message (legacy/test format).
+ */
+function normalizeClaudeRawEntry(raw: Record<string, unknown>): SessionEntry | null {
   const role = raw.role as string;
   const uuid = (raw.id as string) ?? (raw.uuid as string) ?? "";
 
@@ -103,7 +222,6 @@ function normalizeClaudeEntry(raw: Record<string, unknown>): SessionEntry | null
   if (Array.isArray(raw.content)) {
     const blocks = raw.content as Array<Record<string, unknown>>;
 
-    // Tool use
     const toolBlock = blocks.find((b) => b.type === "tool_use");
     if (toolBlock) {
       return {
@@ -119,7 +237,6 @@ function normalizeClaudeEntry(raw: Record<string, unknown>): SessionEntry | null
       };
     }
 
-    // Tool result
     const resultBlock = blocks.find((b) => b.type === "tool_result");
     if (resultBlock) {
       const content = typeof resultBlock.content === "string"
@@ -133,7 +250,6 @@ function normalizeClaudeEntry(raw: Record<string, unknown>): SessionEntry | null
       };
     }
 
-    // Text blocks
     const textBlocks = blocks.filter((b) => b.type === "text");
     if (textBlocks.length > 0) {
       return {
@@ -156,7 +272,6 @@ function normalizeGeminiEntry(raw: Record<string, unknown>): SessionEntry | null
 
   if (!parts || parts.length === 0) return null;
 
-  // Extract text from parts
   const textParts = parts.filter((p) => typeof p.text === "string");
   if (textParts.length > 0) {
     return {
@@ -166,7 +281,6 @@ function normalizeGeminiEntry(raw: Record<string, unknown>): SessionEntry | null
     };
   }
 
-  // Function calls
   const fnCall = parts.find((p) => p.functionCall != null);
   if (fnCall) {
     const fc = fnCall.functionCall as Record<string, unknown>;

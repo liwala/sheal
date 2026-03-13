@@ -19,7 +19,7 @@ export function exec(
       {
         timeout: options.timeoutMs ?? 10_000,
         cwd: options.cwd,
-        maxBuffer: 1024 * 1024,
+        maxBuffer: 50 * 1024 * 1024, // 50MB — transcripts can be large
       },
       (error, stdout, stderr) => {
         const timedOut = error?.killed === true;
