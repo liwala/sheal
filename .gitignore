@@ -10,5 +10,8 @@ tmp/
 .dolt/
 .doltcfg/
 
+# sheal local data (synced learnings, cached retros)
+.sheal/
+
 # Dolt database files (added by bd init)
 *.db

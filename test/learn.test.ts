@@ -1,0 +1,230 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import {
+  slugify,
+  nextId,
+  writeLearning,
+  readLearning,
+  listLearnings,
+  parseLearningContent,
+} from "../src/learn/store.js";
+import { detectProjectTags } from "../src/learn/detect.js";
+import type { LearningFile } from "../src/learn/types.js";
+
+function makeTempDir(): string {
+  return mkdtempSync(join(tmpdir(), "sheal-learn-test-"));
+}
+
+const sampleLearning: LearningFile = {
+  id: "LEARN-001",
+  title: "Inspect real data before writing parsers",
+  date: "2026-03-13",
+  tags: ["parsing", "external-data", "general"],
+  category: "missing-context",
+  severity: "high",
+  status: "active",
+  body: "Before writing parsers for external data formats, always inspect 2-3 real samples first.",
+};
+
+describe("slugify", () => {
+  it("converts to lowercase hyphenated", () => {
+    expect(slugify("Inspect Real Data")).toBe("inspect-real-data");
+  });
+
+  it("removes special characters", () => {
+    expect(slugify("Don't use (bad) stuff!")).toBe("don-t-use-bad-stuff");
+  });
+
+  it("trims leading/trailing hyphens", () => {
+    expect(slugify("---hello---")).toBe("hello");
+  });
+
+  it("truncates to 50 characters", () => {
+    const long = "a".repeat(100);
+    expect(slugify(long).length).toBeLessThanOrEqual(50);
+  });
+
+  it("handles empty string", () => {
+    expect(slugify("")).toBe("");
+  });
+});
+
+describe("nextId", () => {
+  it("returns LEARN-001 for empty directory", () => {
+    const dir = makeTempDir();
+    expect(nextId(dir)).toBe("LEARN-001");
+    rmSync(dir, { recursive: true });
+  });
+
+  it("returns LEARN-001 for non-existent directory", () => {
+    expect(nextId("/nonexistent/path")).toBe("LEARN-001");
+  });
+
+  it("returns next sequential ID", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, "LEARN-001-foo.md"), "");
+    writeFileSync(join(dir, "LEARN-003-bar.md"), "");
+    expect(nextId(dir)).toBe("LEARN-004");
+    rmSync(dir, { recursive: true });
+  });
+});
+
+describe("writeLearning / readLearning roundtrip", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = makeTempDir();
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true });
+  });
+
+  it("writes and reads back a learning", () => {
+    const filepath = writeLearning(dir, sampleLearning);
+    expect(existsSync(filepath)).toBe(true);
+
+    const loaded = readLearning(filepath);
+    expect(loaded.id).toBe("LEARN-001");
+    expect(loaded.title).toBe("Inspect real data before writing parsers");
+    expect(loaded.date).toBe("2026-03-13");
+    expect(loaded.tags).toEqual(["parsing", "external-data", "general"]);
+    expect(loaded.category).toBe("missing-context");
+    expect(loaded.severity).toBe("high");
+    expect(loaded.status).toBe("active");
+    expect(loaded.body).toContain("inspect 2-3 real samples");
+  });
+
+  it("generates correct filename", () => {
+    const filepath = writeLearning(dir, sampleLearning);
+    expect(filepath).toContain("LEARN-001-inspect-real-data-before-writing-parsers.md");
+  });
+});
+
+describe("parseLearningContent", () => {
+  it("parses valid frontmatter", () => {
+    const content = `---
+id: LEARN-042
+title: Test learning
+date: 2026-01-01
+tags: [foo, bar]
+category: workflow
+severity: low
+status: active
+---
+
+This is the body.
+`;
+    const result = parseLearningContent(content);
+    expect(result.id).toBe("LEARN-042");
+    expect(result.tags).toEqual(["foo", "bar"]);
+    expect(result.body).toBe("This is the body.");
+  });
+
+  it("throws on missing frontmatter", () => {
+    expect(() => parseLearningContent("no frontmatter")).toThrow(
+      "missing frontmatter"
+    );
+  });
+});
+
+describe("listLearnings", () => {
+  it("returns empty array for non-existent directory", () => {
+    expect(listLearnings("/nonexistent/path")).toEqual([]);
+  });
+
+  it("lists and sorts learnings", () => {
+    const dir = makeTempDir();
+    writeLearning(dir, { ...sampleLearning, id: "LEARN-002", title: "Second" });
+    writeLearning(dir, { ...sampleLearning, id: "LEARN-001", title: "First" });
+
+    const results = listLearnings(dir);
+    expect(results.length).toBe(2);
+    expect(results[0].id).toBe("LEARN-001");
+    expect(results[1].id).toBe("LEARN-002");
+
+    rmSync(dir, { recursive: true });
+  });
+});
+
+describe("detectProjectTags", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = makeTempDir();
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true });
+  });
+
+  it("always includes general and workflow", () => {
+    const tags = detectProjectTags(dir);
+    expect(tags).toContain("general");
+    expect(tags).toContain("workflow");
+  });
+
+  it("detects TypeScript project", () => {
+    writeFileSync(join(dir, "package.json"), "{}");
+    writeFileSync(join(dir, "tsconfig.json"), "{}");
+    const tags = detectProjectTags(dir);
+    expect(tags).toContain("typescript");
+    expect(tags).toContain("node");
+    expect(tags).toContain("javascript");
+  });
+
+  it("detects Go project", () => {
+    writeFileSync(join(dir, "go.mod"), "module example.com/foo");
+    const tags = detectProjectTags(dir);
+    expect(tags).toContain("go");
+  });
+
+  it("detects Rust project", () => {
+    writeFileSync(join(dir, "Cargo.toml"), "[package]");
+    const tags = detectProjectTags(dir);
+    expect(tags).toContain("rust");
+  });
+
+  it("detects Python project", () => {
+    writeFileSync(join(dir, "pyproject.toml"), "[project]");
+    const tags = detectProjectTags(dir);
+    expect(tags).toContain("python");
+  });
+
+  it("detects Docker", () => {
+    writeFileSync(join(dir, "Dockerfile"), "FROM node");
+    const tags = detectProjectTags(dir);
+    expect(tags).toContain("docker");
+  });
+
+  it("returns sorted tags", () => {
+    const tags = detectProjectTags(dir);
+    const sorted = [...tags].sort();
+    expect(tags).toEqual(sorted);
+  });
+});
+
+describe("tag matching", () => {
+  it("finds overlap between learning tags and project tags", () => {
+    const learningTags = ["parsing", "external-data", "general"];
+    const projectTags = ["general", "workflow", "typescript"];
+    const hasOverlap = learningTags.some((t) => projectTags.includes(t));
+    expect(hasOverlap).toBe(true);
+  });
+
+  it("universal tags always match", () => {
+    const learningTags = ["general"];
+    const projectTags = ["general", "workflow"]; // always present
+    const hasOverlap = learningTags.some((t) => projectTags.includes(t));
+    expect(hasOverlap).toBe(true);
+  });
+
+  it("no overlap returns false", () => {
+    const learningTags = ["rust", "cargo"];
+    const projectTags = ["general", "workflow", "typescript", "node"];
+    const hasOverlap = learningTags.some((t) => projectTags.includes(t));
+    expect(hasOverlap).toBe(false);
+  });
+});

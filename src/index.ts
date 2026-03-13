@@ -3,6 +3,8 @@ import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runSessions } from "./commands/sessions.js";
 import { runRetro } from "./commands/retro.js";
+import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
+import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const program = new Command();
 
@@ -46,12 +48,61 @@ program
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("-c, --checkpoint <id>", "Checkpoint ID (defaults to latest)")
   .option("--prompt", "Output an LLM prompt for deep analysis (pipe to any agent)")
+  .option("--enrich", "Invoke the session's agent CLI for LLM-enriched analysis")
+  .option("--agent <name>", "Override agent CLI for --enrich (e.g. claude, gemini, codex)")
   .action(async (opts) => {
     await runRetro({
       format: opts.format,
       projectRoot: opts.project,
       checkpointId: opts.checkpoint,
       prompt: opts.prompt,
+      enrich: opts.enrich,
+      agent: opts.agent,
+    });
+  });
+
+const learn = program
+  .command("learn")
+  .description("Manage ADR-style session learnings");
+
+learn
+  .command("add <insight>")
+  .description("Add a new learning to the global store")
+  .option("--tags <tags>", "Comma-separated tags", "general")
+  .option("--category <cat>", "Category: missing-context, failure-loop, wasted-effort, environment, workflow", "workflow")
+  .option("--severity <sev>", "Severity: low, medium, high", "medium")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (insight: string, opts) => {
+    await runLearnAdd({
+      insight,
+      tags: (opts.tags as string).split(",").map((t: string) => t.trim()),
+      category: opts.category as LearningCategory,
+      severity: opts.severity as LearningSeverity,
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("list")
+  .description("List learnings")
+  .option("--global", "List from global store instead of project", false)
+  .option("--tag <tag>", "Filter by tag")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnList({
+      global: opts.global,
+      tag: opts.tag,
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("sync")
+  .description("Sync relevant global learnings to this project")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnSync({
+      projectRoot: opts.project,
     });
   });
 

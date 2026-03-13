@@ -17,6 +17,9 @@ export interface SelfHealConfig {
       files?: string[];
     };
   };
+  learnings?: {
+    tags?: string[];
+  };
   timeoutMs?: number;
   format?: "pretty" | "json";
 }
@@ -39,6 +42,9 @@ export interface ResolvedConfig {
     sessionLearnings: {
       files: string[];
     };
+  };
+  learnings: {
+    tags: string[];
   };
   timeoutMs: number;
   format: "pretty" | "json";

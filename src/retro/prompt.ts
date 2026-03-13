@@ -7,6 +7,7 @@
 
 import type { Retrospective } from "./types.js";
 import type { Checkpoint } from "../entire/types.js";
+import type { LearningFile } from "../learn/types.js";
 
 /**
  * Generate a prompt for LLM-powered deep retrospective analysis.
@@ -15,6 +16,7 @@ import type { Checkpoint } from "../entire/types.js";
 export function generateRetroPrompt(
   retro: Retrospective,
   checkpoint: Checkpoint,
+  existingLearnings?: LearningFile[],
 ): string {
   const session = checkpoint.sessions[0];
   const userMessages = session?.transcript
@@ -78,19 +80,25 @@ ${Object.entries(retro.effort.fileTouchCounts).sort((a, b) => b[1] - a[1]).slice
 ## Static Analysis Learnings
 ${retro.learnings.map((l) => `- [${l.severity}/${l.category}] ${l.description} → ${l.suggestion}`).join("\n") || "None"}
 
+## Existing Learnings (already captured)
+${existingLearnings && existingLearnings.length > 0
+    ? existingLearnings.map((l) => `- ${l.id} [${l.category}] ${l.title}`).join("\n")
+    : "None yet"}
+
 ---
 
 ## Your Task
 
-Analyze this session and produce:
+Be concise. Respond with ONLY this structure, no preamble:
 
-1. **Summary**: What happened in this session? (1-2 sentences)
-2. **What Went Well**: List things that were productive and effective
-3. **What Could Be Improved**: For each issue, explain WHY it happened and WHAT to do differently
-4. **Suggested Rules**: Write 3-5 specific, actionable rules that should be added to the project's agent config file (CLAUDE.md, .cursorrules, AGENTS.md). Rules should be:
-   - Phrased as instructions to a future AI agent
-   - Specific enough to be actionable (not "be more careful")
-   - Only for issues likely to recur (skip one-off problems)
+**Summary:** 1-2 sentences on what happened and how it went.
 
-Format as markdown.`;
+**Top Issues:**
+For each (max 3), one line: issue → root cause → fix. Skip one-off problems.
+
+**Recurring:** Flag any issues that match or relate to existing learnings above. If the same mistake keeps happening, say so and suggest why the existing rule isn't working. If nothing recurs, write "None".
+
+**Rules:** 3-5 new rules (not duplicating existing learnings above). Format each as a bullet starting with "- ".
+Each rule must be a direct instruction to a future AI agent. Be specific and actionable — not "be more careful" but "run X before doing Y".
+Only include rules for issues likely to recur.`;
 }

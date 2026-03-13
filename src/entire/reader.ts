@@ -99,11 +99,24 @@ export async function listCheckpoints(
     try {
       const raw = JSON.parse(content);
       const root = parseRootMetadata(raw);
+
+      // Try to get createdAt from the first session's metadata
+      const basePath = metaFile.replace("/metadata.json", "");
+      const sessionMetaContent = await readBranchFile(repoPath, `${basePath}/0/metadata.json`);
+      let createdAt = "";
+      let agent: string | undefined;
+      if (sessionMetaContent) {
+        const sessionRaw = JSON.parse(sessionMetaContent);
+        createdAt = sessionRaw.created_at ?? "";
+        agent = sessionRaw.agent;
+      }
+
       checkpoints.push({
         checkpointId: root.checkpointId,
         sessionId: root.sessions?.[0]?.metadata?.split("/").slice(-2, -1)[0] ?? "",
-        createdAt: "",
+        createdAt,
         filesTouched: root.filesTouched ?? [],
+        agent,
         sessionCount: root.sessions?.length ?? 0,
         sessionIds: [],
       });
@@ -111,6 +124,9 @@ export async function listCheckpoints(
       // Skip malformed metadata
     }
   }
+
+  // Sort by createdAt descending (most recent first)
+  checkpoints.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return checkpoints;
 }

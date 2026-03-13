@@ -134,16 +134,7 @@ Run `sheal retro` at the end of sessions to extract learnings (requires Entire.i
 
 ## Session Learnings
 
-- Before writing parsers for external data formats (JSON APIs, JSONL transcripts, config files),
-  always inspect 2-3 real samples first using `git show`, `curl`, or `cat`. Don't rely solely on
-  documentation or type definitions — real data often differs from specs.
-
-- When using an unfamiliar CLI tool for the first time, run `<tool> --help` and
-  `<tool> <subcommand> --help` before attempting commands. This prevents wasted iterations
-  on wrong flags.
-
-- After creating test fixtures, verify they match the real data format by comparing structure
-  side-by-side. Synthetic fixtures that diverge from reality cause parser bugs later.
-
-- When a background server process (dolt, postgres, redis) is required, add it to
-  .self-heal.json requiredServices so `sheal check` catches it at session start.
+Learnings are managed as ADR-style files. Run `sheal learn list` to view them.
+- Add: `sheal learn add "insight" --tags=foo,bar`
+- Sync from global: `sheal learn sync`
+- See `.sheal/learnings/` for project-specific learnings

@@ -1,7 +1,19 @@
 import chalk from "chalk";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { createInterface } from "node:readline";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import { runRetrospective } from "../retro/index.js";
 import { generateRetroPrompt } from "../retro/prompt.js";
+import { detectAgentCli, invokeAgent } from "../retro/agent.js";
+import {
+  getGlobalDir,
+  nextId,
+  writeLearning,
+  listLearnings,
+} from "../learn/index.js";
+import { detectProjectTags } from "../learn/detect.js";
+import type { LearningFile } from "../learn/types.js";
 import type { Retrospective, Learning } from "../retro/types.js";
 
 export interface RetroOptions {
@@ -9,6 +21,8 @@ export interface RetroOptions {
   projectRoot: string;
   checkpointId?: string;
   prompt?: boolean;
+  enrich?: boolean;
+  agent?: string;
 }
 
 export async function runRetro(options: RetroOptions): Promise<void> {
@@ -47,25 +61,53 @@ export async function runRetro(options: RetroOptions): Promise<void> {
 
   const retro = runRetrospective(checkpoint);
 
+  // Load existing learnings for context
+  const globalDir = getGlobalDir();
+  const existingLearnings = listLearnings(globalDir);
+
   if (options.prompt) {
     // Output an LLM prompt for deep analysis (pipe to any agent)
-    console.log(generateRetroPrompt(retro, checkpoint));
+    console.log(generateRetroPrompt(retro, checkpoint, existingLearnings));
     return;
   }
+
+  if (options.enrich) {
+    await enrichRetro(retro, checkpoint, options.projectRoot, existingLearnings, options.agent);
+    return;
+  }
+
+  const cached = loadCachedEnrichment(options.projectRoot, retro.checkpointId);
 
   if (options.format === "json") {
     // Strip entries from failure loops for cleaner JSON
     const clean = {
       ...retro,
       failureLoops: retro.failureLoops.map(({ entries, ...rest }) => rest),
+      ...(cached ? { agentAssessment: cached } : {}),
     };
     console.log(JSON.stringify(clean, null, 2));
   } else {
-    printRetro(retro);
+    printRetro(retro, cached);
   }
 }
 
-function printRetro(retro: Retrospective): void {
+function enrichmentCachePath(projectRoot: string, checkpointId: string): string {
+  return join(projectRoot, ".sheal", "retros", `${checkpointId}.md`);
+}
+
+function saveEnrichment(projectRoot: string, checkpointId: string, content: string): void {
+  const dir = join(projectRoot, ".sheal", "retros");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(enrichmentCachePath(projectRoot, checkpointId), content, "utf-8");
+}
+
+function loadCachedEnrichment(projectRoot: string, checkpointId: string): string | null {
+  const path = enrichmentCachePath(projectRoot, checkpointId);
+  if (!existsSync(path)) return null;
+  return readFileSync(path, "utf-8");
+}
+
+function printRetro(retro: Retrospective, agentAssessment?: string | null): void {
   console.log();
   console.log(chalk.bold("Session Retrospective"));
   console.log(chalk.gray("═".repeat(50)));
@@ -165,8 +207,66 @@ function printRetro(retro: Retrospective): void {
     console.log();
   }
 
+  // Agent assessment (if available)
+  if (agentAssessment) {
+    console.log(chalk.bold("  Agent Assessment:"));
+    for (const line of agentAssessment.split("\n")) {
+      console.log(`    ${line}`);
+    }
+    console.log();
+  } else {
+    console.log(chalk.gray("  No agent assessment cached. Run with --enrich to generate one."));
+    console.log();
+  }
+
   console.log(chalk.gray("═".repeat(50)));
   console.log();
+}
+
+async function enrichRetro(retro: Retrospective, checkpoint: import("../entire/types.js").Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
+  const session = checkpoint.sessions[0];
+  const agentType = agentOverride ?? session?.metadata.agent;
+
+  console.log(chalk.gray(`Detecting agent CLI (session agent: ${agentType ?? "unknown"})...`));
+  const cli = await detectAgentCli(agentType);
+
+  if (!cli) {
+    console.log(chalk.yellow("No compatible agent CLI found. Falling back to static analysis."));
+    console.log(chalk.gray("Supported: claude, gemini, codex"));
+    console.log(chalk.gray("\nUse --prompt to generate a prompt you can pipe to any LLM manually."));
+    printRetro(retro);
+    return;
+  }
+
+  console.log(chalk.gray(`Using ${cli.command} for enrichment...`));
+  if (existingLearnings.length > 0) {
+    console.log(chalk.gray(`Including ${existingLearnings.length} existing learnings for context.`));
+  }
+
+  const prompt = generateRetroPrompt(retro, checkpoint, existingLearnings);
+
+  console.log(chalk.gray("Invoking agent for deep analysis (this may take a minute)..."));
+  const result = await invokeAgent(cli, prompt);
+
+  if (!result.success) {
+    console.log(chalk.red(`Agent invocation failed: ${result.error}`));
+    console.log(chalk.gray("Falling back to static-only retro.\n"));
+    printRetro(retro);
+    return;
+  }
+
+  // Cache the enrichment
+  saveEnrichment(projectRoot, retro.checkpointId, result.output);
+  console.log(chalk.gray(`Cached to .sheal/retros/${retro.checkpointId}.md`));
+
+  // Print full retro with agent assessment included
+  printRetro(retro, result.output);
+
+  // Extract rules and offer to save as learnings
+  const rules = parseRulesFromOutput(result.output);
+  if (rules.length > 0) {
+    await promptToSaveRules(rules, projectRoot);
+  }
 }
 
 function severityIcon(learning: Learning): string {
@@ -174,5 +274,88 @@ function severityIcon(learning: Learning): string {
     case "high": return chalk.red("●");
     case "medium": return chalk.yellow("●");
     case "low": return chalk.blue("●");
+  }
+}
+
+/**
+ * Parse rules from the agent's enrichment output.
+ * Looks for bullet points under the **Rules:** section.
+ */
+function parseRulesFromOutput(output: string): string[] {
+  // Find the Rules section
+  const rulesMatch = output.match(/\*\*Rules:\*\*\s*\n([\s\S]*?)(?:\n\*\*|\n##|$)/);
+  if (!rulesMatch) return [];
+
+  const rulesBlock = rulesMatch[1];
+  const rules: string[] = [];
+
+  for (const line of rulesBlock.split("\n")) {
+    const trimmed = line.trim();
+    // Match bullet lines: "- rule text" or "* rule text"
+    const bulletMatch = trimmed.match(/^[-*]\s+(.+)/);
+    if (bulletMatch) {
+      rules.push(bulletMatch[1].trim());
+    }
+  }
+
+  return rules;
+}
+
+/**
+ * Ask the user to confirm each rule and save confirmed ones as learnings.
+ */
+async function promptToSaveRules(rules: string[], projectRoot: string): Promise<void> {
+  console.log();
+  console.log(chalk.bold(`Save ${rules.length} suggested rule(s) as learnings?`));
+  console.log(chalk.gray("Each rule will be saved to ~/.sheal/learnings/\n"));
+
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const ask = (question: string): Promise<string> =>
+    new Promise((resolve) => rl.question(question, resolve));
+
+  const projectTags = detectProjectTags(projectRoot);
+  const globalDir = getGlobalDir();
+  let saved = 0;
+
+  for (let i = 0; i < rules.length; i++) {
+    const rule = rules[i];
+    console.log(chalk.cyan(`  ${i + 1}. ${rule}`));
+    const answer = await ask(chalk.gray("     Save? [Y/n/q] "));
+    const a = answer.trim().toLowerCase();
+
+    if (a === "q") {
+      console.log(chalk.gray("  Skipping remaining rules."));
+      break;
+    }
+
+    if (a === "" || a === "y" || a === "yes") {
+      const id = nextId(globalDir);
+      const today = new Date().toISOString().slice(0, 10);
+      const learning: LearningFile = {
+        id,
+        title: rule.slice(0, 80),
+        date: today,
+        tags: projectTags.slice(0, 5), // use detected project tags
+        category: "workflow",
+        severity: "medium",
+        status: "active",
+        body: rule,
+      };
+      const path = writeLearning(globalDir, learning);
+      console.log(chalk.green(`     Saved ${id}`));
+      saved++;
+    } else {
+      console.log(chalk.gray("     Skipped."));
+    }
+  }
+
+  rl.close();
+
+  if (saved > 0) {
+    console.log(chalk.green(`\nSaved ${saved} learning(s). Run 'sheal learn list --global' to view.`));
   }
 }

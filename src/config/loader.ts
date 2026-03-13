@@ -40,6 +40,10 @@ export function loadConfig(projectRoot: string): ResolvedConfig {
         ...raw.checkers?.sessionLearnings,
       },
     },
+    learnings: {
+      ...defaultConfig.learnings,
+      ...raw.learnings,
+    },
     timeoutMs: raw.timeoutMs ?? defaultConfig.timeoutMs,
     format: raw.format ?? defaultConfig.format,
   };

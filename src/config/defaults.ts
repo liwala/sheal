@@ -9,6 +9,7 @@ export const defaultConfig: ResolvedConfig = {
     environment: { requiredVars: [], requiredServices: [] },
     sessionLearnings: { files: [] },
   },
+  learnings: { tags: [] },
   timeoutMs: 30_000,
   format: "pretty",
 };
