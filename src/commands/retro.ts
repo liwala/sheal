@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
+import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
 import { runRetrospective } from "../retro/index.js";
 import { generateRetroPrompt } from "../retro/prompt.js";
 import { detectAgentCli, invokeAgent } from "../retro/agent.js";
@@ -28,36 +29,9 @@ export interface RetroOptions {
 export async function runRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
 
-  const hasBranch = await hasEntireBranch(repoPath);
-  if (!hasBranch) {
-    console.log(chalk.yellow("No Entire.io data found. Run some sessions with Entire.io enabled first."));
-    return;
-  }
-
-  // If no checkpoint specified, use the latest one
-  let checkpointId = options.checkpointId;
-  if (!checkpointId) {
-    const checkpoints = await listCheckpoints(repoPath);
-    if (checkpoints.length === 0) {
-      console.log(chalk.yellow("No checkpoints found."));
-      return;
-    }
-    // Use the first one (most recent based on branch order)
-    checkpointId = checkpoints[0].checkpointId;
-  }
-
-  const checkpoint = await loadCheckpoint(repoPath, checkpointId);
-  if (!checkpoint) {
-    console.error(chalk.red(`Checkpoint ${checkpointId} not found`));
-    process.exitCode = 1;
-    return;
-  }
-
-  if (checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
-    console.log(chalk.yellow(`Checkpoint ${checkpointId} has no transcript data.`));
-    console.log(chalk.gray("Transcripts are finalized when a session ends. Try a completed session."));
-    return;
-  }
+  // Try Entire.io first, fall back to native Claude Code transcripts
+  const checkpoint = await loadSession(repoPath, options.checkpointId);
+  if (!checkpoint) return;
 
   const retro = runRetrospective(checkpoint);
 
@@ -89,6 +63,67 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   } else {
     printRetro(retro, cached);
   }
+}
+
+/**
+ * Load a session from Entire.io or native Claude Code transcripts.
+ * Returns null if nothing is available (and prints appropriate messages).
+ */
+async function loadSession(
+  repoPath: string,
+  requestedId?: string,
+): Promise<import("../entire/types.js").Checkpoint | null> {
+  // Try Entire.io first
+  const hasBranch = await hasEntireBranch(repoPath);
+  if (hasBranch) {
+    let checkpointId = requestedId;
+    if (!checkpointId) {
+      const checkpoints = await listCheckpoints(repoPath);
+      if (checkpoints.length > 0) {
+        checkpointId = checkpoints[0].checkpointId;
+      }
+    }
+
+    if (checkpointId) {
+      const checkpoint = await loadCheckpoint(repoPath, checkpointId);
+      if (checkpoint && checkpoint.sessions.length > 0 && checkpoint.sessions[0].transcript.length > 0) {
+        return checkpoint;
+      }
+    }
+  }
+
+  // Fall back to native Claude Code transcripts
+  if (hasNativeTranscripts(repoPath)) {
+    console.log(chalk.gray("No Entire.io data, using native Claude Code transcripts."));
+
+    let sessionId = requestedId;
+    if (!sessionId) {
+      const sessions = listNativeSessions(repoPath);
+      if (sessions.length === 0) {
+        console.log(chalk.yellow("No sessions found."));
+        return null;
+      }
+      sessionId = sessions[0].sessionId;
+    }
+
+    const checkpoint = loadNativeSession(repoPath, sessionId);
+    if (!checkpoint) {
+      console.error(chalk.red(`Session ${sessionId} not found`));
+      process.exitCode = 1;
+      return null;
+    }
+
+    if (checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
+      console.log(chalk.yellow(`Session ${sessionId} has no transcript data.`));
+      return null;
+    }
+
+    return checkpoint;
+  }
+
+  console.log(chalk.yellow("No session data found."));
+  console.log(chalk.gray("Supported sources: Entire.io (entire/checkpoints/v1 branch) or native Claude Code (~/.claude/projects/)."));
+  return null;
 }
 
 function enrichmentCachePath(projectRoot: string, checkpointId: string): string {

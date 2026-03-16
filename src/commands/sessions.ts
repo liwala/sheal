@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
+import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
 
 export interface SessionsOptions {
   format: string;
@@ -10,70 +11,93 @@ export interface SessionsOptions {
 export async function runSessions(options: SessionsOptions): Promise<void> {
   const repoPath = options.projectRoot;
 
+  // Try Entire.io first
   const hasBranch = await hasEntireBranch(repoPath);
-  if (!hasBranch) {
-    if (options.format === "json") {
-      console.log(JSON.stringify({ error: "No Entire.io data found", hint: "Install Entire.io and capture some sessions first" }));
-    } else {
-      console.log();
-      console.log(chalk.yellow("No Entire.io data found."));
-      console.log(chalk.gray("Install Entire.io (https://github.com/entireio/cli) and capture some sessions first."));
-      console.log(chalk.gray("The entire/checkpoints/v1 branch will appear after your first committed checkpoint."));
-      console.log();
-    }
-    return;
-  }
+  if (hasBranch) {
+    // Load a specific checkpoint
+    if (options.checkpointId) {
+      const checkpoint = await loadCheckpoint(repoPath, options.checkpointId);
+      if (!checkpoint) {
+        console.error(chalk.red(`Checkpoint ${options.checkpointId} not found`));
+        process.exitCode = 1;
+        return;
+      }
 
-  // Load a specific checkpoint
-  if (options.checkpointId) {
-    const checkpoint = await loadCheckpoint(repoPath, options.checkpointId);
-    if (!checkpoint) {
-      console.error(chalk.red(`Checkpoint ${options.checkpointId} not found`));
-      process.exitCode = 1;
+      if (options.format === "json") {
+        console.log(JSON.stringify(checkpoint, null, 2));
+      } else {
+        printCheckpointDetail(checkpoint);
+      }
       return;
     }
 
-    if (options.format === "json") {
-      console.log(JSON.stringify(checkpoint, null, 2));
-    } else {
-      printCheckpointDetail(checkpoint);
+    // List all checkpoints
+    const checkpoints = await listCheckpoints(repoPath);
+
+    if (checkpoints.length > 0) {
+      if (options.format === "json") {
+        console.log(JSON.stringify({ source: "entire.io", checkpoints }, null, 2));
+      } else {
+        printCheckpointList(checkpoints, "Entire.io");
+      }
+      return;
     }
-    return;
   }
 
-  // List all checkpoints
-  const checkpoints = await listCheckpoints(repoPath);
+  // Fall back to native Claude Code transcripts
+  if (hasNativeTranscripts(repoPath)) {
+    if (options.checkpointId) {
+      const checkpoint = loadNativeSession(repoPath, options.checkpointId);
+      if (!checkpoint) {
+        console.error(chalk.red(`Session ${options.checkpointId} not found`));
+        process.exitCode = 1;
+        return;
+      }
 
-  if (checkpoints.length === 0) {
-    console.log(chalk.yellow("No checkpoints found on the Entire.io branch."));
-    return;
+      if (options.format === "json") {
+        console.log(JSON.stringify(checkpoint, null, 2));
+      } else {
+        printCheckpointDetail(checkpoint);
+      }
+      return;
+    }
+
+    const sessions = listNativeSessions(repoPath);
+    if (sessions.length > 0) {
+      if (options.format === "json") {
+        console.log(JSON.stringify({ source: "claude-native", checkpoints: sessions }, null, 2));
+      } else {
+        printCheckpointList(sessions, "Claude Code (native)");
+      }
+      return;
+    }
   }
 
   if (options.format === "json") {
-    console.log(JSON.stringify({ checkpoints }, null, 2));
+    console.log(JSON.stringify({ error: "No session data found" }));
   } else {
     console.log();
-    console.log(chalk.bold(`Found ${checkpoints.length} checkpoint(s)`));
-    console.log(chalk.gray("─".repeat(50)));
-    for (const cp of checkpoints) {
-      const agent = cp.agent ? chalk.blue(`[${cp.agent}]`) : "";
-      const files = cp.filesTouched.length > 0
-        ? chalk.gray(` (${cp.filesTouched.length} files)`)
-        : "";
-      console.log(`  ${chalk.cyan(cp.checkpointId)} ${agent}${files}`);
-      if (cp.filesTouched.length > 0) {
-        for (const f of cp.filesTouched.slice(0, 5)) {
-          console.log(chalk.gray(`    ${f}`));
-        }
-        if (cp.filesTouched.length > 5) {
-          console.log(chalk.gray(`    ... and ${cp.filesTouched.length - 5} more`));
-        }
-      }
-    }
-    console.log();
-    console.log(chalk.gray("Use: sheal sessions --checkpoint <id> for details"));
+    console.log(chalk.yellow("No session data found."));
+    console.log(chalk.gray("Supported sources: Entire.io or native Claude Code (~/.claude/projects/)."));
     console.log();
   }
+}
+
+function printCheckpointList(checkpoints: import("../entire/types.js").CheckpointInfo[], source: string): void {
+  console.log();
+  console.log(chalk.bold(`Found ${checkpoints.length} session(s)`) + chalk.gray(` (${source})`));
+  console.log(chalk.gray("─".repeat(50)));
+  for (const cp of checkpoints) {
+    const agent = cp.agent ? chalk.blue(`[${cp.agent}]`) : "";
+    const date = cp.createdAt ? chalk.gray(` ${cp.createdAt.slice(0, 16)}`) : "";
+    const files = cp.filesTouched.length > 0
+      ? chalk.gray(` (${cp.filesTouched.length} files)`)
+      : "";
+    console.log(`  ${chalk.cyan(cp.checkpointId.slice(0, 12))}${date} ${agent}${files}`);
+  }
+  console.log();
+  console.log(chalk.gray("Use: sheal sessions --checkpoint <id> for details"));
+  console.log();
 }
 
 function printCheckpointDetail(checkpoint: import("../entire/types.js").Checkpoint): void {

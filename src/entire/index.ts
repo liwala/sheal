@@ -1,4 +1,5 @@
 export { hasEntireBranch, listCheckpoints, loadCheckpoint, loadAllCheckpoints } from "./reader.js";
+export { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "./claude-native.js";
 export { parseTranscript } from "./transcript.js";
 export type {
   AgentType,
