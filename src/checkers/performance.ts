@@ -15,6 +15,7 @@ function detectAgent(projectRoot: string): string | null {
   if (existsSync(join(projectRoot, ".cursorrules"))) return "cursor";
   if (existsSync(join(projectRoot, ".gemini", "GEMINI.md"))) return "gemini";
   if (existsSync(join(projectRoot, ".github", "copilot-instructions.md"))) return "copilot";
+  if (existsSync(join(projectRoot, ".amp"))) return "amp";
   return null;
 }
 

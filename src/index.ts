@@ -4,6 +4,7 @@ import { runCheck } from "./commands/check.js";
 import { runSessions } from "./commands/sessions.js";
 import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
+import { runAsk } from "./commands/ask.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const program = new Command();
@@ -58,6 +59,21 @@ program
       prompt: opts.prompt,
       enrich: opts.enrich,
       agent: opts.agent,
+    });
+  });
+
+program
+  .command("ask <question>")
+  .description("Ask a question across all session transcripts (uses agent CLI for analysis)")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--agent <name>", "Agent CLI to use (e.g. claude, gemini, codex)")
+  .option("-n, --limit <count>", "Max sessions to search", "10")
+  .action(async (question: string, opts) => {
+    await runAsk({
+      question,
+      projectRoot: opts.project,
+      agent: opts.agent,
+      limit: parseInt(opts.limit, 10),
     });
   });
 

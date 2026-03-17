@@ -46,6 +46,11 @@ const AGENT_CLIS: Record<string, AgentCli> = {
     args: ["-q"],
     stdinPrompt: true,
   },
+  "Amp": {
+    command: "amp",
+    args: ["--execute"],
+    stdinPrompt: true,
+  },
 };
 
 /**
@@ -56,6 +61,7 @@ const CLI_BY_COMMAND: Record<string, AgentCli> = {
   claude: AGENT_CLIS["Claude Code"],
   gemini: AGENT_CLIS["Gemini CLI"],
   codex: AGENT_CLIS["Codex"],
+  amp: AGENT_CLIS["Amp"],
 };
 
 /**
