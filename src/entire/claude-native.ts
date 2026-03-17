@@ -416,6 +416,10 @@ function isUsefulPrompt(text: string): boolean {
   if (text.startsWith("[Request interrupted")) return false;
   if (text.startsWith("Implement the following plan:")) return false;
   if (/^resume\b/i.test(text)) return false;
+  // Skip system role prompts injected as user messages
+  if (/^You are a\b/i.test(text)) return false;
+  // Skip long preambles (>500 chars without newlines are usually injected context)
+  if (text.length > 500 && !text.includes("\n")) return false;
   return true;
 }
 
