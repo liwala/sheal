@@ -30,15 +30,17 @@ program
 
 program
   .command("sessions")
-  .description("List and inspect Entire.io session data")
+  .description("List and inspect session data")
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("-c, --checkpoint <id>", "Load a specific checkpoint by ID")
+  .option("--global", "List all projects and sessions from ~/.claude/projects/", false)
   .action(async (opts) => {
     await runSessions({
       format: opts.format,
       projectRoot: opts.project,
       checkpointId: opts.checkpoint,
+      global: opts.global,
     });
   });
 
@@ -64,16 +66,18 @@ program
 
 program
   .command("ask <question>")
-  .description("Ask a question across all session transcripts (uses agent CLI for analysis)")
+  .description("Ask a question across session transcripts (uses agent CLI for analysis)")
   .option("-p, --project <path>", "Project root path", process.cwd())
-  .option("--agent <name>", "Agent CLI to use (e.g. claude, gemini, codex)")
+  .option("--agent <name>", "Agent CLI to use (e.g. claude, gemini, codex, amp)")
   .option("-n, --limit <count>", "Max sessions to search", "10")
+  .option("--global", "Search across ALL projects in ~/.claude/projects/", false)
   .action(async (question: string, opts) => {
     await runAsk({
       question,
       projectRoot: opts.project,
       agent: opts.agent,
       limit: parseInt(opts.limit, 10),
+      global: opts.global,
     });
   });
 

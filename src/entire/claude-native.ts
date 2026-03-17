@@ -208,6 +208,188 @@ export function loadNativeSession(
 }
 
 /**
+ * Info about a discovered Claude Code project.
+ */
+export interface NativeProject {
+  /** The slug used as directory name (e.g. -Users-lu-code-foo) */
+  slug: string;
+  /** Reconstructed absolute path (e.g. /Users/lu/code/foo) */
+  projectPath: string;
+  /** Short display name (last path component) */
+  name: string;
+  /** Number of .jsonl session files */
+  sessionCount: number;
+  /** Most recent session modification time */
+  lastModified: string;
+}
+
+/**
+ * List all Claude Code projects that have session transcripts.
+ * Scans ~/.claude/projects/ for directories containing .jsonl files.
+ */
+export function listAllNativeProjects(): NativeProject[] {
+  const projectsDir = join(homedir(), ".claude", "projects");
+  if (!existsSync(projectsDir)) return [];
+
+  const projects: NativeProject[] = [];
+
+  for (const slug of readdirSync(projectsDir)) {
+    const dir = join(projectsDir, slug);
+    try {
+      if (!statSync(dir).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+
+    const jsonlFiles = readdirSync(dir).filter((f) => f.endsWith(".jsonl"));
+    if (jsonlFiles.length === 0) continue;
+
+    // Extract the real project path from the cwd field of the first session line.
+    // The slug is lossy (can't distinguish path separators from hyphens in dir names).
+    const projectPath = extractProjectPath(dir, jsonlFiles) || slug;
+    const name = projectPath.split("/").filter(Boolean).pop() || slug;
+
+    // Find most recent session
+    let lastModified = "";
+    for (const f of jsonlFiles) {
+      try {
+        const mtime = statSync(join(dir, f)).mtime.toISOString();
+        if (!lastModified || mtime > lastModified) lastModified = mtime;
+      } catch {
+        // skip
+      }
+    }
+
+    projects.push({
+      slug,
+      projectPath,
+      name,
+      sessionCount: jsonlFiles.length,
+      lastModified,
+    });
+  }
+
+  // Sort by most recently active
+  projects.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+  return projects;
+}
+
+/**
+ * List sessions for a project identified by its slug (from listAllNativeProjects).
+ */
+export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
+  const dir = join(homedir(), ".claude", "projects", slug);
+  if (!existsSync(dir)) return [];
+
+  const jsonlFiles = readdirSync(dir)
+    .filter((f) => f.endsWith(".jsonl"))
+    .map((f) => ({
+      name: f,
+      sessionId: f.replace(".jsonl", ""),
+      path: join(dir, f),
+    }));
+
+  const sessions: CheckpointInfo[] = [];
+
+  for (const file of jsonlFiles) {
+    try {
+      const stat = statSync(file.path);
+      const meta = extractSessionMeta(file.path);
+
+      sessions.push({
+        checkpointId: file.sessionId,
+        sessionId: file.sessionId,
+        createdAt: meta.createdAt || stat.mtime.toISOString(),
+        filesTouched: [],
+        agent: "Claude Code",
+        sessionCount: 1,
+        sessionIds: [file.sessionId],
+      });
+    } catch {
+      // skip
+    }
+  }
+
+  sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return sessions;
+}
+
+/**
+ * Load a session by slug + sessionId (for global mode where we don't have a project root).
+ */
+export function loadNativeSessionBySlug(
+  slug: string,
+  sessionId: string,
+): Checkpoint | null {
+  const dir = join(homedir(), ".claude", "projects", slug);
+  const path = join(dir, `${sessionId}.jsonl`);
+  if (!existsSync(path)) return null;
+
+  const content = readFileSync(path, "utf-8");
+  const meta = extractSessionMeta(path);
+  const transcript = parseTranscript(content, "Claude Code");
+
+  const session: Session = {
+    metadata: {
+      checkpointId: sessionId,
+      sessionId,
+      strategy: "native",
+      createdAt: meta.createdAt,
+      checkpointsCount: 0,
+      filesTouched: extractFilesTouched(transcript),
+      agent: "Claude Code",
+      model: meta.model,
+      tokenUsage: meta.totalTokens,
+    },
+    transcript,
+    prompts: transcript
+      .filter((e) => e.type === "user")
+      .map((e) => e.content),
+  };
+
+  const root: CheckpointRoot = {
+    checkpointId: sessionId,
+    strategy: "native",
+    checkpointsCount: 0,
+    filesTouched: session.metadata.filesTouched,
+    sessions: [],
+    tokenUsage: meta.totalTokens,
+  };
+
+  return { root, sessions: [session] };
+}
+
+/**
+ * Extract the real project path by reading the `cwd` field from a session JSONL file.
+ * Returns null if no cwd found.
+ */
+function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
+  // Try the first file's first few lines
+  const first = jsonlFiles[0];
+  if (!first) return null;
+
+  try {
+    const content = readFileSync(join(dir, first), "utf-8");
+    // Only read up to the first 5 lines to avoid parsing huge files
+    const lines = content.split("\n").slice(0, 5);
+    for (const line of lines) {
+      if (!line) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
+          return obj.cwd;
+        }
+      } catch {
+        // skip
+      }
+    }
+  } catch {
+    // skip
+  }
+  return null;
+}
+
+/**
  * Extract unique file paths from transcript tool entries.
  */
 function extractFilesTouched(transcript: import("./types.js").SessionEntry[]): string[] {

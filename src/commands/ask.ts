@@ -1,6 +1,13 @@
 import chalk from "chalk";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
-import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
+import {
+  hasNativeTranscripts,
+  listNativeSessions,
+  loadNativeSession,
+  listAllNativeProjects,
+  listNativeSessionsBySlug,
+  loadNativeSessionBySlug,
+} from "../entire/claude-native.js";
 import { detectAgentCli, invokeAgent } from "../retro/agent.js";
 import type { Checkpoint, SessionEntry } from "../entire/types.js";
 
@@ -9,6 +16,7 @@ export interface AskOptions {
   projectRoot: string;
   agent?: string;
   limit?: number;
+  global?: boolean;
 }
 
 /** Max transcript chars to include per session in the analysis prompt */
@@ -40,7 +48,9 @@ export async function runAsk(options: AskOptions): Promise<void> {
   console.log(chalk.gray(`Search terms: ${keywords.join(", ")}`));
 
   // Load all available sessions
-  const checkpoints = await loadAllAvailable(projectRoot, limit);
+  const checkpoints = options.global
+    ? loadAllGlobal(limit)
+    : await loadAllAvailable(projectRoot, limit);
 
   if (checkpoints.length === 0) {
     console.log(chalk.yellow("No session data found."));
@@ -115,6 +125,7 @@ interface SessionMatch {
   sessionId: string;
   createdAt: string;
   agent?: string;
+  projectName?: string;
   score: number;
   excerpts: string[];
 }
@@ -148,6 +159,44 @@ async function loadAllAvailable(projectRoot: string, limit: number): Promise<Che
         if (cp && cp.sessions.length > 0) checkpoints.push(cp);
       } catch {
         // skip unreadable sessions
+      }
+    }
+  }
+
+  return checkpoints;
+}
+
+/**
+ * Load sessions from ALL Claude Code projects (~/.claude/projects/).
+ * Distributes the limit across projects, prioritizing most recently active.
+ */
+function loadAllGlobal(limit: number): Checkpoint[] {
+  const projects = listAllNativeProjects();
+  const checkpoints: Checkpoint[] = [];
+
+  // Load up to `limit` sessions total, spread across projects (most recent first)
+  const perProject = Math.max(3, Math.ceil(limit / Math.max(projects.length, 1)));
+
+  for (const project of projects) {
+    if (checkpoints.length >= limit) break;
+
+    const sessions = listNativeSessionsBySlug(project.slug);
+    const remaining = limit - checkpoints.length;
+    const toLoad = Math.min(sessions.length, perProject, remaining);
+
+    for (const info of sessions.slice(0, toLoad)) {
+      try {
+        const cp = loadNativeSessionBySlug(project.slug, info.sessionId);
+        if (cp && cp.sessions.length > 0) {
+          // Tag sessions with the project name for context in the prompt
+          for (const s of cp.sessions) {
+            (s.metadata as unknown as Record<string, unknown>).projectName = project.name;
+            (s.metadata as unknown as Record<string, unknown>).projectPath = project.projectPath;
+          }
+          checkpoints.push(cp);
+        }
+      } catch {
+        // skip
       }
     }
   }
@@ -194,11 +243,13 @@ function searchSessions(checkpoints: Checkpoint[], keywords: string[]): SessionM
       }
 
       if (score > 0) {
+        const meta = session.metadata as unknown as Record<string, unknown>;
         matches.push({
           checkpointId: cp.root.checkpointId,
           sessionId: session.metadata.sessionId,
           createdAt: session.metadata.createdAt,
           agent: session.metadata.agent,
+          projectName: meta.projectName as string | undefined,
           score,
           excerpts: excerpts.slice(0, 10),
         });
@@ -263,7 +314,8 @@ function buildAnalysisPrompt(question: string, matches: SessionMatch[]): string 
     }
 
     parts.push(`---`);
-    parts.push(`**Session ${match.sessionId.slice(0, 12)}** (${match.createdAt?.slice(0, 16) || "unknown date"}, ${match.agent || "unknown agent"}, relevance: ${match.score} hits)`);
+    const projectLabel = match.projectName ? `[${match.projectName}] ` : "";
+    parts.push(`**${projectLabel}Session ${match.sessionId.slice(0, 12)}** (${match.createdAt?.slice(0, 16) || "unknown date"}, ${match.agent || "unknown agent"}, relevance: ${match.score} hits)`);
     parts.push("");
 
     for (const excerpt of match.excerpts) {

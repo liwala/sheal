@@ -1,14 +1,26 @@
 import chalk from "chalk";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
-import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
+import {
+  hasNativeTranscripts,
+  listNativeSessions,
+  loadNativeSession,
+  listAllNativeProjects,
+  listNativeSessionsBySlug,
+} from "../entire/claude-native.js";
 
 export interface SessionsOptions {
   format: string;
   projectRoot: string;
   checkpointId?: string;
+  global?: boolean;
 }
 
 export async function runSessions(options: SessionsOptions): Promise<void> {
+  if (options.global) {
+    runGlobalSessions(options);
+    return;
+  }
+
   const repoPath = options.projectRoot;
 
   // Try Entire.io first
@@ -81,6 +93,62 @@ export async function runSessions(options: SessionsOptions): Promise<void> {
     console.log(chalk.gray("Supported sources: Entire.io or native Claude Code (~/.claude/projects/)."));
     console.log();
   }
+}
+
+/**
+ * Global mode: list all projects and their sessions from ~/.claude/projects/
+ */
+function runGlobalSessions(options: SessionsOptions): void {
+  const projects = listAllNativeProjects();
+
+  if (projects.length === 0) {
+    if (options.format === "json") {
+      console.log(JSON.stringify({ error: "No Claude Code projects found" }));
+    } else {
+      console.log(chalk.yellow("No Claude Code projects found in ~/.claude/projects/"));
+    }
+    return;
+  }
+
+  if (options.format === "json") {
+    const data = projects.map((p) => ({
+      ...p,
+      sessions: listNativeSessionsBySlug(p.slug).map((s) => ({
+        sessionId: s.sessionId,
+        createdAt: s.createdAt,
+      })),
+    }));
+    console.log(JSON.stringify({ source: "claude-native-global", projects: data }, null, 2));
+    return;
+  }
+
+  const totalSessions = projects.reduce((sum, p) => sum + p.sessionCount, 0);
+  console.log();
+  console.log(chalk.bold(`${projects.length} project(s), ${totalSessions} session(s) total`) + chalk.gray(" (Claude Code native)"));
+  console.log(chalk.gray("═".repeat(60)));
+
+  for (const project of projects) {
+    const lastMod = project.lastModified ? chalk.gray(project.lastModified.slice(0, 16)) : "";
+    console.log();
+    console.log(`  ${chalk.bold.cyan(project.name)} ${chalk.gray(`(${project.sessionCount} sessions)`)} ${lastMod}`);
+    console.log(chalk.gray(`  ${project.projectPath}`));
+
+    // Show the most recent sessions (up to 3)
+    const sessions = listNativeSessionsBySlug(project.slug);
+    const preview = sessions.slice(0, 3);
+    for (const s of preview) {
+      const date = s.createdAt ? s.createdAt.slice(0, 16) : "";
+      console.log(chalk.gray(`    ${s.sessionId.slice(0, 12)}  ${date}`));
+    }
+    if (sessions.length > 3) {
+      console.log(chalk.gray(`    ... and ${sessions.length - 3} more`));
+    }
+  }
+
+  console.log();
+  console.log(chalk.gray("Use: sheal sessions -p <project-path> for full session list"));
+  console.log(chalk.gray("Use: sheal ask \"question\" --global to search across all projects"));
+  console.log();
 }
 
 function printCheckpointList(checkpoints: import("../entire/types.js").CheckpointInfo[], source: string): void {
