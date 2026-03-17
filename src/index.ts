@@ -5,6 +5,7 @@ import { runSessions } from "./commands/sessions.js";
 import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
 import { runAsk } from "./commands/ask.js";
+import { runBrowse } from "./commands/browse.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const program = new Command();
@@ -78,6 +79,20 @@ program
       agent: opts.agent,
       limit: parseInt(opts.limit, 10),
       global: opts.global,
+    });
+  });
+
+program
+  .command("browse")
+  .description("Interactive TUI to browse sessions across all projects")
+  .option("-p, --project <name>", "Pre-filter by project name")
+  .option("-q, --query <text>", "Start with a transcript search")
+  .option("--agent <name>", "Pre-filter by agent (claude, codex, amp, gemini)")
+  .action(async (opts) => {
+    await runBrowse({
+      project: opts.project,
+      query: opts.query,
+      agent: opts.agent,
     });
   });
 
