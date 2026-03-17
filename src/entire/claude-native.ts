@@ -84,6 +84,7 @@ export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
         agent: "Claude Code",
         sessionCount: 1,
         sessionIds: [file.sessionId],
+        title: meta.firstPrompt,
       });
     } catch {
       // Skip unreadable files
@@ -104,6 +105,7 @@ function extractSessionMeta(path: string): {
   model?: string;
   version?: string;
   totalTokens?: TokenUsage;
+  firstPrompt?: string;
 } {
   const content = readFileSync(path, "utf-8");
   const lines = content.split("\n").filter(Boolean);
@@ -111,6 +113,7 @@ function extractSessionMeta(path: string): {
   let createdAt = "";
   let model: string | undefined;
   let version: string | undefined;
+  let firstPrompt: string | undefined;
   let totalInput = 0;
   let totalOutput = 0;
   let totalCacheRead = 0;
@@ -124,6 +127,23 @@ function extractSessionMeta(path: string): {
       // Get earliest timestamp
       if (obj.timestamp && (!createdAt || obj.timestamp < createdAt)) {
         createdAt = obj.timestamp;
+      }
+
+      // Get first user prompt as session title
+      if (!firstPrompt && obj.type === "user") {
+        const msg = obj.message;
+        const text = typeof msg?.content === "string"
+          ? msg.content
+          : typeof obj.content === "string"
+            ? obj.content
+            : undefined;
+        if (text && text.length > 5
+            && !text.startsWith("-\n")
+            && !text.startsWith("<")
+            && !text.startsWith("#")
+            && !text.toLowerCase().startsWith("resume")) {
+          firstPrompt = text.split("\n")[0].slice(0, 80);
+        }
       }
 
       // Get model and version from first assistant message
@@ -154,7 +174,7 @@ function extractSessionMeta(path: string): {
     apiCallCount: apiCalls,
   } : undefined;
 
-  return { createdAt, model, version, totalTokens };
+  return { createdAt, model, version, totalTokens, firstPrompt };
 }
 
 /**
@@ -304,6 +324,7 @@ export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
         agent: "Claude Code",
         sessionCount: 1,
         sessionIds: [file.sessionId],
+        title: meta.firstPrompt,
       });
     } catch {
       // skip

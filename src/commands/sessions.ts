@@ -116,6 +116,7 @@ function runGlobalSessions(options: SessionsOptions): void {
       sessions: listNativeSessionsBySlug(p.slug).map((s) => ({
         sessionId: s.sessionId,
         createdAt: s.createdAt,
+        title: s.title,
       })),
     }));
     console.log(JSON.stringify({ source: "claude-native-global", projects: data }, null, 2));
@@ -138,7 +139,8 @@ function runGlobalSessions(options: SessionsOptions): void {
     const preview = sessions.slice(0, 3);
     for (const s of preview) {
       const date = s.createdAt ? s.createdAt.slice(0, 16) : "";
-      console.log(chalk.gray(`    ${s.sessionId.slice(0, 12)}  ${date}`));
+      const title = s.title ? `  ${s.title}` : "";
+      console.log(chalk.gray(`    ${s.sessionId.slice(0, 12)}  ${date}`) + chalk.white(title));
     }
     if (sessions.length > 3) {
       console.log(chalk.gray(`    ... and ${sessions.length - 3} more`));
@@ -161,7 +163,8 @@ function printCheckpointList(checkpoints: import("../entire/types.js").Checkpoin
     const files = cp.filesTouched.length > 0
       ? chalk.gray(` (${cp.filesTouched.length} files)`)
       : "";
-    console.log(`  ${chalk.cyan(cp.checkpointId.slice(0, 12))}${date} ${agent}${files}`);
+    const title = cp.title ? chalk.white(` ${cp.title}`) : "";
+    console.log(`  ${chalk.cyan(cp.checkpointId.slice(0, 12))}${date} ${agent}${files}${title}`);
   }
   console.log();
   console.log(chalk.gray("Use: sheal sessions --checkpoint <id> for details"));

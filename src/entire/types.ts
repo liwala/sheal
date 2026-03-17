@@ -159,4 +159,6 @@ export interface CheckpointInfo {
   isTask?: boolean;
   sessionCount: number;
   sessionIds: string[];
+  /** First user prompt, used as a de facto session title */
+  title?: string;
 }
