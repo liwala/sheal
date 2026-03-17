@@ -12,24 +12,35 @@ interface SessionDetailProps {
   onQuit: () => void;
 }
 
+/** Collapse transcript into readable "blocks" — group consecutive tool entries, etc. */
+interface DisplayBlock {
+  type: "user" | "assistant" | "tool-group" | "system";
+  lines: string[];
+  /** Number of raw entries this block represents */
+  entryCount: number;
+}
+
 export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [expandedTools, setExpandedTools] = useState<Set<number>>(new Set());
   const { stdout } = useStdout();
-  const maxRows = (stdout?.rows ?? 24) - 6;
+  const maxRows = (stdout?.rows ?? 24) - 8;
 
-  const { checkpoint, entries } = useMemo(() => {
+  const { checkpoint, blocks } = useMemo(() => {
     const cp = loadNativeSessionBySlug(slug, sessionId);
-    if (!cp || cp.sessions.length === 0) return { checkpoint: null, entries: [] };
-    return { checkpoint: cp, entries: cp.sessions[0].transcript };
+    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [] };
+    return { checkpoint: cp, blocks: buildBlocks(cp.sessions[0].transcript) };
   }, [slug, sessionId]);
 
-  const filteredEntries = useMemo(() => {
-    if (!searchText) return entries;
+  const filteredBlocks = useMemo(() => {
+    if (!searchText) return blocks;
     const q = searchText.toLowerCase();
-    return entries.filter((e) => e.content.toLowerCase().includes(q));
-  }, [entries, searchText]);
+    return blocks.filter((b) =>
+      b.lines.some((l) => l.toLowerCase().includes(q)),
+    );
+  }, [blocks, searchText]);
 
   useInput((input, key) => {
     if (searchActive) {
@@ -49,11 +60,19 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
     } else if (key.downArrow) {
-      setScrollPos((p) => Math.min(filteredEntries.length - 1, p + 1));
+      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + 1));
     } else if (key.pageDown) {
-      setScrollPos((p) => Math.min(filteredEntries.length - 1, p + maxRows));
+      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3)));
     } else if (key.pageUp) {
-      setScrollPos((p) => Math.max(0, p - maxRows));
+      setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
+    } else if (key.return) {
+      // Toggle tool expansion
+      setExpandedTools((prev) => {
+        const next = new Set(prev);
+        if (next.has(scrollPos)) next.delete(scrollPos);
+        else next.add(scrollPos);
+        return next;
+      });
     }
   });
 
@@ -68,7 +87,62 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
 
   const session = checkpoint.sessions[0];
   const meta = session.metadata;
-  const visible = filteredEntries.slice(scrollPos, scrollPos + maxRows);
+
+  // Render blocks into lines, respecting available height
+  const renderedLines: Array<{ text: string; color?: string; bold?: boolean; dim?: boolean }> = [];
+  let blocksShown = 0;
+
+  for (let bi = scrollPos; bi < filteredBlocks.length && renderedLines.length < maxRows; bi++) {
+    const block = filteredBlocks[bi];
+    const isExpanded = expandedTools.has(bi);
+    const isCurrent = bi === scrollPos;
+
+    // Separator between blocks
+    if (renderedLines.length > 0) {
+      renderedLines.push({ text: "", dim: true });
+    }
+
+    if (block.type === "user") {
+      renderedLines.push({ text: (isCurrent ? "> " : "  ") + "USER:", color: "green", bold: true });
+      for (const line of block.lines.slice(0, 8)) {
+        renderedLines.push({ text: "  " + line.slice(0, 120) });
+        if (renderedLines.length >= maxRows) break;
+      }
+      if (block.lines.length > 8) {
+        renderedLines.push({ text: `  ... (${block.lines.length - 8} more lines)`, dim: true });
+      }
+    } else if (block.type === "assistant") {
+      renderedLines.push({ text: (isCurrent ? "> " : "  ") + "ASSISTANT:", color: "blue", bold: true });
+      const maxLines = 12;
+      for (const line of block.lines.slice(0, maxLines)) {
+        renderedLines.push({ text: "  " + line.slice(0, 120) });
+        if (renderedLines.length >= maxRows) break;
+      }
+      if (block.lines.length > maxLines) {
+        renderedLines.push({ text: `  ... (${block.lines.length - maxLines} more lines)`, dim: true });
+      }
+    } else if (block.type === "tool-group") {
+      const summary = block.lines[0]; // First line is the summary
+      renderedLines.push({
+        text: (isCurrent ? "> " : "  ") + summary,
+        color: "yellow",
+        bold: isCurrent,
+      });
+      if (isExpanded) {
+        for (const line of block.lines.slice(1, 20)) {
+          renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
+          if (renderedLines.length >= maxRows) break;
+        }
+        if (block.lines.length > 20) {
+          renderedLines.push({ text: `    ... (${block.lines.length - 20} more lines)`, dim: true });
+        }
+      } else if (block.entryCount > 1) {
+        renderedLines.push({ text: `    (${block.entryCount} tool calls, enter to expand)`, dim: true });
+      }
+    }
+
+    blocksShown++;
+  }
 
   return (
     <Box flexDirection="column">
@@ -82,12 +156,12 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
         </Box>
         {meta.tokenUsage && (
           <Text dimColor>
-            Tokens: {meta.tokenUsage.inputTokens} in / {meta.tokenUsage.outputTokens} out ({meta.tokenUsage.apiCallCount} calls)
+            Tokens: {meta.tokenUsage.inputTokens.toLocaleString()} in / {meta.tokenUsage.outputTokens.toLocaleString()} out ({meta.tokenUsage.apiCallCount} calls)
           </Text>
         )}
         <Text dimColor>
-          {filteredEntries.length} entries{searchText ? ` (filtered from ${entries.length})` : ""}
-          {" "}| Showing {scrollPos + 1}-{Math.min(scrollPos + maxRows, filteredEntries.length)}
+          {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
+          {" | "}{scrollPos + 1}/{filteredBlocks.length}
         </Text>
       </Box>
 
@@ -95,36 +169,103 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
         <SearchBar label="Search" value={searchText} onChange={setSearchText} />
       )}
 
-      <Box flexDirection="column" height={maxRows}>
-        {visible.map((entry, i) => (
-          <EntryRow key={`${scrollPos + i}`} entry={entry} highlight={searchText} />
+      <Box flexDirection="column">
+        {renderedLines.map((line, i) => (
+          <Text
+            key={i}
+            color={line.color as any}
+            bold={line.bold}
+            dimColor={line.dim}
+            wrap="truncate"
+          >
+            {line.text}
+          </Text>
         ))}
       </Box>
 
-      <StatusBar view="detail" searchActive={searchActive} />
+      <StatusBar
+        view="detail"
+        searchActive={searchActive}
+        info="^/v Scroll  enter Expand tools  / Search  esc Back"
+      />
     </Box>
   );
 }
 
-function EntryRow({ entry, highlight }: { entry: SessionEntry; highlight: string }) {
-  const typeColor = entry.type === "user" ? "green"
-    : entry.type === "assistant" ? "blue"
-    : entry.type === "tool" ? "yellow"
-    : "gray";
+/**
+ * Build display blocks from raw transcript entries.
+ * Groups consecutive tool entries, formats text nicely.
+ */
+function buildBlocks(entries: SessionEntry[]): DisplayBlock[] {
+  const blocks: DisplayBlock[] = [];
+  let toolGroup: SessionEntry[] = [];
 
-  const label = entry.type === "tool" && entry.toolName
-    ? `TOOL:${entry.toolName}`
-    : entry.type.toUpperCase();
+  const flushToolGroup = () => {
+    if (toolGroup.length === 0) return;
 
-  // Truncate content to one line
-  const maxLen = 120;
-  let content = entry.content.replace(/\n/g, " ").slice(0, maxLen);
-  if (entry.content.length > maxLen) content += "...";
+    const names = toolGroup
+      .filter((e) => e.toolName)
+      .map((e) => {
+        const file = e.filesAffected?.[0]?.split("/").pop() || "";
+        return e.toolName + (file ? `(${file})` : "");
+      });
 
-  return (
-    <Box>
-      <Text color={typeColor} bold>{label.padEnd(15)}</Text>
-      <Text wrap="truncate">{content}</Text>
-    </Box>
-  );
+    const uniqueNames = [...new Set(names)];
+    const summary = `TOOLS: ${uniqueNames.join(", ") || `${toolGroup.length} calls`}`;
+
+    const lines = [summary];
+    for (const entry of toolGroup) {
+      if (entry.toolName) {
+        const file = entry.filesAffected?.[0] || "";
+        lines.push(`${entry.toolName} ${file}`);
+        // Show a snippet of tool input if it's readable
+        if (entry.toolInput && typeof entry.toolInput === "object") {
+          const input = entry.toolInput as Record<string, unknown>;
+          if (typeof input.command === "string") {
+            lines.push(`  $ ${input.command.slice(0, 100)}`);
+          } else if (typeof input.pattern === "string") {
+            lines.push(`  pattern: ${input.pattern}`);
+          } else if (typeof input.content === "string") {
+            lines.push(`  (${input.content.length} chars)`);
+          }
+        }
+        // Show snippet of output
+        if (typeof entry.toolOutput === "string" && entry.toolOutput.length > 0) {
+          const preview = entry.toolOutput.replace(/\n/g, " ").slice(0, 100);
+          lines.push(`  -> ${preview}`);
+        }
+      }
+    }
+
+    blocks.push({ type: "tool-group", lines, entryCount: toolGroup.length });
+    toolGroup = [];
+  };
+
+  for (const entry of entries) {
+    if (entry.type === "tool") {
+      toolGroup.push(entry);
+      continue;
+    }
+
+    flushToolGroup();
+
+    if (entry.type === "user") {
+      // Skip tool_result-like user entries (they start with tool metadata)
+      if (entry.content.startsWith("Tool:") || entry.content.startsWith("{")) continue;
+      const lines = entry.content.split("\n").filter((l) => l.trim());
+      if (lines.length === 0) continue;
+      blocks.push({ type: "user", lines, entryCount: 1 });
+    } else if (entry.type === "assistant") {
+      const lines = entry.content.split("\n").filter((l) => l.trim());
+      if (lines.length === 0) continue;
+      blocks.push({ type: "assistant", lines, entryCount: 1 });
+    } else if (entry.type === "system") {
+      const lines = entry.content.split("\n").filter((l) => l.trim()).slice(0, 3);
+      if (lines.length === 0) continue;
+      blocks.push({ type: "system", lines, entryCount: 1 });
+    }
+  }
+
+  flushToolGroup();
+  return blocks;
 }

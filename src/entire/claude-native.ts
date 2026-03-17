@@ -129,19 +129,10 @@ function extractSessionMeta(path: string): {
         createdAt = obj.timestamp;
       }
 
-      // Get first user prompt as session title
+      // Get first real user prompt as session title
       if (!firstPrompt && obj.type === "user") {
-        const msg = obj.message;
-        const text = typeof msg?.content === "string"
-          ? msg.content
-          : typeof obj.content === "string"
-            ? obj.content
-            : undefined;
-        if (text && text.length > 5
-            && !text.startsWith("-\n")
-            && !text.startsWith("<")
-            && !text.startsWith("#")
-            && !text.toLowerCase().startsWith("resume")) {
+        const text = extractUserText(obj);
+        if (text) {
           firstPrompt = text.split("\n")[0].slice(0, 80);
         }
       }
@@ -378,6 +369,54 @@ export function loadNativeSessionBySlug(
   };
 
   return { root, sessions: [session] };
+}
+
+/**
+ * Extract meaningful user text from a user-type JSONL entry.
+ * Handles both plain string content and content block arrays.
+ * Returns null for tool_results, system-injected content, and other non-prompt messages.
+ */
+function extractUserText(obj: Record<string, unknown>): string | null {
+  const msg = obj.message as Record<string, unknown> | undefined;
+  const content = msg?.content ?? obj.content;
+
+  // Plain string content
+  if (typeof content === "string") {
+    return isUsefulPrompt(content) ? content : null;
+  }
+
+  // Content block array — look for text blocks, skip tool_results
+  if (Array.isArray(content)) {
+    const blocks = content as Array<Record<string, unknown>>;
+
+    // If it contains tool_result blocks, it's not a user prompt
+    if (blocks.some((b) => b.type === "tool_result")) return null;
+
+    // Extract text from text blocks
+    const textParts = blocks
+      .filter((b) => b.type === "text" && typeof b.text === "string")
+      .map((b) => b.text as string);
+
+    if (textParts.length === 0) return null;
+    const text = textParts.join(" ");
+    return isUsefulPrompt(text) ? text : null;
+  }
+
+  return null;
+}
+
+/**
+ * Check if a text string looks like a real user prompt (not system/hook content).
+ */
+function isUsefulPrompt(text: string): boolean {
+  if (text.length < 6) return false;
+  if (text.startsWith("-\n")) return false;        // piped stdin prompt
+  if (text.startsWith("<")) return false;           // XML/HTML tags (system)
+  if (text.startsWith("#")) return false;           // markdown headers (injected docs)
+  if (text.startsWith("[Request interrupted")) return false;
+  if (text.startsWith("Implement the following plan:")) return false;
+  if (/^resume\b/i.test(text)) return false;
+  return true;
 }
 
 /**
