@@ -55,6 +55,28 @@ export const environmentChecker: Checker = {
       }
     }
 
+    // Check for useful dev tools
+    const devTools = [
+      { cmd: "gh", args: ["--version"], name: "GitHub CLI (gh)", hint: "install: brew install gh" },
+    ];
+    for (const tool of devTools) {
+      const result = await exec(tool.cmd, tool.args, { cwd: ctx.projectRoot, timeoutMs: 3_000 });
+      if (result.exitCode === 0) {
+        details.push({ message: `${tool.name} available`, severity: "pass" });
+        // Also check if gh is authenticated
+        if (tool.cmd === "gh") {
+          const auth = await exec("gh", ["auth", "status"], { cwd: ctx.projectRoot, timeoutMs: 5_000 });
+          if (auth.exitCode === 0) {
+            details.push({ message: "gh authenticated", severity: "pass" });
+          } else {
+            details.push({ message: "gh not authenticated — run: gh auth login", severity: "warn" });
+          }
+        }
+      } else {
+        details.push({ message: `${tool.name} not found — ${tool.hint}`, severity: "warn" });
+      }
+    }
+
     if (details.length === 0) {
       return {
         name: this.name, label: this.label, severity: "skip",
