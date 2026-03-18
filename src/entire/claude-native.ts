@@ -385,17 +385,20 @@ function extractUserText(obj: Record<string, unknown>): string | null {
     return isUsefulPrompt(content) ? content : null;
   }
 
-  // Content block array — look for text blocks, skip tool_results
+  // Content block array — extract text blocks, ignoring tool_results
   if (Array.isArray(content)) {
     const blocks = content as Array<Record<string, unknown>>;
 
-    // If it contains tool_result blocks, it's not a user prompt
-    if (blocks.some((b) => b.type === "tool_result")) return null;
+    // If the array contains ONLY tool_result blocks, it's not a user prompt
+    const hasToolResult = blocks.some((b) => b.type === "tool_result");
 
     // Extract text from text blocks
     const textParts = blocks
       .filter((b) => b.type === "text" && typeof b.text === "string")
       .map((b) => b.text as string);
+
+    // If there are only tool_results and no text, skip
+    if (hasToolResult && textParts.length === 0) return null;
 
     if (textParts.length === 0) return null;
     const text = textParts.join(" ");
