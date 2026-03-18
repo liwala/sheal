@@ -114,6 +114,7 @@ function extractSessionMeta(path: string): {
   let model: string | undefined;
   let version: string | undefined;
   let firstPrompt: string | undefined;
+  let pipedFallback: string | undefined;
   let totalInput = 0;
   let totalOutput = 0;
   let totalCacheRead = 0;
@@ -134,6 +135,12 @@ function extractSessionMeta(path: string): {
         const text = extractUserText(obj);
         if (text) {
           firstPrompt = text.split("\n")[0].slice(0, 80);
+        } else if (!pipedFallback) {
+          // For piped agent sessions, extract a fallback from the raw content
+          const raw = extractRawUserText(obj);
+          if (raw && raw.length > 20) {
+            pipedFallback = `[piped] ${summarizePipedPrompt(raw)}`;
+          }
         }
       }
 
@@ -165,7 +172,7 @@ function extractSessionMeta(path: string): {
     apiCallCount: apiCalls,
   } : undefined;
 
-  return { createdAt, model, version, totalTokens, firstPrompt };
+  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback };
 }
 
 /**
@@ -369,6 +376,44 @@ export function loadNativeSessionBySlug(
   };
 
   return { root, sessions: [session] };
+}
+
+/**
+ * Summarize a piped prompt into a short title.
+ * Tries to find the actual task description past role preamble.
+ */
+function summarizePipedPrompt(raw: string): string {
+  // Try to find the actual task past "You are a ..." preamble
+  const sentences = raw.split(/(?<=\.)\s+/);
+  for (const s of sentences) {
+    // Skip role descriptions
+    if (/^You are\b/i.test(s)) continue;
+    if (/^Your (?:job|task|role)\b/i.test(s)) {
+      return s.slice(0, 70);
+    }
+    // First non-role sentence is probably the task
+    if (s.length > 10 && !/^(?:Follow|Note|Important|Remember)\b/i.test(s)) {
+      return s.slice(0, 70);
+    }
+  }
+  return raw.slice(0, 60);
+}
+
+/**
+ * Extract raw text from a user entry without filtering.
+ * Used as fallback for piped sessions to generate a descriptive title.
+ */
+function extractRawUserText(obj: Record<string, unknown>): string | null {
+  const msg = obj.message as Record<string, unknown> | undefined;
+  const content = msg?.content ?? obj.content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const texts = (content as Array<Record<string, unknown>>)
+      .filter((b) => b.type === "text" && typeof b.text === "string")
+      .map((b) => b.text as string);
+    return texts.join(" ") || null;
+  }
+  return null;
 }
 
 /**

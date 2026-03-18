@@ -15,29 +15,58 @@ interface SessionDetailProps {
 /** Collapse transcript into readable "blocks" — group consecutive tool entries, etc. */
 interface DisplayBlock {
   type: "user" | "assistant" | "tool-group" | "system";
+  /** One-line summary shown when collapsed */
+  summary: string;
+  /** Full content lines (shown when expanded) */
   lines: string[];
   /** Number of raw entries this block represents */
   entryCount: number;
 }
 
+/** Default collapsed preview lines per block type */
+const PREVIEW_LINES: Record<DisplayBlock["type"], number> = {
+  "user": 3,
+  "assistant": 4,
+  "tool-group": 0,
+  "system": 1,
+};
+
+const TYPE_COLORS: Record<DisplayBlock["type"], string> = {
+  "user": "green",
+  "assistant": "blue",
+  "tool-group": "yellow",
+  "system": "gray",
+};
+
+const TYPE_LABELS: Record<DisplayBlock["type"], string> = {
+  "user": "USER",
+  "assistant": "ASSISTANT",
+  "tool-group": "TOOLS",
+  "system": "SYSTEM",
+};
+
 export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [expandedTools, setExpandedTools] = useState<Set<number>>(new Set());
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
-  const { checkpoint, blocks } = useMemo(() => {
+  const { checkpoint, blocks, title } = useMemo(() => {
     const cp = loadNativeSessionBySlug(slug, sessionId);
-    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [] };
-    return { checkpoint: cp, blocks: buildBlocks(cp.sessions[0].transcript) };
+    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [], title: "" };
+    const blks = buildBlocks(cp.sessions[0].transcript);
+    // Title = first user block summary
+    const firstUser = blks.find((b) => b.type === "user");
+    return { checkpoint: cp, blocks: blks, title: firstUser?.summary || "" };
   }, [slug, sessionId]);
 
   const filteredBlocks = useMemo(() => {
     if (!searchText) return blocks;
     const q = searchText.toLowerCase();
     return blocks.filter((b) =>
+      b.summary.toLowerCase().includes(q) ||
       b.lines.some((l) => l.toLowerCase().includes(q)),
     );
   }, [blocks, searchText]);
@@ -66,8 +95,8 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
     } else if (key.pageUp) {
       setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
     } else if (key.return) {
-      // Toggle tool expansion
-      setExpandedTools((prev) => {
+      // Toggle block expansion
+      setExpanded((prev) => {
         const next = new Set(prev);
         if (next.has(scrollPos)) next.delete(scrollPos);
         else next.add(scrollPos);
@@ -88,60 +117,54 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
   const session = checkpoint.sessions[0];
   const meta = session.metadata;
 
-  // Render blocks into lines, respecting available height
+  // Render blocks into visible lines
   const renderedLines: Array<{ text: string; color?: string; bold?: boolean; dim?: boolean }> = [];
-  let blocksShown = 0;
 
   for (let bi = scrollPos; bi < filteredBlocks.length && renderedLines.length < maxRows; bi++) {
     const block = filteredBlocks[bi];
-    const isExpanded = expandedTools.has(bi);
+    const isExpanded = expanded.has(bi);
     const isCurrent = bi === scrollPos;
+    const color = TYPE_COLORS[block.type];
+    const label = TYPE_LABELS[block.type];
+    const previewCount = PREVIEW_LINES[block.type];
 
     // Separator between blocks
     if (renderedLines.length > 0) {
-      renderedLines.push({ text: "", dim: true });
+      renderedLines.push({ text: "" });
     }
 
-    if (block.type === "user") {
-      renderedLines.push({ text: (isCurrent ? "> " : "  ") + "USER:", color: "green", bold: true });
-      for (const line of block.lines.slice(0, 8)) {
-        renderedLines.push({ text: "  " + line.slice(0, 120) });
+    // Header line: "> ASSISTANT: first line of summary..."
+    const cursor = isCurrent ? ">" : " ";
+    const expandHint = block.lines.length > previewCount
+      ? (isExpanded ? " [-]" : ` [+${block.lines.length}]`)
+      : "";
+    renderedLines.push({
+      text: `${cursor} ${label}:${expandHint} ${block.summary.slice(0, 100)}`,
+      color,
+      bold: isCurrent,
+    });
+
+    // Content lines
+    if (isExpanded) {
+      // Show all lines (up to 30)
+      const maxShow = 30;
+      for (const line of block.lines.slice(0, maxShow)) {
+        renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
         if (renderedLines.length >= maxRows) break;
       }
-      if (block.lines.length > 8) {
-        renderedLines.push({ text: `  ... (${block.lines.length - 8} more lines)`, dim: true });
+      if (block.lines.length > maxShow) {
+        renderedLines.push({ text: `    ... (${block.lines.length - maxShow} more lines)`, dim: true });
       }
-    } else if (block.type === "assistant") {
-      renderedLines.push({ text: (isCurrent ? "> " : "  ") + "ASSISTANT:", color: "blue", bold: true });
-      const maxLines = 12;
-      for (const line of block.lines.slice(0, maxLines)) {
-        renderedLines.push({ text: "  " + line.slice(0, 120) });
+    } else if (previewCount > 0 && block.lines.length > 0) {
+      // Show a few preview lines
+      for (const line of block.lines.slice(0, previewCount)) {
+        renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
         if (renderedLines.length >= maxRows) break;
       }
-      if (block.lines.length > maxLines) {
-        renderedLines.push({ text: `  ... (${block.lines.length - maxLines} more lines)`, dim: true });
-      }
-    } else if (block.type === "tool-group") {
-      const summary = block.lines[0]; // First line is the summary
-      renderedLines.push({
-        text: (isCurrent ? "> " : "  ") + summary,
-        color: "yellow",
-        bold: isCurrent,
-      });
-      if (isExpanded) {
-        for (const line of block.lines.slice(1, 20)) {
-          renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
-          if (renderedLines.length >= maxRows) break;
-        }
-        if (block.lines.length > 20) {
-          renderedLines.push({ text: `    ... (${block.lines.length - 20} more lines)`, dim: true });
-        }
-      } else if (block.entryCount > 1) {
-        renderedLines.push({ text: `    (${block.entryCount} tool calls, enter to expand)`, dim: true });
+      if (block.lines.length > previewCount) {
+        renderedLines.push({ text: `    ... (${block.lines.length - previewCount} more, enter to expand)`, dim: true });
       }
     }
-
-    blocksShown++;
   }
 
   return (
@@ -154,6 +177,7 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
           {meta.agent && <Text dimColor> | {meta.agent}</Text>}
           {meta.model && <Text dimColor> | {meta.model}</Text>}
         </Box>
+        {title && <Text>{title}</Text>}
         {meta.tokenUsage && (
           <Text dimColor>
             Tokens: {meta.tokenUsage.inputTokens.toLocaleString()} in / {meta.tokenUsage.outputTokens.toLocaleString()} out ({meta.tokenUsage.apiCallCount} calls)
@@ -186,7 +210,7 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
       <StatusBar
         view="detail"
         searchActive={searchActive}
-        info="^/v Scroll  enter Expand tools  / Search  esc Back"
+        info="^/v Scroll  enter Expand/collapse  / Search  esc Back"
       />
     </Box>
   );
@@ -211,14 +235,13 @@ function buildBlocks(entries: SessionEntry[]): DisplayBlock[] {
       });
 
     const uniqueNames = [...new Set(names)];
-    const summary = `TOOLS: ${uniqueNames.join(", ") || `${toolGroup.length} calls`}`;
+    const summary = uniqueNames.join(", ") || `${toolGroup.length} calls`;
 
-    const lines = [summary];
+    const lines: string[] = [];
     for (const entry of toolGroup) {
       if (entry.toolName) {
         const file = entry.filesAffected?.[0] || "";
         lines.push(`${entry.toolName} ${file}`);
-        // Show a snippet of tool input if it's readable
         if (entry.toolInput && typeof entry.toolInput === "object") {
           const input = entry.toolInput as Record<string, unknown>;
           if (typeof input.command === "string") {
@@ -229,7 +252,6 @@ function buildBlocks(entries: SessionEntry[]): DisplayBlock[] {
             lines.push(`  (${input.content.length} chars)`);
           }
         }
-        // Show snippet of output
         if (typeof entry.toolOutput === "string" && entry.toolOutput.length > 0) {
           const preview = entry.toolOutput.replace(/\n/g, " ").slice(0, 100);
           lines.push(`  -> ${preview}`);
@@ -237,7 +259,7 @@ function buildBlocks(entries: SessionEntry[]): DisplayBlock[] {
       }
     }
 
-    blocks.push({ type: "tool-group", lines, entryCount: toolGroup.length });
+    blocks.push({ type: "tool-group", summary, lines, entryCount: toolGroup.length });
     toolGroup = [];
   };
 
@@ -250,19 +272,22 @@ function buildBlocks(entries: SessionEntry[]): DisplayBlock[] {
     flushToolGroup();
 
     if (entry.type === "user") {
-      // Skip tool_result-like user entries (they start with tool metadata)
+      // Skip tool_result-like user entries
       if (entry.content.startsWith("Tool:") || entry.content.startsWith("{")) continue;
       const lines = entry.content.split("\n").filter((l) => l.trim());
       if (lines.length === 0) continue;
-      blocks.push({ type: "user", lines, entryCount: 1 });
+      const summary = lines[0].slice(0, 120);
+      blocks.push({ type: "user", summary, lines, entryCount: 1 });
     } else if (entry.type === "assistant") {
       const lines = entry.content.split("\n").filter((l) => l.trim());
       if (lines.length === 0) continue;
-      blocks.push({ type: "assistant", lines, entryCount: 1 });
+      const summary = lines[0].slice(0, 120);
+      blocks.push({ type: "assistant", summary, lines, entryCount: 1 });
     } else if (entry.type === "system") {
       const lines = entry.content.split("\n").filter((l) => l.trim()).slice(0, 3);
       if (lines.length === 0) continue;
-      blocks.push({ type: "system", lines, entryCount: 1 });
+      const summary = lines[0].slice(0, 80);
+      blocks.push({ type: "system", summary, lines, entryCount: 1 });
     }
   }
 
