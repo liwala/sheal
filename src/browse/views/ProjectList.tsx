@@ -11,6 +11,8 @@ interface ProjectListProps {
   onQuit: () => void;
   agentFilter: string | null;
   onAgentFilterToggle: () => void;
+  onViewLearnings: (project: NativeProject) => void;
+  onViewRetros: (project: NativeProject) => void;
   initialFilter?: string;
 }
 
@@ -22,6 +24,8 @@ export function ProjectList({
   onQuit,
   agentFilter,
   onAgentFilterToggle,
+  onViewLearnings,
+  onViewRetros,
   initialFilter,
 }: ProjectListProps) {
   const [cursor, setCursor] = useState(0);
@@ -63,6 +67,8 @@ export function ProjectList({
     if (input === "s") { onSearch(); return; }
     if (input === "a") { onAgentFilterToggle(); return; }
     if (input === "m") { setShowAll(!showAll); return; }
+    if (input === "l" && visible[cursor]) { onViewLearnings(visible[cursor]); return; }
+    if (input === "r" && visible[cursor]) { onViewRetros(visible[cursor]); return; }
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));

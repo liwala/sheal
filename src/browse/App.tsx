@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useApp } from "ink";
 import type { NativeProject } from "../entire/claude-native.js";
 import type { CheckpointInfo } from "../entire/types.js";
@@ -35,7 +35,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   // Track where retro-detail was entered from
   const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
   // If starting in a view that needs a project, remember where to go after selection
-  const [pendingView, setPendingView] = useState<View | null>(
+  const pendingViewRef = useRef<View | null>(
     initialView && ["retro-list", "learnings"].includes(initialView) ? initialView : null,
   );
 
@@ -50,13 +50,13 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
 
   const handleSelectProject = useCallback((project: NativeProject) => {
     setSelectedProject(project);
-    if (pendingView) {
-      setView(pendingView);
-      setPendingView(null);
+    if (pendingViewRef.current) {
+      setView(pendingViewRef.current);
+      pendingViewRef.current = null;
     } else {
       setView("sessions");
     }
-  }, [pendingView]);
+  }, []);
 
   const handleSelectSession = useCallback((session: CheckpointInfo) => {
     if (selectedProject) {
@@ -84,6 +84,17 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
     setView("learnings");
   }, []);
 
+  // From project list: select project and go directly to retros/learnings
+  const handleViewRetrosForProject = useCallback((project: NativeProject) => {
+    setSelectedProject(project);
+    setView("retro-list");
+  }, []);
+
+  const handleViewLearningsForProject = useCallback((project: NativeProject) => {
+    setSelectedProject(project);
+    setView("learnings");
+  }, []);
+
   const handleSelectRetro = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
     setRetroFrom("retro-list");
@@ -107,12 +118,11 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
       setSelectedProject(null);
     } else if (view === "search-results") {
       setView("projects");
-    } else if (view === "retro-list") {
+    } else if (view === "retro-list" || view === "learnings") {
+      // Go back to sessions if we came from there, otherwise projects
       setView("sessions");
     } else if (view === "retro-detail") {
       setView(retroFrom === "session" ? "detail" : "retro-list");
-    } else if (view === "learnings") {
-      setView("sessions");
     }
   }, [view, selectedProject, retroFrom]);
 
@@ -125,6 +135,8 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
           onQuit={handleQuit}
           agentFilter={agentFilter}
           onAgentFilterToggle={handleAgentToggle}
+          onViewLearnings={handleViewLearningsForProject}
+          onViewRetros={handleViewRetrosForProject}
           initialFilter={initialProject}
         />
       );

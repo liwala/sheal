@@ -22,7 +22,7 @@ export function StatusBar({ view, searchActive, info }: StatusBarProps) {
     keys.push("^/v Navigate", "enter Select", "/ Filter", "a Agent filter", "s Search transcripts");
   }
 
-  if (view === "sessions") {
+  if (view === "projects" || view === "sessions") {
     keys.push("r Retros", "l Learnings");
   }
 
