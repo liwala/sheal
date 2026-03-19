@@ -86,7 +86,7 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
 
         <Box flexDirection="column">
           {bodyLines.slice(0, maxRows).map((line, i) => (
-            <Text key={i} wrap="truncate">{line || " "}</Text>
+            <Text key={i} wrap="wrap">{line || " "}</Text>
           ))}
           {bodyLines.length > maxRows && (
             <Text dimColor>... ({bodyLines.length - maxRows} more lines)</Text>
