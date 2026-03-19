@@ -137,19 +137,21 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       renderedLines.push({ text: "" });
     }
 
-    // Header line: "> ASSISTANT: first line of summary..."
+    // Content lines (skip first line since it's already in the summary)
+    const contentLines = block.lines.slice(1);
+
+    // Header line: "> ASSISTANT: [+N] first line..."
     const cursor = isCurrent ? ">" : " ";
-    const expandHint = block.lines.length > previewCount
-      ? (isExpanded ? " [-]" : ` [+${block.lines.length}]`)
+    const callCount = block.type === "tool-group" && block.entryCount > 1
+      ? ` (${block.entryCount} calls)` : "";
+    const expandHint = contentLines.length > previewCount
+      ? (isExpanded ? " [-]" : ` [+${contentLines.length}]`)
       : "";
     renderedLines.push({
-      text: `${cursor} ${label}:${expandHint} ${block.summary.slice(0, 100)}`,
+      text: `${cursor} ${label}:${callCount}${expandHint} ${block.summary.slice(0, 100)}`,
       color,
       bold: isCurrent,
     });
-
-    // Content lines (skip first line since it's already in the summary)
-    const contentLines = block.lines.slice(1);
     if (isExpanded) {
       const maxShow = 30;
       for (const line of contentLines.slice(0, maxShow)) {
