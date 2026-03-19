@@ -82,9 +82,9 @@ program
     });
   });
 
-program
+const browse = program
   .command("browse")
-  .description("Interactive TUI to browse sessions across all projects")
+  .description("Interactive TUI to browse sessions, retros, and learnings")
   .option("-p, --project <name>", "Pre-filter by project name")
   .option("-q, --query <text>", "Start with a transcript search")
   .option("--agent <name>", "Pre-filter by agent (claude, codex, amp, gemini)")
@@ -93,6 +93,40 @@ program
       project: opts.project,
       query: opts.query,
       agent: opts.agent,
+    });
+  });
+
+browse
+  .command("sessions")
+  .description("Browse sessions interactively")
+  .option("-p, --project <name>", "Pre-filter by project name")
+  .option("--agent <name>", "Pre-filter by agent")
+  .action(async (opts) => {
+    await runBrowse({
+      project: opts.project,
+      agent: opts.agent,
+    });
+  });
+
+browse
+  .command("retros")
+  .description("Browse retrospectives interactively")
+  .option("-p, --project <name>", "Pre-filter by project name")
+  .action(async (opts) => {
+    await runBrowse({
+      project: opts.project,
+      startView: "retro-list",
+    });
+  });
+
+browse
+  .command("learnings")
+  .description("Browse learnings interactively")
+  .option("-p, --project <name>", "Pre-filter by project name")
+  .action(async (opts) => {
+    await runBrowse({
+      project: opts.project,
+      startView: "learnings",
     });
   });
 

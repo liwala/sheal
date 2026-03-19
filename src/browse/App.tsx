@@ -17,11 +17,16 @@ interface AppProps {
   initialProject?: string;
   initialQuery?: string;
   initialAgent?: string;
+  initialView?: View;
 }
 
-export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
+export function App({ initialProject, initialQuery, initialAgent, initialView }: AppProps) {
   const { exit } = useApp();
-  const [view, setView] = useState<View>(initialQuery ? "search-results" : "projects");
+  // Views that need a project selected first — start at project selection
+  const needsProject = initialView && ["retro-list", "learnings", "sessions"].includes(initialView);
+  const [view, setView] = useState<View>(
+    needsProject ? "projects" : (initialView || (initialQuery ? "search-results" : "projects")),
+  );
   const [selectedProject, setSelectedProject] = useState<NativeProject | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string>("");
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
@@ -29,6 +34,10 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   // Track where retro-detail was entered from
   const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
+  // If starting in a view that needs a project, remember where to go after selection
+  const [pendingView, setPendingView] = useState<View | null>(
+    initialView && ["retro-list", "learnings"].includes(initialView) ? initialView : null,
+  );
 
   const handleQuit = useCallback(() => exit(), [exit]);
 
@@ -41,8 +50,13 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
 
   const handleSelectProject = useCallback((project: NativeProject) => {
     setSelectedProject(project);
-    setView("sessions");
-  }, []);
+    if (pendingView) {
+      setView(pendingView);
+      setPendingView(null);
+    } else {
+      setView("sessions");
+    }
+  }, [pendingView]);
 
   const handleSelectSession = useCallback((session: CheckpointInfo) => {
     if (selectedProject) {
