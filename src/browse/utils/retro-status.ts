@@ -123,6 +123,7 @@ export interface LearningInfo {
   category: string;
   severity: string;
   tags: string[];
+  body: string;
 }
 
 /**
@@ -160,11 +161,16 @@ function parseLearningFrontmatter(content: string): LearningInfo | null {
     return raw ? [raw] : [];
   };
 
+  // Body is everything after the closing ---
+  const bodyStart = content.indexOf("\n---", 4);
+  const body = bodyStart >= 0 ? content.slice(bodyStart + 4).trim() : "";
+
   return {
     id: get("id"),
     title: get("title"),
     category: get("category"),
     severity: get("severity"),
     tags: getArray("tags"),
+    body,
   };
 }

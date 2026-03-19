@@ -29,6 +29,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 export function LearningsList({ projectPath, projectName, onBack, onQuit }: LearningsListProps) {
   const [cursor, setCursor] = useState(0);
   const [showGlobal, setShowGlobal] = useState(false);
+  const [expanded, setExpanded] = useState<number | null>(null);
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
@@ -48,15 +49,58 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
 
   useInput((input, key) => {
     if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "g") { setShowGlobal(!showGlobal); setCursor(0); return; }
+    if (key.escape) {
+      if (expanded !== null) { setExpanded(null); return; }
+      onBack();
+      return;
+    }
+    if (input === "g") { setShowGlobal(!showGlobal); setCursor(0); setExpanded(null); return; }
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
+      setExpanded(null);
     } else if (key.downArrow) {
       setCursor((c) => Math.min(learnings.length - 1, c + 1));
+      setExpanded(null);
+    } else if (key.return && learnings[cursor]) {
+      setExpanded(expanded === cursor ? null : cursor);
     }
   });
+
+  // When a learning is expanded, show it as a detail view
+  if (expanded !== null && learnings[expanded]) {
+    const l = learnings[expanded];
+    const sevColor = SEVERITY_COLORS[l.severity] || "white";
+    const bodyLines = l.body.split("\n");
+
+    return (
+      <Box flexDirection="column">
+        <Box marginBottom={1} flexDirection="column">
+          <Text bold color="green">{l.id}: {l.title}</Text>
+          <Box>
+            <Text color={sevColor}>{l.severity}</Text>
+            <Text dimColor> | {l.category}</Text>
+            <Text dimColor> | tags: {l.tags.join(", ")}</Text>
+          </Box>
+        </Box>
+
+        <Box flexDirection="column">
+          {bodyLines.slice(0, maxRows).map((line, i) => (
+            <Text key={i} wrap="truncate">{line || " "}</Text>
+          ))}
+          {bodyLines.length > maxRows && (
+            <Text dimColor>... ({bodyLines.length - maxRows} more lines)</Text>
+          )}
+        </Box>
+
+        <StatusBar
+          view="detail"
+          searchActive={false}
+          info="enter Close  esc Back to list"
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box flexDirection="column">
@@ -109,7 +153,7 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
       <StatusBar
         view="detail"
         searchActive={false}
-        info="^/v Navigate  g Local/Global  esc Back"
+        info="^/v Navigate  enter View  g Local/Global  esc Back"
       />
     </Box>
   );
