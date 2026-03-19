@@ -2,6 +2,7 @@ import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
 import { listAllNativeProjects } from "../../entire/claude-native.js";
 import type { NativeProject } from "../../entire/claude-native.js";
+import { listCodexProjects } from "../../entire/codex-native.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
 
@@ -35,7 +36,14 @@ export function ProjectList({
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 6;
 
-  const allProjects = useMemo(() => listAllNativeProjects(), []);
+  const allProjects = useMemo(() => {
+    const claude = listAllNativeProjects();
+    const codex = listCodexProjects();
+    // Merge and sort by lastModified
+    const all: NativeProject[] = [...claude, ...codex];
+    all.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+    return all;
+  }, []);
 
   const filtered = useMemo(() => {
     let result = allProjects;
@@ -87,7 +95,7 @@ export function ProjectList({
         <Text bold>
           {filtered.length} project(s), {totalSessions} sessions
         </Text>
-        <Text dimColor> (Claude Code native)</Text>
+        <Text dimColor> (Claude Code + Codex)</Text>
         {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
       </Box>
 
@@ -96,17 +104,21 @@ export function ProjectList({
       )}
 
       <Box flexDirection="column" height={maxRows}>
-        {visible.slice(0, maxRows).map((p, i) => (
-          <Box key={p.slug}>
-            <Text color={i === cursor ? "cyan" : undefined} bold={i === cursor}>
-              {i === cursor ? "> " : "  "}
-              {p.name}
-            </Text>
-            <Text dimColor>
-              {" "}({p.sessionCount}) {p.lastModified?.slice(0, 10) || ""}
-            </Text>
-          </Box>
-        ))}
+        {visible.slice(0, maxRows).map((p, i) => {
+          const isCodex = p.slug.startsWith("codex:");
+          return (
+            <Box key={p.slug}>
+              <Text color={i === cursor ? "cyan" : undefined} bold={i === cursor}>
+                {i === cursor ? "> " : "  "}
+                {p.name}
+              </Text>
+              {isCodex && <Text color="yellow"> [codex]</Text>}
+              <Text dimColor>
+                {" "}({p.sessionCount}) {p.lastModified?.slice(0, 10) || ""}
+              </Text>
+            </Box>
+          );
+        })}
         {hasMore && (
           <Text dimColor>  ... {filtered.length - DEFAULT_LIMIT} more (press m)</Text>
         )}

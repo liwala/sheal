@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { listNativeSessionsBySlug } from "../../entire/claude-native.js";
 import type { NativeProject } from "../../entire/claude-native.js";
 import type { CheckpointInfo } from "../../entire/types.js";
+import { listCodexSessionsForProject } from "../../entire/codex-native.js";
 import { hasRetro, countRetros, countLearnings } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
@@ -34,14 +35,17 @@ export function SessionList({
 }: SessionListProps) {
   const [cursor, setCursor] = useState(0);
   const [showAll, setShowAll] = useState(false);
+  const [hidePiped, setHidePiped] = useState(true);
   const [filterActive, setFilterActive] = useState(false);
   const [filterText, setFilterText] = useState("");
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 10;
 
   const allSessions = useMemo(
-    () => listNativeSessionsBySlug(project.slug),
-    [project.slug],
+    () => project.slug.startsWith("codex:")
+      ? listCodexSessionsForProject(project.projectPath)
+      : listNativeSessionsBySlug(project.slug),
+    [project.slug, project.projectPath],
   );
 
   // Check which sessions have retros
@@ -62,6 +66,9 @@ export function SessionList({
 
   const filtered = useMemo(() => {
     let result = allSessions;
+    if (hidePiped) {
+      result = result.filter((s) => !s.title?.startsWith("[piped]"));
+    }
     if (filterText) {
       const q = filterText.toLowerCase();
       result = result.filter(
@@ -76,7 +83,7 @@ export function SessionList({
       );
     }
     return result;
-  }, [allSessions, filterText, agentFilter]);
+  }, [allSessions, filterText, agentFilter, hidePiped]);
 
   const visible = showAll ? filtered : filtered.slice(0, DEFAULT_LIMIT);
   const hasMore = filtered.length > DEFAULT_LIMIT && !showAll;
@@ -98,6 +105,7 @@ export function SessionList({
     if (input === "s") { onSearch(); return; }
     if (input === "a") { onAgentFilterToggle(); return; }
     if (input === "m") { setShowAll(!showAll); return; }
+    if (input === "p") { setHidePiped(!hidePiped); setCursor(0); return; }
     if (input === "r") { onViewRetros(); return; }
     if (input === "l") { onViewLearnings(); return; }
 
@@ -118,6 +126,7 @@ export function SessionList({
           <Text bold>{" > Sessions"}</Text>
           <Text dimColor> ({filtered.length} of {allSessions.length})</Text>
           {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
+          {hidePiped && <Text dimColor> (hiding piped, p to show)</Text>}
         </Box>
         <Text dimColor>{project.projectPath}</Text>
         <Box>
@@ -132,17 +141,20 @@ export function SessionList({
       )}
 
       <Box flexDirection="column" height={maxRows}>
-        {visible.slice(0, maxRows).map((s, i) => (
+        {visible.slice(0, maxRows).map((s, i) => {
+          const isPiped = s.title?.startsWith("[piped]") ?? false;
+          return (
           <Box key={s.sessionId}>
-            <Text color={i === cursor ? "cyan" : undefined} bold={i === cursor}>
+            <Text color={i === cursor ? "cyan" : undefined} bold={i === cursor} dimColor={isPiped && i !== cursor}>
               {i === cursor ? "> " : "  "}
               {s.sessionId.slice(0, 12)}
             </Text>
             <Text dimColor> {s.createdAt?.slice(0, 16) || ""}</Text>
             {retroSet.has(s.sessionId) && <Text color="magenta"> [R]</Text>}
-            {s.title && <Text> {s.title.slice(0, 50)}</Text>}
+            {s.title && <Text dimColor={isPiped && i !== cursor}> {s.title.slice(0, 50)}</Text>}
           </Box>
-        ))}
+          );
+        })}
         {hasMore && (
           <Text dimColor>  ... {filtered.length - DEFAULT_LIMIT} more (press m)</Text>
         )}
