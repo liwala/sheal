@@ -1,7 +1,7 @@
 import type { NativeProject } from "../entire/claude-native.js";
 import type { CheckpointInfo, Checkpoint } from "../entire/types.js";
 
-export type View = "projects" | "sessions" | "detail" | "search-results";
+export type View = "projects" | "sessions" | "detail" | "search-results" | "retro-list" | "retro-detail" | "learnings";
 
 export interface BrowseState {
   view: View;

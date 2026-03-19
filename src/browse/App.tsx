@@ -7,6 +7,9 @@ import { ProjectList } from "./views/ProjectList.js";
 import { SessionList } from "./views/SessionList.js";
 import { SessionDetail } from "./views/SessionDetail.js";
 import { SearchResults } from "./views/SearchResults.js";
+import { RetroList } from "./views/RetroList.js";
+import { RetroDetail } from "./views/RetroDetail.js";
+import { LearningsList } from "./views/LearningsList.js";
 
 const AGENTS = [null, "claude", "codex", "amp", "gemini"];
 
@@ -24,6 +27,8 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [agentFilter, setAgentFilter] = useState<string | null>(initialAgent || null);
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
+  // Track where retro-detail was entered from
+  const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
 
   const handleQuit = useCallback(() => exit(), [exit]);
 
@@ -57,9 +62,27 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
     setView("search-results");
   }, []);
 
+  const handleViewRetros = useCallback(() => {
+    setView("retro-list");
+  }, []);
+
+  const handleViewLearnings = useCallback(() => {
+    setView("learnings");
+  }, []);
+
+  const handleSelectRetro = useCallback((sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setRetroFrom("retro-list");
+    setView("retro-detail");
+  }, []);
+
+  const handleViewRetroFromSession = useCallback(() => {
+    setRetroFrom("session");
+    setView("retro-detail");
+  }, []);
+
   const handleBack = useCallback(() => {
     if (view === "detail") {
-      // Go back to wherever we came from
       if (selectedProject) {
         setView("sessions");
       } else {
@@ -70,8 +93,14 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
       setSelectedProject(null);
     } else if (view === "search-results") {
       setView("projects");
+    } else if (view === "retro-list") {
+      setView("sessions");
+    } else if (view === "retro-detail") {
+      setView(retroFrom === "session" ? "detail" : "retro-list");
+    } else if (view === "learnings") {
+      setView("sessions");
     }
-  }, [view, selectedProject]);
+  }, [view, selectedProject, retroFrom]);
 
   switch (view) {
     case "projects":
@@ -97,6 +126,8 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
           onQuit={handleQuit}
           agentFilter={agentFilter}
           onAgentFilterToggle={handleAgentToggle}
+          onViewRetros={handleViewRetros}
+          onViewLearnings={handleViewLearnings}
         />
       );
 
@@ -105,8 +136,10 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
         <SessionDetail
           slug={selectedSlug}
           sessionId={selectedSessionId}
+          projectPath={selectedProject?.projectPath || ""}
           onBack={handleBack}
           onQuit={handleQuit}
+          onViewRetro={handleViewRetroFromSession}
         />
       );
 
@@ -115,6 +148,39 @@ export function App({ initialProject, initialQuery, initialAgent }: AppProps) {
         <SearchResults
           initialQuery={searchQuery}
           onSelectSession={handleSelectSearchResult}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "retro-list":
+      if (!selectedProject) return null;
+      return (
+        <RetroList
+          projectPath={selectedProject.projectPath}
+          projectName={selectedProject.name}
+          onSelect={handleSelectRetro}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "retro-detail":
+      return (
+        <RetroDetail
+          projectPath={selectedProject?.projectPath || ""}
+          sessionId={selectedSessionId}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "learnings":
+      if (!selectedProject) return null;
+      return (
+        <LearningsList
+          projectPath={selectedProject.projectPath}
+          projectName={selectedProject.name}
           onBack={handleBack}
           onQuit={handleQuit}
         />

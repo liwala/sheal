@@ -2,14 +2,17 @@ import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
 import { loadNativeSessionBySlug } from "../../entire/claude-native.js";
 import type { SessionEntry } from "../../entire/types.js";
+import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
 
 interface SessionDetailProps {
   slug: string;
   sessionId: string;
+  projectPath: string;
   onBack: () => void;
   onQuit: () => void;
+  onViewRetro: () => void;
 }
 
 /** Collapse transcript into readable "blocks" — group consecutive tool entries, etc. */
@@ -45,7 +48,7 @@ const TYPE_LABELS: Record<DisplayBlock["type"], string> = {
   "system": "SYSTEM",
 };
 
-export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetailProps) {
+export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, onViewRetro }: SessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -53,14 +56,14 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
-  const { checkpoint, blocks, title } = useMemo(() => {
+  const { checkpoint, blocks, title, hasRetroFile } = useMemo(() => {
     const cp = loadNativeSessionBySlug(slug, sessionId);
-    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [], title: "" };
+    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [], title: "", hasRetroFile: false };
     const blks = buildBlocks(cp.sessions[0].transcript);
-    // Title = first user block summary
     const firstUser = blks.find((b) => b.type === "user");
-    return { checkpoint: cp, blocks: blks, title: firstUser?.summary || "" };
-  }, [slug, sessionId]);
+    const hr = projectPath ? hasRetro(projectPath, sessionId) : false;
+    return { checkpoint: cp, blocks: blks, title: firstUser?.summary || "", hasRetroFile: hr };
+  }, [slug, sessionId, projectPath]);
 
   const filteredBlocks = useMemo(() => {
     if (!searchText) return blocks;
@@ -85,6 +88,7 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
     if (input === "q") { onQuit(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
+    if (input === "r" && hasRetroFile) { onViewRetro(); return; }
 
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
@@ -176,6 +180,7 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
           <Text dimColor> | {meta.createdAt?.slice(0, 16)}</Text>
           {meta.agent && <Text dimColor> | {meta.agent}</Text>}
           {meta.model && <Text dimColor> | {meta.model}</Text>}
+          {hasRetroFile && <Text color="magenta"> [R] retro available (r)</Text>}
         </Box>
         {title && <Text>{title}</Text>}
         {meta.tokenUsage && (
@@ -210,7 +215,7 @@ export function SessionDetail({ slug, sessionId, onBack, onQuit }: SessionDetail
       <StatusBar
         view="detail"
         searchActive={searchActive}
-        info="^/v Scroll  enter Expand/collapse  / Search  esc Back"
+        info={`^/v Scroll  enter Expand/collapse  / Search${hasRetroFile ? "  r Retro" : ""}  esc Back`}
       />
     </Box>
   );
