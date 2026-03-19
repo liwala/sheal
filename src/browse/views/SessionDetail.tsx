@@ -148,25 +148,24 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       bold: isCurrent,
     });
 
-    // Content lines
+    // Content lines (skip first line since it's already in the summary)
+    const contentLines = block.lines.slice(1);
     if (isExpanded) {
-      // Show all lines (up to 30)
       const maxShow = 30;
-      for (const line of block.lines.slice(0, maxShow)) {
+      for (const line of contentLines.slice(0, maxShow)) {
         renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
         if (renderedLines.length >= maxRows) break;
       }
-      if (block.lines.length > maxShow) {
-        renderedLines.push({ text: `    ... (${block.lines.length - maxShow} more lines)`, dim: true });
+      if (contentLines.length > maxShow) {
+        renderedLines.push({ text: `    ... (${contentLines.length - maxShow} more lines)`, dim: true });
       }
-    } else if (previewCount > 0 && block.lines.length > 0) {
-      // Show a few preview lines
-      for (const line of block.lines.slice(0, previewCount)) {
+    } else if (previewCount > 0 && contentLines.length > 0) {
+      for (const line of contentLines.slice(0, previewCount)) {
         renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
         if (renderedLines.length >= maxRows) break;
       }
-      if (block.lines.length > previewCount) {
-        renderedLines.push({ text: `    ... (${block.lines.length - previewCount} more, enter to expand)`, dim: true });
+      if (contentLines.length > previewCount) {
+        renderedLines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true });
       }
     }
   }
