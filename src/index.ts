@@ -7,6 +7,7 @@ import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
 import { runAsk } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
+import { runGraph } from "./commands/graph.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const program = new Command();
@@ -140,6 +141,24 @@ program
     await runInit({
       projectRoot: opts.project,
       dryRun: opts.dryRun,
+    });
+  });
+
+program
+  .command("graph")
+  .description("Show cross-session knowledge graph (files, agents, patterns)")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--file <path>", "Show history for a specific file")
+  .option("--agent <name>", "Show details for a specific agent")
+  .option("-n, --limit <count>", "Max sessions to analyze", "50")
+  .option("--json", "Output as JSON", false)
+  .action((opts) => {
+    runGraph({
+      projectRoot: opts.project,
+      file: opts.file,
+      agent: opts.agent,
+      limit: parseInt(opts.limit, 10),
+      json: opts.json,
     });
   });
 
