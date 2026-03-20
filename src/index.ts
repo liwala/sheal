@@ -56,6 +56,8 @@ program
   .option("--prompt", "Output an LLM prompt for deep analysis (pipe to any agent)")
   .option("--enrich", "Invoke the session's agent CLI for LLM-enriched analysis")
   .option("--agent <name>", "Override agent CLI for --enrich (e.g. claude, gemini, codex)")
+  .option("--last <n>", "Run retro on the last N sessions")
+  .option("--today", "Run retro on all sessions from today", false)
   .action(async (opts) => {
     await runRetro({
       format: opts.format,
@@ -64,6 +66,8 @@ program
       prompt: opts.prompt,
       enrich: opts.enrich,
       agent: opts.agent,
+      last: opts.last ? parseInt(opts.last, 10) : undefined,
+      today: opts.today,
     });
   });
 

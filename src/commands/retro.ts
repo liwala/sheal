@@ -26,10 +26,19 @@ export interface RetroOptions {
   prompt?: boolean;
   enrich?: boolean;
   agent?: string;
+  /** Run retro on the last N sessions */
+  last?: number;
+  /** Run retro on all sessions from today */
+  today?: boolean;
 }
 
 export async function runRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
+
+  // Batch mode: multiple sessions
+  if (options.last || options.today) {
+    return runBatchRetro(options);
+  }
 
   // Check if this is an Amp thread
   if (options.checkpointId?.startsWith("T-")) {
@@ -71,6 +80,83 @@ export async function runRetro(options: RetroOptions): Promise<void> {
     console.log(JSON.stringify(clean, null, 2));
   } else {
     printRetro(retro, cached);
+  }
+}
+
+/**
+ * Run retro across multiple sessions (--last N or --today).
+ */
+async function runBatchRetro(options: RetroOptions): Promise<void> {
+  const repoPath = options.projectRoot;
+  const sessions = listNativeSessions(repoPath);
+
+  if (sessions.length === 0) {
+    console.log(chalk.yellow("No sessions found."));
+    return;
+  }
+
+  let selected = sessions;
+  if (options.today) {
+    const today = new Date().toISOString().slice(0, 10);
+    selected = sessions.filter((s) => s.createdAt.startsWith(today));
+    if (selected.length === 0) {
+      console.log(chalk.yellow(`No sessions from today (${today}).`));
+      return;
+    }
+  }
+  if (options.last) {
+    selected = selected.slice(0, options.last);
+  }
+
+  console.log(chalk.bold(`Running retro on ${selected.length} session(s)...\n`));
+
+  const retros: Retrospective[] = [];
+
+  for (const info of selected) {
+    const checkpoint = loadNativeSession(repoPath, info.sessionId);
+    if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
+      console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (no transcript)`));
+      continue;
+    }
+
+    const retro = runRetrospective(checkpoint);
+    retros.push(retro);
+
+    if (options.format === "json") {
+      // JSON mode: collect and output at end
+    } else {
+      // Print each retro with a separator
+      console.log(chalk.gray("─".repeat(60)));
+      console.log(chalk.bold(`Session: ${info.sessionId.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
+      if (info.title) console.log(chalk.gray(`  ${info.title.slice(0, 70)}`));
+      console.log();
+
+      const cached = loadCachedEnrichments(repoPath, retro.checkpointId);
+      printRetro(retro, cached);
+    }
+  }
+
+  if (options.format === "json") {
+    const clean = retros.map((r) => ({
+      ...r,
+      failureLoops: r.failureLoops.map(({ entries, ...rest }) => rest),
+    }));
+    console.log(JSON.stringify(clean, null, 2));
+  }
+
+  // Summary
+  if (options.format !== "json" && retros.length > 1) {
+    console.log(chalk.gray("═".repeat(60)));
+    console.log(chalk.bold.magenta(`\nBatch Summary: ${retros.length} sessions\n`));
+    const avgHealth = Math.round(retros.reduce((s, r) => s + r.healthScore, 0) / retros.length);
+    const totalLoops = retros.reduce((s, r) => s + r.failureLoops.length, 0);
+    const totalReverts = retros.reduce((s, r) => s + r.revertedWork.length, 0);
+    const totalLearnings = retros.reduce((s, r) => s + r.learnings.length, 0);
+    console.log(`  Average health: ${avgHealth}/100`);
+    console.log(`  Total failure loops: ${totalLoops}`);
+    console.log(`  Total reverted work: ${totalReverts}`);
+    console.log(`  Total learnings: ${totalLearnings}`);
+    console.log();
   }
 }
 
