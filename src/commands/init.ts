@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { runLearnSync } from "./learn.js";
+import { RETRO_SKILL_CONTENT } from "../templates/retro-skill.js";
 
 export interface InitOptions {
   projectRoot: string;
@@ -70,6 +71,27 @@ function createAgentsFile(filepath: string, dryRun: boolean): void {
   if (!dryRun) writeFileSync(filepath, content);
 }
 
+/**
+ * Install the /retro skill into .claude/skills/retro/SKILL.md.
+ * Returns true if the file was created or updated.
+ */
+function installRetroSkill(projectRoot: string, dryRun: boolean): boolean {
+  const skillDir = join(projectRoot, ".claude", "skills", "retro");
+  const skillPath = join(skillDir, "SKILL.md");
+
+  // Check if already up to date
+  if (existsSync(skillPath)) {
+    const existing = readFileSync(skillPath, "utf-8");
+    if (existing === RETRO_SKILL_CONTENT) return false;
+  }
+
+  if (!dryRun) {
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(skillPath, RETRO_SKILL_CONTENT);
+  }
+  return true;
+}
+
 export async function runInit(options: InitOptions): Promise<void> {
   const { projectRoot, dryRun } = options;
   const prefix = dryRun ? "[dry-run] " : "";
@@ -105,7 +127,15 @@ export async function runInit(options: InitOptions): Promise<void> {
     }
   }
 
-  // 3. Sync learnings
+  // 3. Install /retro skill for Claude Code
+  const skillInstalled = installRetroSkill(projectRoot, dryRun);
+  if (skillInstalled) {
+    console.log(`${prefix}Installed /retro skill into .claude/skills/retro/SKILL.md`);
+  } else {
+    console.log(`.claude/skills/retro/SKILL.md already up to date`);
+  }
+
+  // 4. Sync learnings
   console.log(`\n${prefix}Syncing learnings...`);
   if (!dryRun) {
     await runLearnSync({ projectRoot });
