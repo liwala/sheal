@@ -1,4 +1,4 @@
-import { mkdirSync, copyFileSync, readdirSync, existsSync } from "node:fs";
+import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   getGlobalDir,
@@ -127,7 +127,11 @@ export async function runLearnSync(opts: LearnSyncOptions): Promise<void> {
     const src = join(globalDir, filename);
     const dest = join(projectDir, filename);
 
-    // Only copy if source exists (defensive)
+    // Skip if already synced with same content
+    if (existsSync(dest) && readFileSync(src, "utf8") === readFileSync(dest, "utf8")) {
+      continue;
+    }
+
     if (existsSync(src)) {
       copyFileSync(src, dest);
       copied++;
