@@ -206,6 +206,28 @@ describe("detectProjectTags", () => {
   });
 });
 
+describe("sessionId traceability", () => {
+  let dir: string;
+
+  beforeEach(() => { dir = makeTempDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true }); });
+
+  it("round-trips sessionId through write/read", () => {
+    const learning = { ...sampleLearning, sessionId: "abc-123-session" };
+    const filepath = writeLearning(dir, learning);
+    const loaded = readLearning(filepath);
+    expect(loaded.sessionId).toBe("abc-123-session");
+  });
+
+  it("omits sessionId from frontmatter when not provided", () => {
+    const filepath = writeLearning(dir, sampleLearning);
+    const content = readFileSync(filepath, "utf8");
+    expect(content).not.toContain("session-id");
+    const loaded = readLearning(filepath);
+    expect(loaded.sessionId).toBeUndefined();
+  });
+});
+
 describe("sync deduplication", () => {
   let globalDir: string;
   let projectDir: string;

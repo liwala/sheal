@@ -54,6 +54,7 @@ export function slugify(title: string): string {
  */
 function renderLearning(learning: LearningFile): string {
   const tags = `[${learning.tags.join(", ")}]`;
+  const sessionLine = learning.sessionId ? `\nsession-id: ${learning.sessionId}` : "";
   return `---
 id: ${learning.id}
 title: ${learning.title}
@@ -61,7 +62,7 @@ date: ${learning.date}
 tags: ${tags}
 category: ${learning.category}
 severity: ${learning.severity}
-status: ${learning.status}
+status: ${learning.status}${sessionLine}
 ---
 
 ${learning.body.trim()}
@@ -127,6 +128,7 @@ export function parseLearningContent(content: string): LearningFile {
     severity: (meta["severity"] ?? "medium") as LearningSeverity,
     status: (meta["status"] ?? "active") as LearningStatus,
     body,
+    ...(meta["session-id"] ? { sessionId: meta["session-id"] } : {}),
   };
 }
 

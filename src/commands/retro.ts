@@ -225,7 +225,7 @@ async function enrichAmpRetro(
   const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
   const allRules = parseRulesFromOutput(ruleSource.content);
   if (allRules.length > 0) {
-    await promptToSaveRules(allRules, projectRoot);
+    await promptToSaveRules(allRules, projectRoot, retro.sessionId);
   }
 }
 
@@ -500,7 +500,7 @@ async function enrichRetro(retro: Retrospective, checkpoint: import("../entire/t
   const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
   const allRules = parseRulesFromOutput(ruleSource.content);
   if (allRules.length > 0) {
-    await promptToSaveRules(allRules, projectRoot);
+    await promptToSaveRules(allRules, projectRoot, retro.sessionId);
   }
 }
 
@@ -645,7 +645,7 @@ function parseRulesFromOutput(output: string): string[] {
 /**
  * Ask the user to confirm each rule and save confirmed ones as learnings.
  */
-async function promptToSaveRules(rules: string[], projectRoot: string): Promise<void> {
+async function promptToSaveRules(rules: string[], projectRoot: string, sessionId?: string): Promise<void> {
   console.log();
   console.log(chalk.bold(`Save ${rules.length} suggested rule(s) as learnings?`));
   console.log(chalk.gray("Each rule will be saved to ~/.sheal/learnings/\n"));
@@ -685,6 +685,7 @@ async function promptToSaveRules(rules: string[], projectRoot: string): Promise<
         severity: "medium",
         status: "active",
         body: rule,
+        ...(sessionId ? { sessionId } : {}),
       };
       const path = writeLearning(globalDir, learning);
       console.log(chalk.green(`     Saved ${id}`));

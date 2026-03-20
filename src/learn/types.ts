@@ -32,4 +32,6 @@ export interface LearningFile {
   status: LearningStatus;
   /** The learning content (markdown body) */
   body: string;
+  /** Session ID that produced this learning (optional, for traceability) */
+  sessionId?: string;
 }
