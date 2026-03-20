@@ -83,6 +83,24 @@ export interface HumanPatterns {
 }
 
 /**
+ * A detected coordination issue across multiple sessions/agents.
+ */
+export interface CoordinationIssue {
+  /** Type of coordination problem */
+  type: "conflicting-edits" | "duplicated-work" | "missed-handoff";
+  /** Human-readable description */
+  description: string;
+  /** Severity of the issue */
+  severity: "low" | "medium" | "high";
+  /** Sessions involved */
+  sessionIds: string[];
+  /** Agents involved */
+  agents: string[];
+  /** Files affected (if applicable) */
+  files?: string[];
+}
+
+/**
  * The full retrospective report for a session.
  */
 export interface Retrospective {
@@ -108,4 +126,6 @@ export interface Retrospective {
   healthScore: number;
   /** Human interaction patterns (for human-facing feedback) */
   humanPatterns?: HumanPatterns;
+  /** Multi-agent coordination issues (populated when checkpoint has multiple sessions) */
+  coordinationIssues?: CoordinationIssue[];
 }
