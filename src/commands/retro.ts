@@ -4,8 +4,10 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
+import { hasAmpSessions, listAmpProjects, listAmpSessionsForProject, listAmpThreadFiles, getAmpThreadProjectPath } from "../entire/amp-native.js";
 import { runRetrospective } from "../retro/index.js";
-import { generateRetroPrompt } from "../retro/prompt.js";
+import { runAmpRetrospective } from "../retro/amp-retro.js";
+import { generateRetroPrompt, generateConsolidationPrompt } from "../retro/prompt.js";
 import { detectAgentCli, invokeAgent } from "../retro/agent.js";
 import {
   getGlobalDir,
@@ -29,6 +31,14 @@ export interface RetroOptions {
 export async function runRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
 
+  // Check if this is an Amp thread
+  if (options.checkpointId?.startsWith("T-")) {
+    return runAmpRetro(options);
+  }
+
+  // Also check if no specific ID given and we should try Amp as a source
+  // (Amp threads are only used when explicitly targeted by ID)
+
   // Try Entire.io first, fall back to native Claude Code transcripts
   const checkpoint = await loadSession(repoPath, options.checkpointId);
   if (!checkpoint) return;
@@ -50,18 +60,172 @@ export async function runRetro(options: RetroOptions): Promise<void> {
     return;
   }
 
-  const cached = loadCachedEnrichment(options.projectRoot, retro.checkpointId);
+  const cached = loadCachedEnrichments(options.projectRoot, retro.checkpointId);
 
   if (options.format === "json") {
-    // Strip entries from failure loops for cleaner JSON
     const clean = {
       ...retro,
       failureLoops: retro.failureLoops.map(({ entries, ...rest }) => rest),
-      ...(cached ? { agentAssessment: cached } : {}),
+      ...(cached.length > 0 ? { agentAssessments: cached } : {}),
     };
     console.log(JSON.stringify(clean, null, 2));
   } else {
     printRetro(retro, cached);
+  }
+}
+
+/**
+ * Run a retro on an Amp file-change thread.
+ * Saves retros to the thread's actual project path, not cwd.
+ */
+async function runAmpRetro(options: RetroOptions): Promise<void> {
+  const threadId = options.checkpointId!;
+  const files = listAmpThreadFiles(threadId);
+
+  if (files.length === 0) {
+    console.log(chalk.yellow(`No file changes found for Amp thread: ${threadId}`));
+    return;
+  }
+
+  // Use the thread's actual project path, not cwd
+  const projectRoot = getAmpThreadProjectPath(threadId) ?? options.projectRoot;
+  if (projectRoot !== options.projectRoot) {
+    console.log(chalk.gray(`Amp project: ${projectRoot}`));
+  }
+
+  console.log(chalk.gray(`Amp thread: ${threadId} (${files.length} file changes)`));
+
+  const retro = runAmpRetrospective(threadId, files);
+
+  const globalDir = getGlobalDir();
+  const existingLearnings = listLearnings(globalDir);
+
+  if (options.prompt) {
+    console.log(generateAmpRetroPrompt(retro, files, existingLearnings));
+    return;
+  }
+
+  if (options.enrich) {
+    await enrichAmpRetro(retro, files, projectRoot, existingLearnings, options.agent);
+    return;
+  }
+
+  const cached = loadCachedEnrichments(projectRoot, retro.checkpointId);
+
+  if (options.format === "json") {
+    const clean = {
+      ...retro,
+      failureLoops: retro.failureLoops.map(({ entries, ...rest }) => rest),
+      ...(cached.length > 0 ? { agentAssessments: cached } : {}),
+    };
+    console.log(JSON.stringify(clean, null, 2));
+  } else {
+    printRetro(retro, cached);
+  }
+}
+
+/**
+ * Generate a prompt for LLM-enriched Amp retro (file-changes only, no conversation).
+ */
+function generateAmpRetroPrompt(
+  retro: Retrospective,
+  files: import("../entire/amp-native.js").AmpFileChange[],
+  existingLearnings?: LearningFile[],
+): string {
+  const diffSummaries = files
+    .slice(0, 20) // cap to avoid huge prompts
+    .map((f) => {
+      const relPath = f.filePath.split("/").slice(-3).join("/");
+      const flags = [f.isNewFile ? "NEW" : "MODIFIED", f.reverted ? "REVERTED" : ""].filter(Boolean).join(", ");
+      const diffLines = f.diff.split("\n");
+      // Show first 30 lines of diff
+      const shortDiff = diffLines.slice(0, 30).join("\n");
+      const truncated = diffLines.length > 30 ? `\n... (${diffLines.length - 30} more lines)` : "";
+      return `### ${relPath} [${flags}]\n\`\`\`diff\n${shortDiff}${truncated}\n\`\`\``;
+    })
+    .join("\n\n");
+
+  return `You are performing a deep retrospective analysis of a completed AI coding session from Amp.
+Amp only stores file changes (diffs), not conversation transcripts. Analyze the diffs to understand what happened.
+
+## Session Data
+
+- Thread: ${retro.checkpointId}
+- Agent: Amp
+- Health Score: ${retro.healthScore}/100
+- Files Changed: ${files.length}
+- New Files: ${files.filter((f) => f.isNewFile).length}
+- Reverted: ${files.filter((f) => f.reverted).length}
+- Duration: ${files.length >= 2 ? `${Math.round((Math.max(...files.map((f) => f.timestamp)) - Math.min(...files.map((f) => f.timestamp))) / 60000)} min` : "N/A"}
+
+## Reverted/Churned Work
+${retro.revertedWork.map((r) => `- ${r.files.map((f) => f.split("/").pop()).join(", ")}: ${r.wastedOperations} reverted operations`).join("\n") || "None"}
+
+## Most-Touched Files
+${Object.entries(retro.effort.fileTouchCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([f, c]) => `- ${f.split("/").pop()} (${c}x)`).join("\n")}
+
+## Static Analysis Learnings
+${retro.learnings.map((l) => `- [${l.severity}/${l.category}] ${l.description} → ${l.suggestion}`).join("\n") || "None"}
+
+## File Changes (diffs)
+${diffSummaries}
+${files.length > 20 ? `\n... and ${files.length - 20} more files (omitted for brevity)` : ""}
+
+## Existing Learnings (already captured)
+${existingLearnings && existingLearnings.length > 0
+    ? existingLearnings.map((l) => `- ${l.id} [${l.category}] ${l.title}`).join("\n")
+    : "None yet"}
+
+---
+
+## Your Task
+
+Analyze the file diffs to understand what the Amp session accomplished. Be concise. Respond with ONLY this structure:
+
+**Summary:** 1-2 sentences on what was built/changed and how it went.
+
+**Top Issues:**
+For each (max 3), one line: issue → root cause → fix. Focus on reverted files and churn patterns.
+
+**Recurring:** Flag any issues that match existing learnings above. If nothing recurs, write "None".
+
+**Rules:** 3-5 new rules (not duplicating existing learnings above). Format each as a bullet starting with "- ".
+Each rule must be a direct instruction to a future AI agent. Be specific and actionable.
+
+**For the Human:** 2-3 observations about how the human could improve their collaboration with the AI agent. Be honest and constructive.
+Look at file change patterns: did the session tackle too much at once? Was there excessive churn suggesting unclear direction? Should it have been split into smaller tasks?
+Format each as a bullet starting with "- ".`;
+}
+
+/**
+ * Enrich an Amp retro using an LLM agent.
+ */
+async function enrichAmpRetro(
+  retro: Retrospective,
+  files: import("../entire/amp-native.js").AmpFileChange[],
+  projectRoot: string,
+  existingLearnings: LearningFile[],
+  agentOverride?: string,
+): Promise<void> {
+  const agentNames = agentOverride ? agentOverride.split(",").map((a) => a.trim()) : ["Amp"];
+  const prompt = generateAmpRetroPrompt(retro, files, existingLearnings);
+  const enrichments = await runMultiAgentEnrichment(agentNames, prompt, projectRoot, retro.checkpointId);
+
+  if (enrichments.length === 0) {
+    printRetro(retro);
+    return;
+  }
+
+  // Consolidate if multiple agents produced results
+  const consolidated = await maybeConsolidate(enrichments, projectRoot, retro.checkpointId);
+  const allEnrichments = consolidated ? [...enrichments, consolidated] : enrichments;
+
+  printRetro(retro, allEnrichments);
+
+  const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
+  const allRules = parseRulesFromOutput(ruleSource.content);
+  if (allRules.length > 0) {
+    await promptToSaveRules(allRules, projectRoot);
   }
 }
 
@@ -122,27 +286,57 @@ async function loadSession(
   }
 
   console.log(chalk.yellow("No session data found."));
-  console.log(chalk.gray("Supported sources: Entire.io (entire/checkpoints/v1 branch) or native Claude Code (~/.claude/projects/)."));
+  console.log(chalk.gray("Supported sources: Entire.io, native Claude Code (~/.claude/projects/), Amp (~/.amp/file-changes/)."));
   return null;
 }
 
-function enrichmentCachePath(projectRoot: string, checkpointId: string): string {
-  return join(projectRoot, ".sheal", "retros", `${checkpointId}.md`);
+function enrichmentCachePath(projectRoot: string, checkpointId: string, agent?: string): string {
+  const suffix = agent ? `.${agent}` : "";
+  return join(projectRoot, ".sheal", "retros", `${checkpointId}${suffix}.md`);
 }
 
-function saveEnrichment(projectRoot: string, checkpointId: string, content: string): void {
+function saveEnrichment(projectRoot: string, checkpointId: string, content: string, agent?: string): void {
   const dir = join(projectRoot, ".sheal", "retros");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(enrichmentCachePath(projectRoot, checkpointId), content, "utf-8");
+  writeFileSync(enrichmentCachePath(projectRoot, checkpointId, agent), content, "utf-8");
 }
 
-function loadCachedEnrichment(projectRoot: string, checkpointId: string): string | null {
-  const path = enrichmentCachePath(projectRoot, checkpointId);
-  if (!existsSync(path)) return null;
-  return readFileSync(path, "utf-8");
+interface CachedEnrichment {
+  agent: string;
+  content: string;
 }
 
-function printRetro(retro: Retrospective, agentAssessment?: string | null): void {
+/**
+ * Load all cached enrichments for a checkpoint.
+ * Supports both legacy ({id}.md) and per-agent ({id}.claude.md) formats.
+ */
+function loadCachedEnrichments(projectRoot: string, checkpointId: string): CachedEnrichment[] {
+  const dir = join(projectRoot, ".sheal", "retros");
+  if (!existsSync(dir)) return [];
+
+  const results: CachedEnrichment[] = [];
+
+  // Check for per-agent files: {id}.{agent}.md
+  const agentNames = ["consolidated", "claude", "gemini", "codex", "amp"];
+  for (const agent of agentNames) {
+    const path = enrichmentCachePath(projectRoot, checkpointId, agent);
+    if (existsSync(path)) {
+      results.push({ agent, content: readFileSync(path, "utf-8") });
+    }
+  }
+
+  // Fall back to legacy single file: {id}.md
+  if (results.length === 0) {
+    const legacyPath = enrichmentCachePath(projectRoot, checkpointId);
+    if (existsSync(legacyPath)) {
+      results.push({ agent: "agent", content: readFileSync(legacyPath, "utf-8") });
+    }
+  }
+
+  return results;
+}
+
+function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): void {
   console.log();
   console.log(chalk.bold("Session Retrospective"));
   console.log(chalk.gray("═".repeat(50)));
@@ -229,6 +423,24 @@ function printRetro(retro: Retrospective, agentAssessment?: string | null): void
     console.log();
   }
 
+  // Human patterns
+  if (retro.humanPatterns) {
+    const hp = retro.humanPatterns;
+    console.log(chalk.bold("  Human Patterns:"));
+    console.log(`    Duration: ~${hp.durationMinutes} min`);
+    console.log(`    Avg prompt interval: ~${hp.avgPromptIntervalMinutes} min`);
+    if (hp.correctionCount > 0) {
+      console.log(chalk.yellow(`    Corrections/redirects: ${hp.correctionCount}`));
+    }
+    if (hp.contextCompacted) {
+      console.log(chalk.yellow(`    ⚠ Context was compacted — session hit context limits`));
+    }
+    if (hp.shortPromptCount > 3) {
+      console.log(chalk.gray(`    ${hp.shortPromptCount} very short prompts (<20 chars)`));
+    }
+    console.log();
+  }
+
   // Hot files
   const hotFiles = Object.entries(retro.effort.fileTouchCounts)
     .sort((a, b) => b[1] - a[1])
@@ -242,13 +454,16 @@ function printRetro(retro: Retrospective, agentAssessment?: string | null): void
     console.log();
   }
 
-  // Agent assessment (if available)
-  if (agentAssessment) {
-    console.log(chalk.bold("  Agent Assessment:"));
-    for (const line of agentAssessment.split("\n")) {
-      console.log(`    ${line}`);
+  // Agent assessments (if available)
+  if (enrichments && enrichments.length > 0) {
+    for (const e of enrichments) {
+      const label = enrichments.length > 1 ? ` (${e.agent})` : "";
+      console.log(chalk.bold(`  Agent Assessment${label}:`));
+      for (const line of e.content.split("\n")) {
+        console.log(`    ${line}`);
+      }
+      console.log();
     }
-    console.log();
   } else {
     console.log(chalk.gray("  No agent assessment cached. Run with --enrich to generate one."));
     console.log();
@@ -260,48 +475,139 @@ function printRetro(retro: Retrospective, agentAssessment?: string | null): void
 
 async function enrichRetro(retro: Retrospective, checkpoint: import("../entire/types.js").Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
   const session = checkpoint.sessions[0];
-  const agentType = agentOverride ?? session?.metadata.agent;
+  const defaultAgent = session?.metadata.agent ?? "claude";
+  const agentNames = agentOverride ? agentOverride.split(",").map((a) => a.trim()) : [defaultAgent];
 
-  console.log(chalk.gray(`Detecting agent CLI (session agent: ${agentType ?? "unknown"})...`));
-  const cli = await detectAgentCli(agentType);
-
-  if (!cli) {
-    console.log(chalk.yellow("No compatible agent CLI found. Falling back to static analysis."));
-    console.log(chalk.gray("Supported: claude, gemini, codex"));
-    console.log(chalk.gray("\nUse --prompt to generate a prompt you can pipe to any LLM manually."));
-    printRetro(retro);
-    return;
-  }
-
-  console.log(chalk.gray(`Using ${cli.command} for enrichment...`));
   if (existingLearnings.length > 0) {
     console.log(chalk.gray(`Including ${existingLearnings.length} existing learnings for context.`));
   }
 
   const prompt = generateRetroPrompt(retro, checkpoint, existingLearnings);
+  const enrichments = await runMultiAgentEnrichment(agentNames, prompt, projectRoot, retro.checkpointId);
 
-  console.log(chalk.gray("Invoking agent for deep analysis (this may take a minute)..."));
-  const result = await invokeAgent(cli, prompt);
-
-  if (!result.success) {
-    console.log(chalk.red(`Agent invocation failed: ${result.error}`));
-    console.log(chalk.gray("Falling back to static-only retro.\n"));
+  if (enrichments.length === 0) {
     printRetro(retro);
     return;
   }
 
-  // Cache the enrichment
-  saveEnrichment(projectRoot, retro.checkpointId, result.output);
-  console.log(chalk.gray(`Cached to .sheal/retros/${retro.checkpointId}.md`));
+  // Consolidate if multiple agents produced results
+  const consolidated = await maybeConsolidate(enrichments, projectRoot, retro.checkpointId);
+  const allEnrichments = consolidated ? [...enrichments, consolidated] : enrichments;
 
-  // Print full retro with agent assessment included
-  printRetro(retro, result.output);
+  printRetro(retro, allEnrichments);
 
-  // Extract rules and offer to save as learnings
-  const rules = parseRulesFromOutput(result.output);
-  if (rules.length > 0) {
-    await promptToSaveRules(rules, projectRoot);
+  // Parse rules from consolidated output if available, otherwise flatMap individuals
+  const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
+  const allRules = parseRulesFromOutput(ruleSource.content);
+  if (allRules.length > 0) {
+    await promptToSaveRules(allRules, projectRoot);
   }
+}
+
+/**
+ * Run enrichment with one or more agents in parallel.
+ * Returns enrichments for all agents that succeeded.
+ */
+async function runMultiAgentEnrichment(
+  agentNames: string[],
+  prompt: string,
+  projectRoot: string,
+  checkpointId: string,
+): Promise<CachedEnrichment[]> {
+  // Resolve CLIs for all requested agents
+  const agentClis: Array<{ name: string; cli: Awaited<ReturnType<typeof detectAgentCli>> }> = [];
+  for (const name of agentNames) {
+    console.log(chalk.gray(`Detecting ${name} CLI...`));
+    const cli = await detectAgentCli(name);
+    if (cli) {
+      agentClis.push({ name, cli });
+    } else {
+      console.log(chalk.yellow(`  ${name}: not available`));
+    }
+  }
+
+  if (agentClis.length === 0) {
+    console.log(chalk.yellow("No compatible agent CLI found."));
+    console.log(chalk.gray("Supported: claude, gemini, codex, amp"));
+    console.log(chalk.gray("\nUse --prompt to generate a prompt you can pipe to any LLM manually."));
+    return [];
+  }
+
+  const enrichments: CachedEnrichment[] = [];
+
+  if (agentClis.length === 1) {
+    // Single agent — run directly
+    const { name, cli } = agentClis[0];
+    console.log(chalk.gray(`Invoking ${cli!.command} for deep analysis...`));
+    const result = await invokeAgent(cli!, prompt);
+    if (result.success) {
+      const agentLabel = agentNames.length > 1 ? name : undefined;
+      saveEnrichment(projectRoot, checkpointId, result.output, agentLabel);
+      console.log(chalk.gray(`Cached to .sheal/retros/${checkpointId}${agentLabel ? `.${agentLabel}` : ""}.md`));
+      enrichments.push({ agent: name, content: result.output });
+    } else {
+      console.log(chalk.red(`${name} failed: ${result.error}`));
+    }
+  } else {
+    // Multiple agents — run in parallel
+    console.log(chalk.gray(`Running ${agentClis.length} agents in parallel...`));
+    const results = await Promise.all(
+      agentClis.map(async ({ name, cli }) => {
+        console.log(chalk.gray(`  Invoking ${cli!.command}...`));
+        const result = await invokeAgent(cli!, prompt);
+        return { name, result };
+      }),
+    );
+
+    for (const { name, result } of results) {
+      if (result.success) {
+        saveEnrichment(projectRoot, checkpointId, result.output, name);
+        console.log(chalk.green(`  ✓ ${name} — saved to .sheal/retros/${checkpointId}.${name}.md`));
+        enrichments.push({ agent: name, content: result.output });
+      } else {
+        console.log(chalk.red(`  ✗ ${name}: ${result.error}`));
+      }
+    }
+  }
+
+  return enrichments;
+}
+
+/**
+ * If multiple agents produced enrichments, consolidate them into a single
+ * unified assessment using an LLM. Returns the consolidated enrichment,
+ * or null if consolidation wasn't needed or failed.
+ */
+async function maybeConsolidate(
+  enrichments: CachedEnrichment[],
+  projectRoot: string,
+  checkpointId: string,
+): Promise<CachedEnrichment | null> {
+  if (enrichments.length < 2) return null;
+
+  console.log(chalk.gray(`\nConsolidating ${enrichments.length} agent assessments...`));
+
+  const prompt = generateConsolidationPrompt(
+    enrichments.map((e) => ({ agent: e.agent, content: e.content })),
+  );
+
+  // Use the first available agent CLI for consolidation
+  const cli = await detectAgentCli("claude") ?? await detectAgentCli();
+  if (!cli) {
+    console.log(chalk.yellow("No agent available for consolidation. Showing individual results."));
+    return null;
+  }
+
+  const result = await invokeAgent(cli, prompt);
+  if (!result.success) {
+    console.log(chalk.yellow(`Consolidation failed: ${result.error}`));
+    return null;
+  }
+
+  saveEnrichment(projectRoot, checkpointId, result.output, "consolidated");
+  console.log(chalk.green(`  Consolidated assessment saved to .sheal/retros/${checkpointId}.consolidated.md`));
+
+  return { agent: "consolidated", content: result.output };
 }
 
 function severityIcon(learning: Learning): string {

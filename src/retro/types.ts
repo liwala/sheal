@@ -63,6 +63,26 @@ export interface Learning {
 }
 
 /**
+ * Patterns observed in the human's interaction style.
+ */
+export interface HumanPatterns {
+  /** Estimated session duration in minutes (from first to last entry) */
+  durationMinutes: number;
+  /** Average time between user prompts (minutes) */
+  avgPromptIntervalMinutes: number;
+  /** Number of correction/redirect prompts ("no", "not that", "instead", etc.) */
+  correctionCount: number;
+  /** Number of very short prompts (< 20 chars, potential vagueness signal) */
+  shortPromptCount: number;
+  /** Number of very long prompts (> 500 chars, potential over-specification) */
+  longPromptCount: number;
+  /** Whether the session likely hit context limits (compaction detected) */
+  contextCompacted: boolean;
+  /** Ratio of user prompts to total transcript entries */
+  humanEngagementRatio: number;
+}
+
+/**
  * The full retrospective report for a session.
  */
 export interface Retrospective {
@@ -86,4 +106,6 @@ export interface Retrospective {
   learnings: Learning[];
   /** Overall session health score (0-100) */
   healthScore: number;
+  /** Human interaction patterns (for human-facing feedback) */
+  humanPatterns?: HumanPatterns;
 }

@@ -239,6 +239,8 @@ export interface NativeProject {
   sessionCount: number;
   /** Most recent session modification time */
   lastModified: string;
+  /** Agent sources contributing to this project (set when merged) */
+  agents?: Array<{ agent: string; slug: string; sessionCount: number }>;
 }
 
 /**
@@ -265,7 +267,9 @@ export function listAllNativeProjects(): NativeProject[] {
     // Extract the real project path from the cwd field of the first session line.
     // The slug is lossy (can't distinguish path separators from hyphens in dir names).
     const projectPath = extractProjectPath(dir, jsonlFiles) || slug;
-    const name = projectPath.split("/").filter(Boolean).pop() || slug;
+    const name = projectPath.includes("/")
+      ? projectPath.split("/").filter(Boolean).pop() || slug
+      : slugToName(slug);
 
     // Find most recent session
     let lastModified = "";
@@ -469,6 +473,32 @@ function isUsefulPrompt(text: string): boolean {
   // Skip long preambles (>500 chars without newlines are usually injected context)
   if (text.length > 500 && !text.includes("\n")) return false;
   return true;
+}
+
+/**
+ * Extract a human-readable name from a Claude Code slug.
+ * Slugs are paths with / replaced by - (e.g., -Users-lu-code-small-projects-letai).
+ * We take the last segment as the name.
+ */
+function slugToName(slug: string): string {
+  // Split on - and take the last non-empty segment
+  // But project names can contain hyphens, so we need a heuristic.
+  // Common pattern: -Users-<user>-code-<...>-<project-name>
+  // Try to find the project name after common path segments.
+  const parts = slug.split("-").filter(Boolean);
+
+  // Known path segments to skip
+  const skipWords = new Set(["Users", "home", "code", "projects", "small", "lu", "var", "tmp", "opt", "src", "Dropbox"]);
+
+  // Walk backwards to find the first meaningful segment
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (!skipWords.has(parts[i]) && parts[i].length > 1) {
+      // Include subsequent parts too (project name might be multi-word)
+      return parts.slice(i).join("-");
+    }
+  }
+
+  return parts[parts.length - 1] || slug;
 }
 
 /**

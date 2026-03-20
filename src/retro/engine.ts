@@ -8,6 +8,7 @@ import type { Checkpoint } from "../entire/types.js";
 import type { Retrospective } from "./types.js";
 import {
   analyzeEffort,
+  analyzeHumanPatterns,
   detectFailureLoops,
   detectRevertedWork,
   detectBashFailures,
@@ -29,6 +30,7 @@ export function runRetrospective(
   }
 
   const effort = analyzeEffort(session);
+  const humanPatterns = analyzeHumanPatterns(session);
   const failureLoops = detectFailureLoops(session);
   const revertedWork = detectRevertedWork(session);
   const bashFailures = detectBashFailures(session);
@@ -46,5 +48,6 @@ export function runRetrospective(
     revertedWork,
     learnings,
     healthScore,
+    humanPatterns,
   };
 }

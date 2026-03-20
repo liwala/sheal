@@ -3,7 +3,7 @@
  */
 
 import type { Session, SessionEntry } from "../entire/types.js";
-import type { EffortBreakdown, FailureLoop, RevertedWork, Learning } from "./types.js";
+import type { EffortBreakdown, FailureLoop, RevertedWork, Learning, HumanPatterns } from "./types.js";
 
 /**
  * Build an effort breakdown from session transcript.
@@ -259,6 +259,64 @@ export function extractLearnings(
   }
 
   return learnings;
+}
+
+/**
+ * Analyze human interaction patterns from the transcript.
+ */
+export function analyzeHumanPatterns(session: Session): HumanPatterns {
+  const entries = session.transcript;
+  const userEntries = entries.filter((e) => e.type === "user");
+
+  // Duration: estimate from entry positions (timestamps not always available)
+  // Use token usage API call count as a proxy for time if timestamps unavailable
+  const tokenUsage = session.metadata.tokenUsage;
+  // Rough estimate: ~30 seconds per API call, or use entry count as proxy
+  const estimatedMinutes = tokenUsage
+    ? Math.round(tokenUsage.apiCallCount * 0.5)
+    : Math.round(entries.length * 0.15);
+
+  // Average interval between prompts
+  const avgPromptInterval = userEntries.length > 1
+    ? estimatedMinutes / userEntries.length
+    : estimatedMinutes;
+
+  // Corrections: user redirecting the agent
+  const correctionPatterns = /^(no[,.\s]|not that|instead[,\s]|wrong|stop|don'?t|actually[,\s]|wait[,\s]|I said|I meant|that'?s not|let'?s not)/i;
+  const correctionCount = userEntries.filter((e) =>
+    correctionPatterns.test(e.content.trim()),
+  ).length;
+
+  // Prompt length analysis
+  const shortPromptCount = userEntries.filter((e) => e.content.trim().length < 20).length;
+  const longPromptCount = userEntries.filter((e) => e.content.trim().length > 500).length;
+
+  // Context compaction detection (system messages about compaction/summary)
+  const contextCompacted = entries.some((e) =>
+    e.type === "system" && (
+      e.content.includes("compaction") ||
+      e.content.includes("compressed") ||
+      e.content.includes("context limit") ||
+      e.content.includes("being continued from a previous conversation")
+    ),
+  ) || entries.some((e) =>
+    e.type === "user" && e.content.includes("being continued from a previous conversation"),
+  );
+
+  // Engagement: how much of the transcript is human input
+  const humanEngagementRatio = entries.length > 0
+    ? userEntries.length / entries.length
+    : 0;
+
+  return {
+    durationMinutes: estimatedMinutes,
+    avgPromptIntervalMinutes: Math.round(avgPromptInterval * 10) / 10,
+    correctionCount,
+    shortPromptCount,
+    longPromptCount,
+    contextCompacted,
+    humanEngagementRatio: Math.round(humanEngagementRatio * 1000) / 1000,
+  };
 }
 
 /**

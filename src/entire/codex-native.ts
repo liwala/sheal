@@ -33,6 +33,15 @@ export interface CodexSessionFile {
   firstPrompt?: string;
 }
 
+export interface CodexTranscriptEntry {
+  role: "user" | "assistant" | "system";
+  content: string;
+  toolName?: string;
+  toolInput?: string;
+  toolOutput?: string;
+  timestamp?: string;
+}
+
 const CODEX_DIR = join(homedir(), ".codex", "sessions");
 
 /**
@@ -95,6 +104,56 @@ export function listCodexSessionsForProject(projectPath: string): CheckpointInfo
 }
 
 /**
+ * Load a single Codex session's full transcript by session ID.
+ */
+export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; entries: CodexTranscriptEntry[] } | null {
+  const files = collectSessionFiles();
+  const file = files.find(f => f.id === sessionId);
+  if (!file) return null;
+
+  const content = readFileSync(file.path, "utf-8");
+  const entries: CodexTranscriptEntry[] = [];
+
+  for (const line of content.split("\n")) {
+    if (!line) continue;
+    try {
+      const obj = JSON.parse(line);
+      if (obj.type === "response_item") {
+        const p = obj.payload;
+        if (p.type === "message" && Array.isArray(p.content)) {
+          const texts = p.content
+            .filter((c: any) => c.type === "input_text" || c.type === "output_text" || c.type === "text")
+            .map((c: any) => c.text || "")
+            .join("\n");
+          if (texts.trim()) {
+            entries.push({ role: p.role || "assistant", content: texts, timestamp: obj.timestamp });
+          }
+        } else if (p.type === "function_call") {
+          entries.push({
+            role: "assistant",
+            content: "",
+            toolName: p.name,
+            toolInput: typeof p.arguments === "string" ? p.arguments.slice(0, 200) : JSON.stringify(p.arguments).slice(0, 200),
+            timestamp: obj.timestamp,
+          });
+        } else if (p.type === "function_call_output") {
+          entries.push({
+            role: "system",
+            content: typeof p.output === "string" ? p.output.slice(0, 500) : JSON.stringify(p.output).slice(0, 500),
+            toolName: p.call_id,
+            timestamp: obj.timestamp,
+          });
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  return { meta: file, entries };
+}
+
+/**
  * Collect all session files from the dated directory structure.
  */
 function collectSessionFiles(): CodexSessionFile[] {
@@ -131,13 +190,27 @@ function collectSessionFiles(): CodexSessionFile[] {
   return sessions;
 }
 
+/** Check if text looks like injected system context rather than a real user prompt. */
+function isInjectedContext(text: string): boolean {
+  // AGENTS.md / CLAUDE.md injection: "# AGENTS.md instructions for ..."
+  if (/^#\s+(AGENTS|CLAUDE|Repository|Agent)/.test(text)) return true;
+  // XML-wrapped context: <environment_context>, <permissions instructions>, <INSTRUCTIONS>
+  if (/^<[a-zA-Z_]/.test(text)) return true;
+  // System prompt style
+  if (text.startsWith("You are")) return true;
+  // Very long text is likely injected docs (real prompts are usually short)
+  if (text.length > 2000) return true;
+  return false;
+}
+
 /**
  * Extract metadata from first few lines of a Codex session JSONL.
  */
 function extractCodexMeta(path: string): CodexSessionFile | null {
   try {
     const content = readFileSync(path, "utf-8");
-    const lines = content.split("\n").slice(0, 50); // Read more lines to find user prompt
+    // Read enough lines to find user prompt past injected context (meta + developer + 2-3 injected + prompt)
+    const lines = content.split("\n").slice(0, 20);
 
     let id = "";
     let cwd = "";
@@ -167,10 +240,7 @@ function extractCodexMeta(path: string): CodexSessionFile | null {
             for (const block of p.content) {
               if (block.type === "input_text" && typeof block.text === "string") {
                 const text = block.text.trim();
-                // Skip injected context (AGENTS.md, system prompts, etc.)
-                if (text.length > 5 && text.length < 500 &&
-                    !text.startsWith("#") && !text.startsWith("<") &&
-                    !text.startsWith("You are")) {
+                if (text.length > 5 && !isInjectedContext(text)) {
                   firstPrompt = text.split("\n")[0].slice(0, 80);
                   break;
                 }
