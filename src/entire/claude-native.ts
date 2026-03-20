@@ -481,14 +481,18 @@ function isUsefulPrompt(text: string): boolean {
  * We take the last segment as the name.
  */
 function slugToName(slug: string): string {
-  // Split on - and take the last non-empty segment
-  // But project names can contain hyphens, so we need a heuristic.
+  // First try to reconstruct the real path and use the last component
+  const path = slug2path(slug);
+  if (path) {
+    return path.split("/").filter(Boolean).pop() || slug;
+  }
+
+  // Fallback heuristic: split on - and find the project name.
   // Common pattern: -Users-<user>-code-<...>-<project-name>
-  // Try to find the project name after common path segments.
   const parts = slug.split("-").filter(Boolean);
 
   // Known path segments to skip
-  const skipWords = new Set(["Users", "home", "code", "projects", "small", "lu", "var", "tmp", "opt", "src", "Dropbox"]);
+  const skipWords = new Set(["Users", "home", "code", "projects", "small", "var", "tmp", "opt", "src", "Dropbox"]);
 
   // Walk backwards to find the first meaningful segment
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -506,28 +510,64 @@ function slugToName(slug: string): string {
  * Returns null if no cwd found.
  */
 function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
-  // Try the first file's first few lines
-  const first = jsonlFiles[0];
-  if (!first) return null;
+  // Try up to 3 files' first few lines to find a cwd
+  const filesToTry = jsonlFiles.slice(0, 3);
 
-  try {
-    const content = readFileSync(join(dir, first), "utf-8");
-    // Only read up to the first 5 lines to avoid parsing huge files
-    const lines = content.split("\n").slice(0, 5);
-    for (const line of lines) {
-      if (!line) continue;
-      try {
-        const obj = JSON.parse(line);
-        if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
-          return obj.cwd;
+  for (const file of filesToTry) {
+    try {
+      const content = readFileSync(join(dir, file), "utf-8");
+      const lines = content.split("\n").slice(0, 5);
+      for (const line of lines) {
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
+            return obj.cwd;
+          }
+        } catch {
+          // skip
         }
-      } catch {
-        // skip
       }
+    } catch {
+      // skip
     }
-  } catch {
-    // skip
   }
+
+  // Fallback: reconstruct path from slug.
+  // Slug format is the absolute path with / replaced by -.
+  // e.g., -Users-lu-code-foo → /Users/lu/code/foo
+  // This is ambiguous when directory names contain hyphens, but we can
+  // validate by checking if the reconstructed path exists.
+  const reconstructed = slug2path(dir.split("/").pop() || "");
+  if (reconstructed && existsSync(reconstructed)) {
+    return reconstructed;
+  }
+
+  return null;
+}
+
+/**
+ * Attempt to reconstruct an absolute path from a Claude Code slug.
+ * Tries the simple case (replace leading - with / and remaining - with /)
+ * then validates the result exists on disk.
+ */
+function slug2path(slug: string): string | null {
+  if (!slug.startsWith("-")) return null;
+  // Simple reconstruction: replace all - with /
+  const candidate = slug.replace(/-/g, "/");
+  if (existsSync(candidate)) return candidate;
+
+  // Try splitting at common prefixes and reconstructing
+  // e.g., -Users-lu-code-my-project → /Users/lu/code/my-project
+  const parts = slug.slice(1).split("-"); // remove leading -
+  // Try progressively joining later segments with hyphens
+  for (let splitAt = parts.length - 1; splitAt >= 3; splitAt--) {
+    const prefix = "/" + parts.slice(0, splitAt).join("/");
+    const suffix = parts.slice(splitAt).join("-");
+    const path = suffix ? prefix + "/" + suffix : prefix;
+    if (existsSync(path)) return path;
+  }
+
   return null;
 }
 
