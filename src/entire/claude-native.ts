@@ -80,7 +80,7 @@ export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
         checkpointId: file.sessionId,
         sessionId: file.sessionId,
         createdAt: meta.createdAt || stat.mtime.toISOString(),
-        filesTouched: [],
+        filesTouched: meta.filesTouched ?? [],
         agent: "Claude Code",
         sessionCount: 1,
         sessionIds: [file.sessionId],
@@ -106,6 +106,7 @@ function extractSessionMeta(path: string): {
   version?: string;
   totalTokens?: TokenUsage;
   firstPrompt?: string;
+  filesTouched?: string[];
 } {
   const content = readFileSync(path, "utf-8");
   const lines = content.split("\n").filter(Boolean);
@@ -120,6 +121,7 @@ function extractSessionMeta(path: string): {
   let totalCacheRead = 0;
   let totalCacheCreate = 0;
   let apiCalls = 0;
+  const filesSet = new Set<string>();
 
   for (const line of lines) {
     try {
@@ -140,6 +142,19 @@ function extractSessionMeta(path: string): {
           const raw = extractRawUserText(obj);
           if (raw && raw.length > 20) {
             pipedFallback = `[piped] ${summarizePipedPrompt(raw)}`;
+          }
+        }
+      }
+
+      // Extract file paths from tool_use blocks in assistant messages
+      if (obj.type === "assistant" && obj.message?.content) {
+        const blocks = Array.isArray(obj.message.content) ? obj.message.content : [];
+        for (const block of blocks) {
+          if (block.type === "tool_use" && block.input) {
+            const fp = block.input.file_path ?? block.input.filePath ?? block.input.path;
+            if (typeof fp === "string" && fp.startsWith("/")) {
+              filesSet.add(fp);
+            }
           }
         }
       }
@@ -172,7 +187,8 @@ function extractSessionMeta(path: string): {
     apiCallCount: apiCalls,
   } : undefined;
 
-  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback };
+  const filesTouched = filesSet.size > 0 ? [...filesSet] : undefined;
+  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback, filesTouched };
 }
 
 /**
@@ -322,7 +338,7 @@ export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
         checkpointId: file.sessionId,
         sessionId: file.sessionId,
         createdAt: meta.createdAt || stat.mtime.toISOString(),
-        filesTouched: [],
+        filesTouched: meta.filesTouched ?? [],
         agent: "Claude Code",
         sessionCount: 1,
         sessionIds: [file.sessionId],

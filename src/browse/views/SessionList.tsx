@@ -175,6 +175,7 @@ export function SessionList({
               <Text color={agentColor as any}> [{s.agent === "Claude Code" ? "claude" : s.agent.toLowerCase()}]</Text>
             )}
             {retroSet.has(s.sessionId) && <Text color="magenta"> [R]</Text>}
+            {s.filesTouched.length > 0 && <Text dimColor> {s.filesTouched.length}f</Text>}
             {s.title && <Text dimColor={isPiped && globalIdx !== cursor}> {s.title.slice(0, 50)}</Text>}
           </Box>
           );
