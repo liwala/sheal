@@ -1,4 +1,7 @@
 import chalk from "chalk";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import {
   hasNativeTranscripts,
@@ -81,6 +84,20 @@ export async function runAsk(options: AskOptions): Promise<void> {
 
   console.log();
   console.log(result.output);
+
+  // Save the ask result
+  const saveDir = options.global
+    ? join(homedir(), ".sheal", "asks")
+    : join(projectRoot, ".sheal", "asks");
+  const savedPath = saveAskResult(saveDir, {
+    question,
+    searchTerms: keywords,
+    matches,
+    answer: result.output,
+    agent: cli.command,
+    global: !!options.global,
+  });
+  console.log(chalk.gray(`\nSaved to ${savedPath}`));
 }
 
 /**
@@ -291,6 +308,63 @@ function truncateExcerpt(entry: SessionEntry, keywords: string[]): string | null
   const slice = content.slice(start, end);
 
   return prefix + (start > 0 ? "..." : "") + slice + (end < content.length ? "..." : "");
+}
+
+/**
+ * Save an ask result as a markdown file with frontmatter.
+ */
+function saveAskResult(
+  dir: string,
+  data: {
+    question: string;
+    searchTerms: string[];
+    matches: SessionMatch[];
+    answer: string;
+    agent: string;
+    global: boolean;
+  },
+): string {
+  mkdirSync(dir, { recursive: true });
+
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10);
+  const timestamp = now.toISOString().slice(0, 19).replace(/[T:]/g, "-");
+  const slug = data.question
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 50);
+  const filename = `${timestamp}-${slug}.md`;
+
+  const sessionRefs = data.matches
+    .slice(0, 10)
+    .map((m) => {
+      const project = m.projectName ? `[${m.projectName}] ` : "";
+      return `- ${project}${m.sessionId.slice(0, 12)} (${m.createdAt?.slice(0, 10) || "?"}, ${m.score} hits)`;
+    })
+    .join("\n");
+
+  const content = `---
+question: ${data.question}
+date: ${date}
+search_terms: [${data.searchTerms.join(", ")}]
+sessions_matched: ${data.matches.length}
+agent: ${data.agent}
+scope: ${data.global ? "global" : "project"}
+---
+
+## Answer
+
+${data.answer}
+
+## Sessions Referenced
+
+${sessionRefs}
+`;
+
+  const path = join(dir, filename);
+  writeFileSync(path, content, "utf-8");
+  return path;
 }
 
 /**

@@ -127,6 +127,112 @@ export interface LearningInfo {
 }
 
 /**
+ * Info about a stored ask result.
+ */
+export interface AskInfo {
+  filename: string;
+  question: string;
+  date: string;
+  searchTerms: string[];
+  sessionCount: number;
+  preview: string;
+}
+
+/**
+ * Count stored ask results for a project.
+ */
+export function countAsks(projectPath: string): number {
+  const dir = join(projectPath, ".sheal", "asks");
+  if (!existsSync(dir)) return 0;
+  try {
+    return readdirSync(dir).filter((f) => f.endsWith(".md")).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Count global ask results.
+ */
+export function countGlobalAsks(): number {
+  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+  const dir = join(homeDir, ".sheal", "asks");
+  if (!existsSync(dir)) return 0;
+  try {
+    return readdirSync(dir).filter((f) => f.endsWith(".md")).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * List ask results from a directory.
+ */
+export function listAsks(dir: string): AskInfo[] {
+  if (!existsSync(dir)) return [];
+
+  try {
+    return readdirSync(dir)
+      .filter((f) => f.endsWith(".md"))
+      .map((f) => {
+        const content = readFileSync(join(dir, f), "utf-8");
+        return parseAskFrontmatter(f, content);
+      })
+      .filter((a): a is AskInfo => a !== null)
+      .sort((a, b) => b.date.localeCompare(a.date));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Load full content of an ask result.
+ */
+export function loadAskContent(dir: string, filename: string): string | null {
+  const path = join(dir, filename);
+  if (!existsSync(path)) return null;
+  try {
+    return readFileSync(path, "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+function parseAskFrontmatter(filename: string, content: string): AskInfo | null {
+  const match = content.match(/^---\n([\s\S]*?)\n---/);
+  if (!match) return null;
+
+  const fm = match[1];
+  const get = (key: string): string => {
+    const m = fm.match(new RegExp(`^${key}:\\s*(.+)`, "m"));
+    return m ? m[1].trim() : "";
+  };
+  const getArray = (key: string): string[] => {
+    const raw = get(key);
+    const arrMatch = raw.match(/\[([^\]]*)\]/);
+    if (arrMatch) return arrMatch[1].split(",").map((s) => s.trim());
+    return raw ? [raw] : [];
+  };
+
+  const bodyStart = content.indexOf("\n---", 4);
+  const body = bodyStart >= 0 ? content.slice(bodyStart + 4).trim() : "";
+  // Preview: first non-empty line of the answer section
+  const answerMatch = body.match(/## Answer\n+([\s\S]*?)(?:\n##|$)/);
+  const preview = answerMatch
+    ? answerMatch[1].split("\n").find((l) => l.trim())?.slice(0, 100) || ""
+    : body.split("\n").find((l) => l.trim())?.slice(0, 100) || "";
+
+  return {
+    filename,
+    question: get("question"),
+    date: get("date"),
+    searchTerms: getArray("search_terms"),
+    sessionCount: parseInt(get("sessions_matched")) || 0,
+    preview,
+  };
+}
+
+/**
  * List learnings from a directory with parsed frontmatter.
  */
 export function listLearningFiles(dir: string): LearningInfo[] {

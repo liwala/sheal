@@ -4,12 +4,17 @@ import type { NativeProject } from "../entire/claude-native.js";
 import type { CheckpointInfo } from "../entire/types.js";
 import type { View } from "./types.js";
 import { ProjectList } from "./views/ProjectList.js";
+import { ProjectOverview } from "./views/ProjectOverview.js";
 import { SessionList } from "./views/SessionList.js";
 import { SessionDetail } from "./views/SessionDetail.js";
+import { AmpSessionDetail } from "./views/AmpSessionDetail.js";
+import { CodexSessionDetail } from "./views/CodexSessionDetail.js";
 import { SearchResults } from "./views/SearchResults.js";
 import { RetroList } from "./views/RetroList.js";
 import { RetroDetail } from "./views/RetroDetail.js";
 import { LearningsList } from "./views/LearningsList.js";
+import { AsksList } from "./views/AsksList.js";
+import { AskDetail } from "./views/AskDetail.js";
 
 const AGENTS = [null, "claude", "codex", "amp", "gemini"];
 
@@ -22,21 +27,20 @@ interface AppProps {
 
 export function App({ initialProject, initialQuery, initialAgent, initialView }: AppProps) {
   const { exit } = useApp();
-  // Views that need a project selected first — start at project selection
-  const needsProject = initialView && ["retro-list", "learnings", "sessions"].includes(initialView);
+  const needsProject = initialView && ["retro-list", "learnings", "sessions", "asks-list"].includes(initialView);
   const [view, setView] = useState<View>(
     needsProject ? "projects" : (initialView || (initialQuery ? "search-results" : "projects")),
   );
   const [selectedProject, setSelectedProject] = useState<NativeProject | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string>("");
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
+  const [selectedAgent, setSelectedAgent] = useState<string>("");
+  const [selectedAskFile, setSelectedAskFile] = useState<string>("");
   const [agentFilter, setAgentFilter] = useState<string | null>(initialAgent || null);
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
-  // Track where retro-detail was entered from
   const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
-  // If starting in a view that needs a project, remember where to go after selection
   const pendingViewRef = useRef<View | null>(
-    initialView && ["retro-list", "learnings"].includes(initialView) ? initialView : null,
+    initialView && ["retro-list", "learnings", "asks-list"].includes(initialView) ? initialView : null,
   );
 
   const handleQuit = useCallback(() => exit(), [exit]);
@@ -54,15 +58,23 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
       setView(pendingViewRef.current);
       pendingViewRef.current = null;
     } else {
-      setView("sessions");
+      setView("project-overview");
     }
   }, []);
 
   const handleSelectSession = useCallback((session: CheckpointInfo) => {
-    if (selectedProject) {
+    if (selectedProject?.agents) {
+      const agentKey = session.agent === "Claude Code" ? "claude"
+        : session.agent === "Codex" ? "codex"
+        : session.agent === "Amp" ? "amp"
+        : "claude";
+      const match = selectedProject.agents.find((a) => a.agent === agentKey);
+      setSelectedSlug(match?.slug || selectedProject.slug);
+    } else if (selectedProject) {
       setSelectedSlug(selectedProject.slug);
     }
     setSelectedSessionId(session.sessionId);
+    setSelectedAgent(session.agent || "");
     setView("detail");
   }, [selectedProject]);
 
@@ -76,29 +88,20 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
     setView("search-results");
   }, []);
 
-  const handleViewRetros = useCallback(() => {
-    setView("retro-list");
-  }, []);
-
-  const handleViewLearnings = useCallback(() => {
-    setView("learnings");
-  }, []);
-
-  // From project list: select project and go directly to retros/learnings
-  const handleViewRetrosForProject = useCallback((project: NativeProject) => {
-    setSelectedProject(project);
-    setView("retro-list");
-  }, []);
-
-  const handleViewLearningsForProject = useCallback((project: NativeProject) => {
-    setSelectedProject(project);
-    setView("learnings");
-  }, []);
+  const handleViewSessions = useCallback(() => { setView("sessions"); }, []);
+  const handleViewRetros = useCallback(() => { setView("retro-list"); }, []);
+  const handleViewLearnings = useCallback(() => { setView("learnings"); }, []);
+  const handleViewAsks = useCallback(() => { setView("asks-list"); }, []);
 
   const handleSelectRetro = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
     setRetroFrom("retro-list");
     setView("retro-detail");
+  }, []);
+
+  const handleSelectAsk = useCallback((filename: string) => {
+    setSelectedAskFile(filename);
+    setView("ask-detail");
   }, []);
 
   const handleViewRetroFromSession = useCallback(() => {
@@ -108,21 +111,18 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
 
   const handleBack = useCallback(() => {
     if (view === "detail") {
-      if (selectedProject) {
-        setView("sessions");
-      } else {
-        setView("search-results");
-      }
-    } else if (view === "sessions") {
+      setView(selectedProject ? "sessions" : "search-results");
+    } else if (view === "sessions" || view === "retro-list" || view === "learnings" || view === "asks-list") {
+      setView("project-overview");
+    } else if (view === "project-overview") {
       setView("projects");
       setSelectedProject(null);
     } else if (view === "search-results") {
       setView("projects");
-    } else if (view === "retro-list" || view === "learnings") {
-      // Go back to sessions if we came from there, otherwise projects
-      setView("sessions");
     } else if (view === "retro-detail") {
       setView(retroFrom === "session" ? "detail" : "retro-list");
+    } else if (view === "ask-detail") {
+      setView("asks-list");
     }
   }, [view, selectedProject, retroFrom]);
 
@@ -135,9 +135,21 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
           onQuit={handleQuit}
           agentFilter={agentFilter}
           onAgentFilterToggle={handleAgentToggle}
-          onViewLearnings={handleViewLearningsForProject}
-          onViewRetros={handleViewRetrosForProject}
           initialFilter={initialProject}
+        />
+      );
+
+    case "project-overview":
+      if (!selectedProject) return null;
+      return (
+        <ProjectOverview
+          project={selectedProject}
+          onViewSessions={handleViewSessions}
+          onViewRetros={handleViewRetros}
+          onViewLearnings={handleViewLearnings}
+          onViewAsks={handleViewAsks}
+          onBack={handleBack}
+          onQuit={handleQuit}
         />
       );
 
@@ -152,12 +164,31 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
           onQuit={handleQuit}
           agentFilter={agentFilter}
           onAgentFilterToggle={handleAgentToggle}
-          onViewRetros={handleViewRetros}
-          onViewLearnings={handleViewLearnings}
         />
       );
 
     case "detail":
+      if (selectedSessionId.startsWith("T-")) {
+        return (
+          <AmpSessionDetail
+            threadId={selectedSessionId}
+            projectPath={selectedProject?.projectPath || ""}
+            onBack={handleBack}
+            onQuit={handleQuit}
+          />
+        );
+      }
+      if (selectedAgent === "Codex") {
+        return (
+          <CodexSessionDetail
+            sessionId={selectedSessionId}
+            projectPath={selectedProject?.projectPath || ""}
+            onBack={handleBack}
+            onQuit={handleQuit}
+            onViewRetro={handleViewRetroFromSession}
+          />
+        );
+      }
       return (
         <SessionDetail
           slug={selectedSlug}
@@ -207,6 +238,28 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
         <LearningsList
           projectPath={selectedProject.projectPath}
           projectName={selectedProject.name}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "asks-list":
+      if (!selectedProject) return null;
+      return (
+        <AsksList
+          projectPath={selectedProject.projectPath}
+          projectName={selectedProject.name}
+          onSelect={handleSelectAsk}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "ask-detail":
+      return (
+        <AskDetail
+          projectPath={selectedProject?.projectPath || ""}
+          filename={selectedAskFile}
           onBack={handleBack}
           onQuit={handleQuit}
         />
