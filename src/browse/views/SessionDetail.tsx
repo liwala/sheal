@@ -88,7 +88,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     if (input === "q") { onQuit(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
-    if (input === "r" && hasRetroFile) { onViewRetro(); return; }
+    if (input === "r") { onViewRetro(); return; }
 
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
