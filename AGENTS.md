@@ -127,6 +127,10 @@ For more details, see README.md and docs/QUICKSTART.md.
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 
+## Git Discipline
+
+Commit and push after every logical change. Do not accumulate uncommitted work across multiple features. Each commit should be a focused, atomic unit. Push immediately after committing.
+
 ## Self-Healing Workflow
 
 Run `sheal check` at the start of every session to catch environment issues early.

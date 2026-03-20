@@ -6,6 +6,7 @@ import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
 import { runAsk } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
+import { runInit } from "./commands/init.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const program = new Command();
@@ -127,6 +128,18 @@ browse
     await runBrowse({
       project: opts.project,
       startView: "learnings",
+    });
+  });
+
+program
+  .command("init")
+  .description("Bootstrap sheal awareness in agent instruction files")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--dry-run", "Show what would be done without making changes", false)
+  .action(async (opts) => {
+    await runInit({
+      projectRoot: opts.project,
+      dryRun: opts.dryRun,
     });
   });
 
