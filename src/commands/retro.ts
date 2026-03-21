@@ -108,14 +108,18 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     selected = selected.slice(0, options.last);
   }
 
-  console.log(chalk.bold(`Running retro on ${selected.length} session(s)...\n`));
+  if (options.format !== "json") {
+    console.log(chalk.bold(`Running retro on ${selected.length} session(s)...\n`));
+  }
 
   const retros: Retrospective[] = [];
 
   for (const info of selected) {
     const checkpoint = loadNativeSession(repoPath, info.sessionId);
     if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
-      console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (no transcript)`));
+      if (options.format !== "json") {
+        console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (no transcript)`));
+      }
       continue;
     }
 
