@@ -75,6 +75,31 @@ function printOverview(graph: KnowledgeGraph): void {
     console.log();
   }
 
+  // Correlations
+  if (graph.correlations.length > 0) {
+    const crossAgent = graph.correlations.filter((c) => c.crossAgent);
+    const sameAgent = graph.correlations.filter((c) => !c.crossAgent);
+
+    console.log(chalk.bold("Session Correlations") + chalk.gray(` (${graph.correlations.length} detected)`));
+
+    if (crossAgent.length > 0) {
+      console.log(chalk.yellow("  Cross-agent:"));
+      for (const c of crossAgent.slice(0, 5)) {
+        console.log(`    ${c.description}`);
+        const fileList = c.sharedFiles.slice(0, 3).map((f) => f.split("/").pop()).join(", ");
+        console.log(chalk.gray(`      Files: ${fileList}${c.sharedFiles.length > 3 ? ` +${c.sharedFiles.length - 3} more` : ""}`));
+      }
+    }
+
+    if (sameAgent.length > 0) {
+      console.log(chalk.gray(`  Same-agent: ${sameAgent.length} overlapping session pairs`));
+      for (const c of sameAgent.slice(0, 3)) {
+        console.log(`    ${c.description}`);
+      }
+    }
+    console.log();
+  }
+
   // Recent sessions
   console.log(chalk.bold("Recent Sessions"));
   for (const s of graph.sessions.slice(0, 5)) {

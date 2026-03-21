@@ -43,6 +43,22 @@ export interface SessionNode {
   healthScore?: number;
 }
 
+/**
+ * A detected correlation between sessions that touched the same files.
+ */
+export interface SessionCorrelation {
+  /** Sessions involved */
+  sessions: Array<{ sessionId: string; agent: string; date: string }>;
+  /** Files touched by both/all sessions */
+  sharedFiles: string[];
+  /** Time gap between sessions (in minutes) */
+  timeGapMinutes: number;
+  /** Whether the sessions are from different agents */
+  crossAgent: boolean;
+  /** Description of the correlation */
+  description: string;
+}
+
 export interface KnowledgeGraph {
   /** Project identifier */
   project: string;
@@ -56,6 +72,8 @@ export interface KnowledgeGraph {
   sessions: SessionNode[];
   /** Hot files: most frequently modified across sessions */
   hotFiles: Array<{ path: string; totalTouches: number; agentCount: number }>;
+  /** Detected correlations between sessions (file overlap within time window) */
+  correlations: SessionCorrelation[];
   /** Summary stats */
   stats: {
     totalSessions: number;
