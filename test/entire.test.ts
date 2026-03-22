@@ -58,6 +58,56 @@ describe("parseTranscript", () => {
     });
   });
 
+  describe("multi-tool messages", () => {
+    it("captures all tool_use blocks from a single assistant message", () => {
+      // Simulate a Claude Code envelope with multiple parallel tool calls
+      const line = JSON.stringify({
+        type: "assistant",
+        uuid: "msg-multi",
+        timestamp: "2026-03-20T10:00:00Z",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I'll read both files." },
+            { type: "tool_use", id: "tool-1", name: "Read", input: { file_path: "/src/a.ts" } },
+            { type: "tool_use", id: "tool-2", name: "Read", input: { file_path: "/src/b.ts" } },
+            { type: "tool_use", id: "tool-3", name: "Edit", input: { file_path: "/src/c.ts", new_string: "x" } },
+          ],
+        },
+      });
+
+      const entries = parseTranscript(line);
+      // Should get: 1 text entry + 3 tool entries = 4
+      expect(entries.length).toBe(4);
+
+      const textEntry = entries.find((e) => e.type === "assistant");
+      expect(textEntry?.content).toContain("I'll read both files");
+
+      const toolEntries = entries.filter((e) => e.type === "tool");
+      expect(toolEntries).toHaveLength(3);
+      expect(toolEntries.map((e) => e.toolName)).toEqual(["Read", "Read", "Edit"]);
+      expect(toolEntries[2].filesAffected).toEqual(["/src/c.ts"]);
+    });
+
+    it("returns single entry for single tool_use (no wrapping)", () => {
+      const line = JSON.stringify({
+        type: "assistant",
+        uuid: "msg-single",
+        timestamp: "2026-03-20T10:00:00Z",
+        message: {
+          role: "assistant",
+          content: [
+            { type: "tool_use", id: "tool-1", name: "Read", input: { file_path: "/src/a.ts" } },
+          ],
+        },
+      });
+
+      const entries = parseTranscript(line);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].toolName).toBe("Read");
+    });
+  });
+
   describe("edge cases", () => {
     it("handles empty input", () => {
       const entries = parseTranscript("");
