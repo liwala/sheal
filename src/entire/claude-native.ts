@@ -22,7 +22,6 @@ import type {
   CheckpointInfo,
   CheckpointRoot,
   Session,
-  SessionMetadata,
   TokenUsage,
 } from "./types.js";
 
@@ -59,7 +58,14 @@ export function hasNativeTranscripts(projectRoot: string): boolean {
 export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
   const dir = getClaudeProjectDir(projectRoot);
   if (!dir) return [];
+  return listSessionsFromDir(dir);
+}
 
+/**
+ * List sessions from a given Claude Code project directory.
+ * Shared implementation for both project-root and slug-based lookups.
+ */
+function listSessionsFromDir(dir: string): CheckpointInfo[] {
   const jsonlFiles = readdirSync(dir)
     .filter((f) => f.endsWith(".jsonl"))
     .map((f) => ({
@@ -73,7 +79,6 @@ export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
   for (const file of jsonlFiles) {
     try {
       const stat = statSync(file.path);
-      // Read first few lines to extract metadata
       const meta = extractSessionMeta(file.path);
 
       sessions.push({
@@ -91,9 +96,7 @@ export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
     }
   }
 
-  // Sort most recent first
   sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
   return sessions;
 }
 
@@ -201,7 +204,14 @@ export function loadNativeSession(
 ): Checkpoint | null {
   const dir = getClaudeProjectDir(projectRoot);
   if (!dir) return null;
+  return loadSessionFromDir(dir, sessionId);
+}
 
+/**
+ * Load a session from a given directory.
+ * Shared implementation for both project-root and slug-based lookups.
+ */
+function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
   const path = join(dir, `${sessionId}.jsonl`);
   if (!existsSync(path)) return null;
 
@@ -209,7 +219,6 @@ export function loadNativeSession(
   const meta = extractSessionMeta(path);
   const transcript = parseTranscript(content, "Claude Code");
 
-  // Build Session
   const session: Session = {
     metadata: {
       checkpointId: sessionId,
@@ -228,7 +237,6 @@ export function loadNativeSession(
       .map((e) => e.content),
   };
 
-  // Build CheckpointRoot
   const root: CheckpointRoot = {
     checkpointId: sessionId,
     strategy: "native",
@@ -318,39 +326,7 @@ export function listAllNativeProjects(): NativeProject[] {
 export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
   const dir = join(homedir(), ".claude", "projects", slug);
   if (!existsSync(dir)) return [];
-
-  const jsonlFiles = readdirSync(dir)
-    .filter((f) => f.endsWith(".jsonl"))
-    .map((f) => ({
-      name: f,
-      sessionId: f.replace(".jsonl", ""),
-      path: join(dir, f),
-    }));
-
-  const sessions: CheckpointInfo[] = [];
-
-  for (const file of jsonlFiles) {
-    try {
-      const stat = statSync(file.path);
-      const meta = extractSessionMeta(file.path);
-
-      sessions.push({
-        checkpointId: file.sessionId,
-        sessionId: file.sessionId,
-        createdAt: meta.createdAt || stat.mtime.toISOString(),
-        filesTouched: meta.filesTouched ?? [],
-        agent: "Claude Code",
-        sessionCount: 1,
-        sessionIds: [file.sessionId],
-        title: meta.firstPrompt,
-      });
-    } catch {
-      // skip
-    }
-  }
-
-  sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return sessions;
+  return listSessionsFromDir(dir);
 }
 
 /**
@@ -361,41 +337,7 @@ export function loadNativeSessionBySlug(
   sessionId: string,
 ): Checkpoint | null {
   const dir = join(homedir(), ".claude", "projects", slug);
-  const path = join(dir, `${sessionId}.jsonl`);
-  if (!existsSync(path)) return null;
-
-  const content = readFileSync(path, "utf-8");
-  const meta = extractSessionMeta(path);
-  const transcript = parseTranscript(content, "Claude Code");
-
-  const session: Session = {
-    metadata: {
-      checkpointId: sessionId,
-      sessionId,
-      strategy: "native",
-      createdAt: meta.createdAt,
-      checkpointsCount: 0,
-      filesTouched: extractFilesTouched(transcript),
-      agent: "Claude Code",
-      model: meta.model,
-      tokenUsage: meta.totalTokens,
-    },
-    transcript,
-    prompts: transcript
-      .filter((e) => e.type === "user")
-      .map((e) => e.content),
-  };
-
-  const root: CheckpointRoot = {
-    checkpointId: sessionId,
-    strategy: "native",
-    checkpointsCount: 0,
-    filesTouched: session.metadata.filesTouched,
-    sessions: [],
-    tokenUsage: meta.totalTokens,
-  };
-
-  return { root, sessions: [session] };
+  return loadSessionFromDir(dir, sessionId);
 }
 
 /**
