@@ -710,11 +710,15 @@ function severityIcon(learning: Learning): string {
 
 /**
  * Parse rules from the agent's enrichment output.
- * Looks for bullet points under the **Rules:** section.
+ * Looks for bullet points under a "Rules" section heading.
+ * Tolerates various LLM formatting: **Rules:**, ## Rules, ### Rules:, etc.
  */
-function parseRulesFromOutput(output: string): string[] {
-  // Find the Rules section
-  const rulesMatch = output.match(/\*\*Rules:\*\*\s*\n([\s\S]*?)(?:\n\*\*|\n##|$)/);
+export function parseRulesFromOutput(output: string): string[] {
+  // Match various heading formats for "Rules":
+  //   **Rules:**   **Rules**:   ## Rules   ### Rules:   Rules:
+  const rulesMatch = output.match(
+    /(?:\*{1,2}Rules\*{0,2}\s*:?\s*\*{0,2}|#{1,4}\s*Rules\s*:?)\s*\n([\s\S]*?)(?:\n\*{1,2}[A-Z]|\n#{1,4}\s|$)/,
+  );
   if (!rulesMatch) return [];
 
   const rulesBlock = rulesMatch[1];
@@ -722,8 +726,8 @@ function parseRulesFromOutput(output: string): string[] {
 
   for (const line of rulesBlock.split("\n")) {
     const trimmed = line.trim();
-    // Match bullet lines: "- rule text" or "* rule text"
-    const bulletMatch = trimmed.match(/^[-*]\s+(.+)/);
+    // Match bullet lines: "- rule text", "* rule text", or "N. rule text"
+    const bulletMatch = trimmed.match(/^(?:[-*]|\d+[.)]\s)\s*(.+)/);
     if (bulletMatch) {
       rules.push(bulletMatch[1].trim());
     }
