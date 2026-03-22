@@ -13,7 +13,7 @@
  *   { type, message, uuid, timestamp, sessionId, version, cwd, ... }
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parseTranscript } from "./transcript.js";
@@ -100,10 +100,37 @@ function listSessionsFromDir(dir: string): CheckpointInfo[] {
   return sessions;
 }
 
+/** Max bytes to read when extracting metadata for listing (64KB). */
+const META_READ_LIMIT = 64 * 1024;
+
 /**
- * Extract basic metadata from the first few lines of a session JSONL.
+ * Read the first `maxBytes` of a file and return complete lines.
+ * Avoids reading multi-MB session files when we only need metadata.
  */
-function extractSessionMeta(path: string): {
+function readHeadBytes(path: string, maxBytes: number): string {
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = readSync(fd, buf, 0, maxBytes, 0);
+    const raw = buf.toString("utf-8", 0, bytesRead);
+    // Drop the last partial line (if the file was truncated mid-line)
+    const lastNewline = raw.lastIndexOf("\n");
+    return lastNewline >= 0 ? raw.slice(0, lastNewline) : raw;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * Extract basic metadata from a session JSONL.
+ *
+ * When called with only a path (listing mode), reads only the first 64KB
+ * to avoid loading multi-MB files just for titles and dates.
+ *
+ * When called with content (loading mode), parses the full content —
+ * this avoids a redundant re-read since the caller already has the file.
+ */
+function extractSessionMeta(path: string, fullContent?: string): {
   createdAt: string;
   model?: string;
   version?: string;
@@ -111,7 +138,7 @@ function extractSessionMeta(path: string): {
   firstPrompt?: string;
   filesTouched?: string[];
 } {
-  const content = readFileSync(path, "utf-8");
+  const content = fullContent ?? readHeadBytes(path, META_READ_LIMIT);
   const lines = content.split("\n").filter(Boolean);
 
   let createdAt = "";
@@ -216,7 +243,7 @@ function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
   if (!existsSync(path)) return null;
 
   const content = readFileSync(path, "utf-8");
-  const meta = extractSessionMeta(path);
+  const meta = extractSessionMeta(path, content);
   const transcript = parseTranscript(content, "Claude Code");
 
   const session: Session = {
@@ -473,7 +500,7 @@ function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
 
   for (const file of filesToTry) {
     try {
-      const content = readFileSync(join(dir, file), "utf-8");
+      const content = readHeadBytes(join(dir, file), 4096);
       const lines = content.split("\n").slice(0, 5);
       for (const line of lines) {
         if (!line) continue;
