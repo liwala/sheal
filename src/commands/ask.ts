@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
@@ -410,4 +410,78 @@ function buildAnalysisPrompt(question: string, matches: SessionMatch[]): string 
   parts.push("5. Keep your answer concise and actionable (under 500 words)");
 
   return parts.join("\n");
+}
+
+/**
+ * List previously saved ask results.
+ */
+export function runAskList(options: { projectRoot: string; global?: boolean }): void {
+  const dir = options.global
+    ? join(homedir(), ".sheal", "asks")
+    : join(options.projectRoot, ".sheal", "asks");
+
+  if (!existsSync(dir)) {
+    console.log(chalk.yellow("No saved ask results found."));
+    return;
+  }
+
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort().reverse();
+  if (files.length === 0) {
+    console.log(chalk.yellow("No saved ask results found."));
+    return;
+  }
+
+  console.log(chalk.bold(`${files.length} saved ask result(s)`));
+  console.log(chalk.gray("─".repeat(50)));
+
+  for (const file of files) {
+    try {
+      const content = readFileSync(join(dir, file), "utf-8");
+      const questionMatch = content.match(/^question:\s*(.+)/m);
+      const dateMatch = content.match(/^date:\s*(.+)/m);
+      const question = questionMatch?.[1] || file;
+      const date = dateMatch?.[1] || "";
+      console.log(`  ${chalk.gray(date)}  ${chalk.cyan(question)}`);
+      console.log(chalk.gray(`    ${file}`));
+    } catch {
+      console.log(`  ${chalk.gray(file)}`);
+    }
+  }
+}
+
+/**
+ * Show a specific saved ask result by filename or search term.
+ */
+export function runAskShow(options: { projectRoot: string; query: string; global?: boolean }): void {
+  const dir = options.global
+    ? join(homedir(), ".sheal", "asks")
+    : join(options.projectRoot, ".sheal", "asks");
+
+  if (!existsSync(dir)) {
+    console.log(chalk.yellow("No saved ask results found."));
+    return;
+  }
+
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort().reverse();
+  const q = options.query.toLowerCase();
+
+  // Match by filename substring or question content
+  const match = files.find((f) => {
+    if (f.toLowerCase().includes(q)) return true;
+    try {
+      const content = readFileSync(join(dir, f), "utf-8");
+      const questionMatch = content.match(/^question:\s*(.+)/m);
+      return questionMatch?.[1]?.toLowerCase().includes(q);
+    } catch {
+      return false;
+    }
+  });
+
+  if (!match) {
+    console.log(chalk.yellow(`No ask result matching "${options.query}"`));
+    return;
+  }
+
+  const content = readFileSync(join(dir, match), "utf-8");
+  console.log(content);
 }

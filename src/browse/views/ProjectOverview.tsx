@@ -62,7 +62,7 @@ export function ProjectOverview({
       setCursor((c) => Math.max(0, c - 1));
     } else if (key.downArrow) {
       setCursor((c) => Math.min(items.length - 1, c + 1));
-    } else if (key.return) {
+    } else if (key.return && items[cursor]) {
       items[cursor].action();
     }
   });

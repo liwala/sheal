@@ -35,7 +35,11 @@ function loadAllEnrichments(projectPath: string, sessionId: string): EnrichmentT
   for (const agent of agents) {
     const path = join(retroDir, `${sessionId}.${agent}.md`);
     if (existsSync(path)) {
-      tabs.push({ label: agent, lines: readFileSync(path, "utf-8").split("\n") });
+      try {
+        tabs.push({ label: agent, lines: readFileSync(path, "utf-8").split("\n") });
+      } catch {
+        // skip files that disappear between existsSync and read
+      }
     }
   }
 

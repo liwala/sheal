@@ -4,7 +4,7 @@ import { runCheck } from "./commands/check.js";
 import { runSessions } from "./commands/sessions.js";
 import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
-import { runAsk } from "./commands/ask.js";
+import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
 import { runGraph } from "./commands/graph.js";
@@ -96,6 +96,24 @@ program
       limit: parsePositiveInt(opts.limit, "--limit"),
       global: opts.global,
     });
+  });
+
+program
+  .command("ask-list")
+  .description("List previously saved ask results")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--global", "List global ask results", false)
+  .action((opts) => {
+    runAskList({ projectRoot: opts.project, global: opts.global });
+  });
+
+program
+  .command("ask-show <query>")
+  .description("Show a saved ask result by filename or search term")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--global", "Search global ask results", false)
+  .action((query: string, opts) => {
+    runAskShow({ query, projectRoot: opts.project, global: opts.global });
   });
 
 const browse = program
