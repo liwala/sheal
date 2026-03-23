@@ -10,7 +10,7 @@
  *   turn_context: (turn boundaries)
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { CheckpointInfo } from "./types.js";
@@ -206,9 +206,23 @@ function isInjectedContext(text: string): boolean {
 /**
  * Extract metadata from first few lines of a Codex session JSONL.
  */
+/** Read the first `maxBytes` of a file and return complete lines. */
+function readHeadBytes(path: string, maxBytes: number): string {
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = readSync(fd, buf, 0, maxBytes, 0);
+    const raw = buf.toString("utf-8", 0, bytesRead);
+    const lastNewline = raw.lastIndexOf("\n");
+    return lastNewline >= 0 ? raw.slice(0, lastNewline) : raw;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function extractCodexMeta(path: string): CodexSessionFile | null {
   try {
-    const content = readFileSync(path, "utf-8");
+    const content = readHeadBytes(path, 64 * 1024);
     // Read enough lines to find user prompt past injected context (meta + developer + 2-3 injected + prompt)
     const lines = content.split("\n").slice(0, 20);
 

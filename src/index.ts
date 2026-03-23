@@ -10,6 +10,16 @@ import { runInit } from "./commands/init.js";
 import { runGraph } from "./commands/graph.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
+/** Parse a CLI option as a positive integer, exit with error if invalid. */
+function parsePositiveInt(value: string, flag: string): number {
+  const n = parseInt(value, 10);
+  if (isNaN(n) || n < 1) {
+    console.error(`Invalid value for ${flag}: "${value}" (must be a positive integer)`);
+    process.exit(1);
+  }
+  return n;
+}
+
 const program = new Command();
 
 program
@@ -66,7 +76,7 @@ program
       prompt: opts.prompt,
       enrich: opts.enrich,
       agent: opts.agent,
-      last: opts.last ? parseInt(opts.last, 10) : undefined,
+      last: opts.last ? parsePositiveInt(opts.last, "--last") : undefined,
       today: opts.today,
     });
   });
@@ -83,7 +93,7 @@ program
       question,
       projectRoot: opts.project,
       agent: opts.agent,
-      limit: parseInt(opts.limit, 10),
+      limit: parsePositiveInt(opts.limit, "--limit"),
       global: opts.global,
     });
   });
@@ -161,7 +171,7 @@ program
       projectRoot: opts.project,
       file: opts.file,
       agent: opts.agent,
-      limit: parseInt(opts.limit, 10),
+      limit: parsePositiveInt(opts.limit, "--limit"),
       json: opts.json,
     });
   });

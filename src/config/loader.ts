@@ -20,7 +20,13 @@ export function loadConfig(projectRoot: string): ResolvedConfig {
   const configPath = findConfigFile(projectRoot);
   if (!configPath) return { ...defaultConfig };
 
-  const raw = JSON.parse(readFileSync(configPath, "utf-8")) as SelfHealConfig;
+  let raw: SelfHealConfig;
+  try {
+    raw = JSON.parse(readFileSync(configPath, "utf-8")) as SelfHealConfig;
+  } catch (e) {
+    console.error(`Warning: failed to parse ${configPath}: ${(e as Error).message}`);
+    return { ...defaultConfig };
+  }
 
   return {
     skip: raw.skip ?? defaultConfig.skip,
