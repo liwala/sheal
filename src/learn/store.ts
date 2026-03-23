@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, openSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { LearningFile, LearningCategory, LearningSeverity, LearningStatus } from "./types.js";
@@ -71,11 +71,41 @@ ${learning.body.trim()}
 
 /**
  * Write a learning file to a directory.
+ * Uses exclusive-create (wx) to avoid TOCTOU races when two processes
+ * call nextId() concurrently and get the same ID. On collision, bumps
+ * the numeric suffix and retries.
  * Returns the full path of the written file.
  */
 export function writeLearning(dir: string, learning: LearningFile): string {
   mkdirSync(dir, { recursive: true });
-  const filename = `${learning.id}-${slugify(learning.title)}.md`;
+  const content = renderLearning(learning);
+  let id = learning.id;
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const filename = `${id}-${slugify(learning.title)}.md`;
+    const filepath = join(dir, filename);
+    try {
+      // 'wx' flag: exclusive create — fails with EEXIST if file already exists
+      const fd = openSync(filepath, "wx");
+      closeSync(fd);
+      // File created exclusively; now write content
+      writeFileSync(filepath, content, "utf-8");
+      return filepath;
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+        // Collision — bump the ID and retry
+        const match = id.match(/^LEARN-(\d+)$/);
+        const num = match ? parseInt(match[1], 10) + 1 : Date.now();
+        id = `LEARN-${String(num).padStart(3, "0")}`;
+        learning.id = id;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  // Fallback: just write without exclusive create
+  const filename = `${id}-${slugify(learning.title)}.md`;
   const filepath = join(dir, filename);
   writeFileSync(filepath, renderLearning(learning), "utf-8");
   return filepath;

@@ -1,8 +1,22 @@
 /**
  * Utilities to check retro/learning status for sessions and projects.
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, openSync, readSync, closeSync } from "node:fs";
 import { join } from "node:path";
+
+/** Read the first `maxBytes` of a file and return complete lines. */
+function readHeadBytes(path: string, maxBytes: number): string {
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = readSync(fd, buf, 0, maxBytes, 0);
+    const raw = buf.toString("utf-8", 0, bytesRead);
+    const lastNewline = raw.lastIndexOf("\n");
+    return lastNewline >= 0 ? raw.slice(0, lastNewline) : raw;
+  } finally {
+    closeSync(fd);
+  }
+}
 
 /**
  * Check if a retro exists for a given session within a project.
@@ -104,7 +118,7 @@ export function listRetros(projectPath: string): RetroInfo[] {
     return readdirSync(retroDir)
       .filter((f) => f.endsWith(".md"))
       .map((f) => {
-        const content = readFileSync(join(retroDir, f), "utf-8");
+        const content = readHeadBytes(join(retroDir, f), 4096);
         const firstLine = content.split("\n").find((l) => l.trim()) || "";
         return {
           sessionId: f.replace(".md", ""),
@@ -175,7 +189,7 @@ export function listAsks(dir: string): AskInfo[] {
     return readdirSync(dir)
       .filter((f) => f.endsWith(".md"))
       .map((f) => {
-        const content = readFileSync(join(dir, f), "utf-8");
+        const content = readHeadBytes(join(dir, f), 4096);
         return parseAskFrontmatter(f, content);
       })
       .filter((a): a is AskInfo => a !== null)
@@ -242,7 +256,7 @@ export function listLearningFiles(dir: string): LearningInfo[] {
     return readdirSync(dir)
       .filter((f) => f.startsWith("LEARN-") && f.endsWith(".md"))
       .map((f) => {
-        const content = readFileSync(join(dir, f), "utf-8");
+        const content = readHeadBytes(join(dir, f), 4096);
         return parseLearningFrontmatter(content);
       })
       .filter((l): l is LearningInfo => l !== null);
