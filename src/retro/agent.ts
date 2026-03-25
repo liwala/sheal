@@ -7,6 +7,9 @@
 
 import { spawn } from "node:child_process";
 import { execFile } from "node:child_process";
+import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import type { AgentType } from "../entire/types.js";
 
@@ -28,12 +31,12 @@ interface AgentCli {
 const AGENT_CLIS: Record<string, AgentCli> = {
   "Claude Code": {
     command: "claude",
-    args: ["-p", "-", "--output-format", "text"],
+    args: ["-p", "--output-format", "text"],
     stdinPrompt: true,
   },
   "Cursor": {
     command: "claude",
-    args: ["-p", "-", "--output-format", "text"],
+    args: ["-p", "--output-format", "text"],
     stdinPrompt: true,
   },
   "Gemini CLI": {
@@ -43,12 +46,12 @@ const AGENT_CLIS: Record<string, AgentCli> = {
   },
   "Codex": {
     command: "codex",
-    args: ["-q"],
+    args: ["exec", "-"],
     stdinPrompt: true,
   },
   "Amp": {
     command: "amp",
-    args: ["--execute"],
+    args: ["-x"],
     stdinPrompt: true,
   },
 };
@@ -115,7 +118,9 @@ export async function detectAgentCli(
 }
 
 /**
- * Invoke an agent CLI with a prompt piped via stdin.
+ * Invoke an agent CLI with a prompt.
+ * Writes the prompt to a temp file and passes it via shell redirection
+ * to avoid stdin piping issues (e.g. claude -p ignoring piped stdin).
  */
 export async function invokeAgent(
   cli: AgentCli,
@@ -124,8 +129,16 @@ export async function invokeAgent(
 ): Promise<AgentInvocationResult> {
   const label = `${cli.command} ${cli.args.join(" ")}`;
 
+  // Write prompt to a temp file to avoid stdin/arg-length issues
+  const tmpDir = join(tmpdir(), "sheal-agent");
+  mkdirSync(tmpDir, { recursive: true });
+  const tmpFile = join(tmpDir, `prompt-${Date.now()}.txt`);
+  writeFileSync(tmpFile, prompt, "utf-8");
+
   return new Promise((resolve) => {
-    const child = spawn(cli.command, cli.args, {
+    // Use shell redirection: `claude -p --output-format text < /tmp/prompt.txt`
+    const shellCmd = `${cli.command} ${cli.args.map((a) => `'${a}'`).join(" ")} < '${tmpFile}'`;
+    const child = spawn("sh", ["-c", shellCmd], {
       timeout: timeoutMs,
       env: { ...process.env, NO_COLOR: "1" },
       stdio: ["pipe", "pipe", "pipe"],
@@ -138,6 +151,7 @@ export async function invokeAgent(
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
 
     child.on("error", (err) => {
+      cleanup();
       resolve({
         agent: cli.command,
         command: label,
@@ -148,8 +162,16 @@ export async function invokeAgent(
     });
 
     child.on("close", (code) => {
+      cleanup();
       const out = Buffer.concat(stdout).toString().trim();
       const err = Buffer.concat(stderr).toString().trim();
+
+      if (process.env.SHEAL_DEBUG) {
+        console.error(`[invokeAgent] command: ${shellCmd}`);
+        console.error(`[invokeAgent] exit code: ${code}`);
+        console.error(`[invokeAgent] stdout (${out.length} chars): ${out.slice(0, 200)}`);
+        console.error(`[invokeAgent] stderr (${err.length} chars): ${err.slice(0, 200)}`);
+      }
 
       if (code !== 0) {
         resolve({
@@ -181,8 +203,8 @@ export async function invokeAgent(
       });
     });
 
-    // Write prompt to stdin and close
-    child.stdin.write(prompt);
-    child.stdin.end();
+    function cleanup() {
+      try { unlinkSync(tmpFile); } catch { /* ignore */ }
+    }
   });
 }

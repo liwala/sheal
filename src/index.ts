@@ -20,12 +20,79 @@ function parsePositiveInt(value: string, flag: string): number {
   return n;
 }
 
+const HOWTO = `
+Self-Healing AI Coding (sheal) — Quick Guide
+=============================================
+
+sheal analyzes your AI coding sessions to extract learnings, detect failure
+patterns, and improve agent behavior over time.
+
+Getting Started
+───────────────
+  sheal check                     Health-check your project setup
+  sheal init                      Bootstrap sheal into your agent config files
+
+Retrospectives
+──────────────
+  sheal retro                     Static retro on your latest session
+  sheal retro --enrich            Deep LLM-enriched retro (uses agent CLI)
+  sheal retro --agent codex       Use a specific agent for enrichment
+
+Asking Questions
+────────────────
+  sheal ask "what went wrong with auth?"
+                                  Search this project's sessions
+  sheal ask --global "recurring test failures"
+                                  Search ALL projects
+  sheal ask -p /path/to/project "what happened?"
+                                  Search a specific project
+  sheal ask --agent codex "..."   Use codex/amp/gemini for analysis
+  sheal ask-list                  List saved ask results
+  sheal ask-show "auth"           Show a saved result
+
+Learnings
+─────────
+  sheal learn add "Always check real data first" --tags=parsing
+                                  Save a learning
+  sheal learn list                List project learnings
+  sheal learn list --global       List global learnings
+  sheal learn sync                Sync global learnings to this project
+
+Browsing
+────────
+  sheal browse                    Interactive TUI for sessions & retros
+  sheal browse sessions           Browse sessions
+  sheal browse retros             Browse retrospectives
+  sheal browse learnings          Browse learnings
+  sheal sessions                  List sessions (non-interactive)
+  sheal graph                     Cross-session knowledge graph
+
+Agents
+──────
+  Supported: claude, codex, amp, gemini
+  Auto-detected from PATH. Override with --agent <name>.
+
+Tips
+────
+  • Run "sheal check" at the start of every session
+  • Run "sheal retro" at the end to extract learnings
+  • Use "sheal ask --global" to search across all your projects
+  • Set SHEAL_DEBUG=1 for verbose output
+`;
+
 const program = new Command();
 
 program
   .name("sheal")
   .description("Self-healing AI coding toolkit")
   .version("0.1.0");
+
+program
+  .command("howto")
+  .description("Show quick-start guide and usage examples")
+  .action(() => {
+    console.log(HOWTO);
+  });
 
 program
   .command("check")

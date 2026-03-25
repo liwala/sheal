@@ -61,21 +61,42 @@ The `--enrich` flag invokes an agent CLI to perform deep analysis on top of the 
 
 ### `sheal ask <question>`
 
-Query across all your session transcripts using natural language. Uses a 3-phase pipeline:
+Query across your session transcripts using natural language. Uses a 3-phase pipeline:
 
-1. **Agent generates search terms** from your question (fast, focused invocation)
-2. **Local grep** across all sessions using those terms (word-boundary matching)
-3. **Agent analyzes** relevant excerpts to answer your question
+1. **Extract search terms** from your question (agent-assisted, with local fallback)
+2. **Local grep** across sessions using those terms (word-boundary matching)
+3. **Agent analyzes** relevant excerpts to answer your question (falls back to raw excerpts)
 
 ```bash
+# Search current project's sessions
 sheal ask "what went wrong with beads?"
-sheal ask "how did we handle the auth migration?" --agent claude
-sheal ask "show me all test failures" -n 20    # Search more sessions
+
+# Use a specific agent for analysis
+sheal ask "how did we handle the auth migration?" --agent codex
+
+# Search ALL projects globally
+sheal ask --global "what patterns keep causing test failures?"
+
+# Search a different project
+sheal ask -p /path/to/other-project "what happened with the auth migration?"
+
+# Search more sessions
+sheal ask "show me all test failures" -n 20
 ```
 
 Options:
 - `--agent <name>` — Agent CLI to use: `claude`, `gemini`, `codex`, `amp`
 - `-n, --limit <count>` — Max sessions to search (default: 10)
+- `--global` — Search across ALL projects in `~/.claude/projects/`
+- `-p, --project <path>` — Project root to search (default: current directory)
+
+Previously saved results can be browsed:
+
+```bash
+sheal ask-list              # List saved results
+sheal ask-list --global     # List global results
+sheal ask-show "beads"      # Show a specific saved result
+```
 
 ### `sheal sessions`
 
@@ -136,10 +157,10 @@ For `--enrich` and `ask` commands, `sheal` can invoke these agent CLIs:
 
 | Agent | CLI Command | Invocation |
 |-------|-------------|------------|
-| Claude Code | `claude` | `claude -p - --output-format text` (stdin) |
-| Amp | `amp` | `amp --execute` (stdin) |
+| Claude Code | `claude` | `claude -p --output-format text` (stdin) |
+| Codex | `codex` | `codex exec -` (stdin) |
+| Amp | `amp` | `amp -x` (stdin) |
 | Gemini CLI | `gemini` | stdin pipe |
-| Codex | `codex` | `codex -q` (stdin) |
 | Cursor | `claude` | Same as Claude Code |
 
 Auto-detection tries the session's own agent first, then falls back to any available CLI.
