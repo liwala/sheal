@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runSessions } from "../src/commands/sessions.js";
+import { runExport } from "../src/commands/export.js";
 
 // Mock dependencies
 vi.mock("../src/entire/index.js", () => ({
@@ -24,7 +24,7 @@ import {
   listNativeSessionsBySlug,
 } from "../src/entire/claude-native.js";
 
-describe("runSessions", () => {
+describe("runExport", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -42,63 +42,20 @@ describe("runSessions", () => {
     vi.mocked(listNativeSessionsBySlug).mockReturnValue([]);
   });
 
-  it("prints 'No session data found' when no sources available", async () => {
-    await runSessions({ format: "text", projectRoot: "/tmp/fake" });
-
-    const output = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
-    expect(output).toContain("No session data found");
-  });
-
-  it("outputs JSON error object when no data found in JSON format", async () => {
-    await runSessions({ format: "json", projectRoot: "/tmp/fake" });
+  it("outputs JSON error object when no data found", async () => {
+    await runExport({ projectRoot: "/tmp/fake" });
 
     expect(logSpy).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(logSpy.mock.calls[0][0] as string);
     expect(parsed).toEqual({ error: "No session data found" });
   });
 
-  it("prints 'No Claude Code projects found' in global mode with no projects", async () => {
-    await runSessions({
-      format: "text",
-      projectRoot: "/tmp/fake",
-      global: true,
-    });
-
-    const output = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
-    expect(output).toContain("No Claude Code projects found");
-  });
-
   it("outputs JSON error in global mode with no projects", async () => {
-    await runSessions({
-      format: "json",
-      projectRoot: "/tmp/fake",
-      global: true,
-    });
+    await runExport({ projectRoot: "/tmp/fake", global: true });
 
     expect(logSpy).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(logSpy.mock.calls[0][0] as string);
     expect(parsed).toEqual({ error: "No Claude Code projects found" });
-  });
-
-  it("lists native sessions successfully", async () => {
-    vi.mocked(hasNativeTranscripts).mockReturnValue(true);
-    vi.mocked(listNativeSessions).mockReturnValue([
-      {
-        checkpointId: "abc123def456",
-        createdAt: "2026-03-20T10:00:00Z",
-        strategy: "native",
-        branch: "main",
-        filesTouched: ["src/index.ts"],
-        agent: "claude",
-        title: "Test session",
-      } as any,
-    ]);
-
-    await runSessions({ format: "text", projectRoot: "/tmp/fake" });
-
-    const output = logSpy.mock.calls.map((c) => String(c[0] ?? "")).join("\n");
-    expect(output).toContain("1 session(s)");
-    expect(output).toContain("abc123def456".slice(0, 12));
   });
 
   it("outputs native sessions as JSON", async () => {
@@ -116,7 +73,7 @@ describe("runSessions", () => {
     ];
     vi.mocked(listNativeSessions).mockReturnValue(mockSessions as any);
 
-    await runSessions({ format: "json", projectRoot: "/tmp/fake" });
+    await runExport({ projectRoot: "/tmp/fake" });
 
     expect(logSpy).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(logSpy.mock.calls[0][0] as string);
@@ -149,11 +106,7 @@ describe("runSessions", () => {
       },
     ] as any);
 
-    await runSessions({
-      format: "json",
-      projectRoot: "/tmp/fake",
-      global: true,
-    });
+    await runExport({ projectRoot: "/tmp/fake", global: true });
 
     expect(logSpy).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(logSpy.mock.calls[0][0] as string);

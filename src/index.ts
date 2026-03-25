@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
-import { runSessions } from "./commands/sessions.js";
 import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
+import { runExport } from "./commands/export.js";
 import { runGraph } from "./commands/graph.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
@@ -64,7 +64,7 @@ Browsing
   sheal browse sessions           Browse sessions
   sheal browse retros             Browse retrospectives
   sheal browse learnings          Browse learnings
-  sheal sessions                  List sessions (non-interactive)
+  sheal export                    Export session data as JSON (for piping)
   sheal graph                     Cross-session knowledge graph
 
 Agents
@@ -109,15 +109,13 @@ program
   });
 
 program
-  .command("sessions")
-  .description("List and inspect session data")
-  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .command("export")
+  .description("Export session data as JSON (for scripting and piping)")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("-c, --checkpoint <id>", "Load a specific checkpoint by ID")
-  .option("--global", "List all projects and sessions from ~/.claude/projects/", false)
+  .option("--global", "Export all projects and sessions from ~/.claude/projects/", false)
   .action(async (opts) => {
-    await runSessions({
-      format: opts.format,
+    await runExport({
       projectRoot: opts.project,
       checkpointId: opts.checkpoint,
       global: opts.global,

@@ -1,0 +1,3 @@
+{"id":"int-e614ad7e","kind":"field_change","created_at":"2026-03-25T16:57:25.566197Z","actor":"Luisa Lima","issue_id":"self-healing-ai-coding-4kk","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
+{"id":"int-882cf829","kind":"field_change","created_at":"2026-03-25T16:59:14.847509Z","actor":"Luisa Lima","issue_id":"self-healing-ai-coding-4kk","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Added sheal export command in src/commands/export.ts with project-scoped, global, and checkpoint-by-ID modes"}}
+{"id":"int-fb4510aa","kind":"field_change","created_at":"2026-03-25T16:59:15.41828Z","actor":"Luisa Lima","issue_id":"self-healing-ai-coding-2f4","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
