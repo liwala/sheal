@@ -98,14 +98,49 @@ sheal ask-list --global     # List global results
 sheal ask-show "beads"      # Show a specific saved result
 ```
 
-### `sheal sessions`
+### `sheal browse`
 
-List and inspect session data from Entire.io or native Claude Code transcripts.
+Interactive TUI to explore sessions, retrospectives, and learnings across all your projects.
 
 ```bash
-sheal sessions                     # List all sessions
-sheal sessions --checkpoint <id>   # View session details
-sheal sessions --format json       # JSON output
+sheal browse                       # Full TUI (project list)
+sheal browse sessions              # Jump to sessions view
+sheal browse retros                # Jump to retros view
+sheal browse learnings             # Jump to learnings view
+sheal browse -p myproject          # Pre-filter by project name
+sheal browse --agent codex         # Pre-filter by agent
+```
+
+Supports Claude Code, Codex, Amp, and Entire.io sessions.
+
+### `sheal export`
+
+Export session data as JSON for scripting and piping.
+
+```bash
+sheal export                       # List sessions (current project)
+sheal export --checkpoint <id>     # Export a specific checkpoint
+sheal export --global              # Export all projects and sessions
+```
+
+### `sheal init`
+
+Bootstrap sheal awareness into your project's agent configuration files (CLAUDE.md, .cursorrules, etc.).
+
+```bash
+sheal init                         # Add sheal instructions to agent configs
+sheal init --dry-run               # Preview changes without writing
+```
+
+### `sheal graph`
+
+Cross-session knowledge graph showing file hotspots, agent activity, and patterns.
+
+```bash
+sheal graph                        # Pretty-print graph summary
+sheal graph --file src/index.ts    # History for a specific file
+sheal graph --agent claude         # Details for a specific agent
+sheal graph --json                 # JSON output
 ```
 
 ### `sheal learn`

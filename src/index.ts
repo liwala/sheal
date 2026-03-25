@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
@@ -9,6 +12,9 @@ import { runInit } from "./commands/init.js";
 import { runExport } from "./commands/export.js";
 import { runGraph } from "./commands/graph.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 
 /** Parse a CLI option as a positive integer, exit with error if invalid. */
 function parsePositiveInt(value: string, flag: string): number {
@@ -85,7 +91,7 @@ const program = new Command();
 program
   .name("sheal")
   .description("Self-healing AI coding toolkit")
-  .version("0.1.0");
+  .version(pkg.version);
 
 program
   .command("howto")
@@ -168,8 +174,8 @@ program
   .description("List previously saved ask results")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("--global", "List global ask results", false)
-  .action((opts) => {
-    runAskList({ projectRoot: opts.project, global: opts.global });
+  .action(async (opts) => {
+    await runAskList({ projectRoot: opts.project, global: opts.global });
   });
 
 program
@@ -177,8 +183,8 @@ program
   .description("Show a saved ask result by filename or search term")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("--global", "Search global ask results", false)
-  .action((query: string, opts) => {
-    runAskShow({ query, projectRoot: opts.project, global: opts.global });
+  .action(async (query: string, opts) => {
+    await runAskShow({ query, projectRoot: opts.project, global: opts.global });
   });
 
 const browse = program
@@ -249,8 +255,8 @@ program
   .option("--agent <name>", "Show details for a specific agent")
   .option("-n, --limit <count>", "Max sessions to analyze", "50")
   .option("--json", "Output as JSON", false)
-  .action((opts) => {
-    runGraph({
+  .action(async (opts) => {
+    await runGraph({
       projectRoot: opts.project,
       file: opts.file,
       agent: opts.agent,
@@ -303,5 +309,10 @@ learn
       projectRoot: opts.project,
     });
   });
+
+process.on("unhandledRejection", (err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
 
 program.parse();
