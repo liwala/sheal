@@ -71,7 +71,7 @@ export async function runAsk(options: AskOptions): Promise<void> {
   let answer: string;
   if (cli) {
     console.log(chalk.gray(`Phase 3: Analyzing with ${cli.command}...`));
-    const prompt = buildAnalysisPrompt(question, matches);
+    const prompt = buildAnalysisPrompt(question, matches, options.global);
     const result = await invokeAgent(cli, prompt, 180_000);
 
     if (result.success && result.output) {
@@ -441,10 +441,15 @@ function formatExcerptsAsAnswer(question: string, matches: SessionMatch[]): stri
 /**
  * Phase 3: Build the analysis prompt with the question and relevant session excerpts.
  */
-function buildAnalysisPrompt(question: string, matches: SessionMatch[]): string {
+function buildAnalysisPrompt(question: string, matches: SessionMatch[], global?: boolean): string {
   const parts: string[] = [];
 
   parts.push("You are analyzing AI coding session transcripts to answer a user's question.");
+  if (global) {
+    const projectNames = [...new Set(matches.map((m) => m.projectName).filter(Boolean))];
+    parts.push(`These excerpts come from ${projectNames.length} different project(s): ${projectNames.join(", ")}.`);
+    parts.push("Treat each project as a separate codebase. Do not assume shared context between projects.");
+  }
   parts.push("Below are relevant excerpts from sessions that matched search terms derived from the question.");
   parts.push("");
   parts.push(`**User's question:** ${question}`);
