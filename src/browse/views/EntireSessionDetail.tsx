@@ -1,22 +1,24 @@
 import { Box, Text, useInput, useStdout } from "ink";
-import { useState, useMemo } from "react";
-import { loadNativeSessionBySlug } from "../../entire/claude-native.js";
+import { useState, useEffect } from "react";
+import { loadCheckpoint } from "../../entire/reader.js";
+import type { Checkpoint } from "../../entire/types.js";
 import { hasRetro } from "../utils/retro-status.js";
 import { buildBlocks, PREVIEW_LINES, TYPE_COLORS, TYPE_LABELS } from "../utils/blocks.js";
 import type { DisplayBlock } from "../utils/blocks.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
 
-interface SessionDetailProps {
-  slug: string;
-  sessionId: string;
+interface EntireSessionDetailProps {
+  checkpointId: string;
   projectPath: string;
   onBack: () => void;
   onQuit: () => void;
   onViewRetro: () => void;
 }
 
-export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, onViewRetro }: SessionDetailProps) {
+export function EntireSessionDetail({ checkpointId, projectPath, onBack, onQuit, onViewRetro }: EntireSessionDetailProps) {
+  const [checkpoint, setCheckpoint] = useState<Checkpoint | null>(null);
+  const [loading, setLoading] = useState(true);
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -24,32 +26,36 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
-  const { checkpoint, blocks, title, hasRetroFile } = useMemo(() => {
-    const cp = loadNativeSessionBySlug(slug, sessionId);
-    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [], title: "", hasRetroFile: false };
-    const blks = buildBlocks(cp.sessions[0].transcript);
-    const firstUser = blks.find((b) => b.type === "user");
-    const hr = projectPath ? hasRetro(projectPath, sessionId) : false;
-    return { checkpoint: cp, blocks: blks, title: firstUser?.summary || "", hasRetroFile: hr };
-  }, [slug, sessionId, projectPath]);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    loadCheckpoint(projectPath, checkpointId).then((cp) => {
+      if (!cancelled) {
+        setCheckpoint(cp);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [projectPath, checkpointId]);
 
-  const filteredBlocks = useMemo(() => {
-    if (!searchText) return blocks;
-    const q = searchText.toLowerCase();
-    return blocks.filter((b) =>
-      b.summary.toLowerCase().includes(q) ||
-      b.lines.some((l) => l.toLowerCase().includes(q)),
-    );
-  }, [blocks, searchText]);
+  const blocks = checkpoint && checkpoint.sessions.length > 0
+    ? buildBlocks(checkpoint.sessions[0].transcript)
+    : [];
+
+  const title = blocks.find((b) => b.type === "user")?.summary || "";
+  const hasRetroFile = projectPath ? hasRetro(projectPath, checkpointId) : false;
+
+  const filteredBlocks = searchText
+    ? blocks.filter((b) =>
+        b.summary.toLowerCase().includes(searchText.toLowerCase()) ||
+        b.lines.some((l) => l.toLowerCase().includes(searchText.toLowerCase())),
+      )
+    : blocks;
 
   useInput((input, key) => {
     if (searchActive) {
-      if (key.escape) {
-        setSearchActive(false);
-        setSearchText("");
-      } else if (key.return) {
-        setSearchActive(false);
-      }
+      if (key.escape) { setSearchActive(false); setSearchText(""); }
+      else if (key.return) { setSearchActive(false); }
       return;
     }
 
@@ -67,7 +73,6 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     } else if (key.pageUp) {
       setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
     } else if (key.return) {
-      // Toggle block expansion
       setExpanded((prev) => {
         const next = new Set(prev);
         if (next.has(scrollPos)) next.delete(scrollPos);
@@ -77,10 +82,18 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     }
   });
 
-  if (!checkpoint) {
+  if (loading) {
     return (
       <Box flexDirection="column">
-        <Text color="red">Session not found: {sessionId}</Text>
+        <Text>Loading checkpoint {checkpointId.slice(0, 12)}...</Text>
+      </Box>
+    );
+  }
+
+  if (!checkpoint || checkpoint.sessions.length === 0) {
+    return (
+      <Box flexDirection="column">
+        <Text color="red">Checkpoint not found: {checkpointId}</Text>
         <StatusBar view="detail" searchActive={false} />
       </Box>
     );
@@ -89,7 +102,6 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
   const session = checkpoint.sessions[0];
   const meta = session.metadata;
 
-  // Render blocks into visible lines
   const renderedLines: Array<{ text: string; color?: string; bold?: boolean; dim?: boolean }> = [];
 
   for (let bi = scrollPos; bi < filteredBlocks.length && renderedLines.length < maxRows; bi++) {
@@ -100,15 +112,11 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     const label = TYPE_LABELS[block.type];
     const previewCount = PREVIEW_LINES[block.type];
 
-    // Separator between blocks
     if (renderedLines.length > 0) {
       renderedLines.push({ text: "" });
     }
 
-    // Content lines (skip first line since it's already in the summary)
     const contentLines = block.lines.slice(1);
-
-    // Header line: "> ASSISTANT: [+N] first line..."
     const cursor = isCurrent ? ">" : " ";
     const callCount = block.type === "tool-group" && block.entryCount > 1
       ? ` (${block.entryCount} calls)` : "";
@@ -144,11 +152,12 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold>Session </Text>
-          <Text bold color="cyan">{sessionId.slice(0, 12)}</Text>
+          <Text bold>Checkpoint </Text>
+          <Text bold color="cyan">{checkpointId.slice(0, 12)}</Text>
           <Text dimColor> | {meta.createdAt?.slice(0, 16)}</Text>
           {meta.agent && <Text dimColor> | {meta.agent}</Text>}
           {meta.model && <Text dimColor> | {meta.model}</Text>}
+          <Text color="yellow"> [Entire.io]</Text>
           {hasRetroFile && <Text color="magenta"> [R] retro available (r)</Text>}
         </Box>
         {title && <Text>{title}</Text>}
@@ -160,6 +169,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         <Text dimColor>
           {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
           {" | "}{scrollPos + 1}/{filteredBlocks.length}
+          {checkpoint.sessions.length > 1 && ` | ${checkpoint.sessions.length} sessions in checkpoint`}
         </Text>
       </Box>
 
@@ -189,4 +199,3 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     </Box>
   );
 }
-

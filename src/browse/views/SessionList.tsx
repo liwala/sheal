@@ -1,10 +1,11 @@
 import { Box, Text, useInput, useStdout } from "ink";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { listNativeSessionsBySlug } from "../../entire/claude-native.js";
 import type { NativeProject } from "../../entire/claude-native.js";
 import type { CheckpointInfo } from "../../entire/types.js";
 import { listCodexSessionsForProject } from "../../entire/codex-native.js";
 import { listAmpSessionsForProject } from "../../entire/amp-native.js";
+import { hasEntireBranch, listCheckpoints } from "../../entire/reader.js";
 import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
@@ -13,6 +14,7 @@ const AGENT_COLORS: Record<string, string> = {
   "Claude Code": "blue",
   "Codex": "yellow",
   "Amp": "magenta",
+  "Entire.io": "green",
 };
 
 interface SessionListProps {
@@ -42,8 +44,8 @@ export function SessionList({
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
-  // Load sessions from ALL agent sources for this project
-  const allSessions = useMemo(() => {
+  // Load sessions from ALL agent sources for this project (sync sources)
+  const syncSessions = useMemo(() => {
     const sessions: CheckpointInfo[] = [];
     const agents = project.agents || [];
 
@@ -68,10 +70,36 @@ export function SessionList({
       }
     }
 
-    // Sort all sessions by date, most recent first
-    sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return sessions;
   }, [project.slug, project.projectPath, project.agents]);
+
+  // Load Entire.io sessions asynchronously
+  const [entireSessions, setEntireSessions] = useState<CheckpointInfo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!project.projectPath.startsWith("/")) return;
+    hasEntireBranch(project.projectPath).then((has) => {
+      if (!has || cancelled) return;
+      listCheckpoints(project.projectPath).then((checkpoints) => {
+        if (cancelled) return;
+        // Mark Entire.io sessions so they can be routed to the right detail view
+        const marked = checkpoints.map((cp) => ({
+          ...cp,
+          agent: "Entire.io" as const,
+          // Use checkpointId as sessionId for routing
+          sessionId: cp.checkpointId,
+        }));
+        setEntireSessions(marked);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [project.projectPath]);
+
+  const allSessions = useMemo(() => {
+    const sessions = [...syncSessions, ...entireSessions];
+    sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return sessions;
+  }, [syncSessions, entireSessions]);
 
   const retroSet = useMemo(() => {
     const set = new Set<string>();
