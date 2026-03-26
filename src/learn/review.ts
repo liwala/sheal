@@ -37,7 +37,12 @@ export async function reviewLearning(
   const a = answer.trim().toLowerCase();
 
   if (a === "q" || a === "quit") return { action: "quit" };
-  if (a === "r" || a === "remove") return { action: "remove" };
+  if (a === "r" || a === "remove") {
+    const confirm = await ask(chalk.red(`  Delete ${learning.id}? [y/N] `));
+    if (confirm.trim().toLowerCase() === "y") return { action: "remove" };
+    console.log(chalk.gray("  Not deleted."));
+    return { action: "skip" };
+  }
   if (a === "s" || a === "skip" || a === "n") return { action: "skip" };
 
   if (a === "e" || a === "edit") {
