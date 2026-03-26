@@ -157,6 +157,10 @@ sheal learn list              # Project learnings (.sheal/learnings/)
 sheal learn list --global     # Global learnings (~/.sheal/learnings/)
 sheal learn list --tag=beads  # Filter by tag
 
+# Review & curate learnings interactively
+sheal learn review              # Project learnings
+sheal learn review --global     # Global learnings
+
 # Sync global learnings to current project (by tag match)
 sheal learn sync
 ```

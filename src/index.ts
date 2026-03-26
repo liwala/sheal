@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnSync, runLearnReview } from "./commands/learn.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
@@ -62,6 +62,8 @@ Learnings
                                   Save a learning
   sheal learn list                List project learnings
   sheal learn list --global       List global learnings
+  sheal learn review              Review & curate project learnings
+  sheal learn review --global     Review & curate global learnings
   sheal learn sync                Sync global learnings to this project
 
 Browsing
@@ -310,6 +312,18 @@ learn
   .option("-p, --project <path>", "Project root path", process.cwd())
   .action(async (opts) => {
     await runLearnSync({
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("review")
+  .description("Interactively review learnings (accept, edit, remove)")
+  .option("--global", "Review global learnings instead of project", false)
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnReview({
+      global: opts.global,
       projectRoot: opts.project,
     });
   });

@@ -1,7 +1,6 @@
 import chalk from "chalk";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
 import { hasAmpSessions, listAmpProjects, listAmpSessionsForProject, listAmpThreadFiles, getAmpThreadProjectPath } from "../entire/amp-native.js";
@@ -737,61 +736,41 @@ export function parseRulesFromOutput(output: string): string[] {
 }
 
 /**
- * Ask the user to confirm each rule and save confirmed ones as learnings.
+ * Ask the user to review each rule and save accepted ones as learnings.
  */
 async function promptToSaveRules(rules: string[], projectRoot: string, sessionId?: string): Promise<void> {
-  console.log();
-  console.log(chalk.bold(`Save ${rules.length} suggested rule(s) as learnings?`));
-  console.log(chalk.gray("Each rule will be saved to ~/.sheal/learnings/\n"));
-
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  const ask = (question: string): Promise<string> =>
-    new Promise((resolve) => rl.question(question, resolve));
+  const { reviewProposedLearnings } = await import("../learn/review.js");
 
   const projectTags = detectProjectTags(projectRoot);
   const globalDir = getGlobalDir();
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Build proposed learnings from rules
+  const proposed: LearningFile[] = rules.map((rule, i) => ({
+    id: `PROPOSED-${i + 1}`,
+    title: rule.slice(0, 80),
+    date: today,
+    tags: projectTags.slice(0, 5),
+    category: "workflow" as const,
+    severity: "medium" as const,
+    status: "active" as const,
+    body: rule,
+    ...(sessionId ? { sessionId } : {}),
+  }));
+
+  const accepted = await reviewProposedLearnings(proposed);
+
+  // Save accepted learnings
   let saved = 0;
-
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i];
-    console.log(chalk.cyan(`  ${i + 1}. ${rule}`));
-    const answer = await ask(chalk.gray("     Save? [Y/n/q] "));
-    const a = answer.trim().toLowerCase();
-
-    if (a === "q") {
-      console.log(chalk.gray("  Skipping remaining rules."));
-      break;
-    }
-
-    if (a === "" || a === "y" || a === "yes") {
-      const id = nextId(globalDir);
-      const today = new Date().toISOString().slice(0, 10);
-      const learning: LearningFile = {
-        id,
-        title: rule.slice(0, 80),
-        date: today,
-        tags: projectTags.slice(0, 5), // use detected project tags
-        category: "workflow",
-        severity: "medium",
-        status: "active",
-        body: rule,
-        ...(sessionId ? { sessionId } : {}),
-      };
-      const path = writeLearning(globalDir, learning);
-      console.log(chalk.green(`     Saved ${id}`));
-      saved++;
-    } else {
-      console.log(chalk.gray("     Skipped."));
-    }
+  for (const learning of accepted) {
+    learning.id = nextId(globalDir);
+    const path = writeLearning(globalDir, learning);
+    saved++;
   }
-
-  rl.close();
 
   if (saved > 0) {
     console.log(chalk.green(`\nSaved ${saved} learning(s). Run 'sheal learn list --global' to view.`));
+  } else {
+    console.log(chalk.gray("\nNo learnings saved."));
   }
 }

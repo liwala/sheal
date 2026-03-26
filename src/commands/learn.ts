@@ -1,5 +1,6 @@
 import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import chalk from "chalk";
 import {
   getGlobalDir,
   getProjectDir,
@@ -9,6 +10,7 @@ import {
   listLearnings,
   detectProjectTags,
 } from "../learn/index.js";
+import { reviewExistingLearnings } from "../learn/review.js";
 import type { LearningCategory, LearningSeverity, LearningFile } from "../learn/types.js";
 
 interface LearnAddOptions {
@@ -139,4 +141,39 @@ export async function runLearnSync(opts: LearnSyncOptions): Promise<void> {
   }
 
   console.log(`Synced ${copied}/${globalLearnings.length} learnings to ${projectDir}`);
+}
+
+interface LearnReviewOptions {
+  global: boolean;
+  projectRoot: string;
+}
+
+/**
+ * `sheal learn review [--global]`
+ * Interactively review learnings: accept, edit, remove, or skip each one.
+ */
+export async function runLearnReview(opts: LearnReviewOptions): Promise<void> {
+  const dir = opts.global ? getGlobalDir() : getProjectDir(opts.projectRoot);
+  const learnings = listLearnings(dir);
+
+  if (learnings.length === 0) {
+    const scope = opts.global ? "global" : "project";
+    console.log(chalk.yellow(`No learnings found in ${scope} directory (${dir})`));
+    return;
+  }
+
+  // Build filename list matching the learnings
+  const allFiles = readdirSync(dir)
+    .filter((f) => f.startsWith("LEARN-") && f.endsWith(".md"))
+    .sort();
+
+  const filenames = learnings.map((l) => {
+    return allFiles.find((f) => f.startsWith(l.id)) || "";
+  });
+
+  const result = await reviewExistingLearnings(learnings, dir, filenames);
+
+  console.log();
+  console.log(chalk.bold("Review complete:"));
+  console.log(`  ${chalk.green(`${result.kept} kept`)}  ${chalk.cyan(`${result.edited} edited`)}  ${chalk.red(`${result.removed} removed`)}`);
 }
