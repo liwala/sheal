@@ -739,38 +739,40 @@ export function parseRulesFromOutput(output: string): string[] {
  * Ask the user to review each rule and save accepted ones as learnings.
  */
 async function promptToSaveRules(rules: string[], projectRoot: string, sessionId?: string): Promise<void> {
-  const { reviewProposedLearnings } = await import("../learn/review.js");
+  const { reviewDraftLearnings } = await import("../learn/review.js");
 
   const projectTags = detectProjectTags(projectRoot);
   const globalDir = getGlobalDir();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Build proposed learnings from rules
-  const proposed: LearningFile[] = rules.map((rule, i) => ({
-    id: `PROPOSED-${i + 1}`,
-    title: rule.slice(0, 80),
-    date: today,
-    tags: projectTags.slice(0, 5),
-    category: "workflow" as const,
-    severity: "medium" as const,
-    status: "active" as const,
-    body: rule,
-    ...(sessionId ? { sessionId } : {}),
-  }));
-
-  const accepted = await reviewProposedLearnings(proposed);
-
-  // Save accepted learnings
-  let saved = 0;
-  for (const learning of accepted) {
-    learning.id = nextId(globalDir);
-    const path = writeLearning(globalDir, learning);
-    saved++;
+  // Save all proposed rules as drafts first (so they survive a quit)
+  const drafts: LearningFile[] = [];
+  for (const rule of rules) {
+    const id = nextId(globalDir);
+    const learning: LearningFile = {
+      id,
+      title: rule.slice(0, 80),
+      date: today,
+      tags: projectTags.slice(0, 5),
+      category: "workflow",
+      severity: "medium",
+      status: "draft",
+      body: rule,
+      ...(sessionId ? { sessionId } : {}),
+    };
+    writeLearning(globalDir, learning);
+    drafts.push(learning);
   }
 
-  if (saved > 0) {
-    console.log(chalk.green(`\nSaved ${saved} learning(s). Run 'sheal learn list --global' to view.`));
-  } else {
-    console.log(chalk.gray("\nNo learnings saved."));
+  console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s). Starting review...`));
+
+  // Review drafts — accepted ones get promoted to active, removed ones get deleted
+  const result = await reviewDraftLearnings(globalDir);
+
+  if (result.promoted > 0) {
+    console.log(chalk.green(`\n${result.promoted} learning(s) accepted. Run 'sheal learn list --global' to view.`));
+  }
+  if (result.remaining > 0) {
+    console.log(chalk.yellow(`${result.remaining} draft(s) remaining. Run 'sheal learn review --global' to continue.`));
   }
 }

@@ -10,7 +10,7 @@ export type LearningCategory =
 
 export type LearningSeverity = "low" | "medium" | "high";
 
-export type LearningStatus = "active" | "superseded" | "retired";
+export type LearningStatus = "draft" | "active" | "superseded" | "retired";
 
 /**
  * A structured learning stored as an ADR-style markdown file.

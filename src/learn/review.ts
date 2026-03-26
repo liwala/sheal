@@ -1,8 +1,9 @@
 import { createInterface } from "node:readline";
-import { unlinkSync } from "node:fs";
+import { unlinkSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
 import type { LearningFile } from "./types.js";
+import { listLearnings, writeLearning } from "./store.js";
 
 /**
  * Like readline.question(), but returns null if ESC is pressed.
@@ -92,126 +93,168 @@ export async function reviewLearning(
 }
 
 /**
- * Review a list of proposed learnings (not yet saved).
- * Returns only the accepted/edited learnings.
+ * Find the filename for a learning in a directory.
  */
-export async function reviewProposedLearnings(
-  learnings: LearningFile[],
-): Promise<LearningFile[]> {
-  if (learnings.length === 0) return [];
+function findFilename(dir: string, learningId: string): string {
+  const files = readdirSync(dir).filter((f) => f.startsWith("LEARN-") && f.endsWith(".md"));
+  return files.find((f) => f.startsWith(learningId)) || "";
+}
 
-  console.log();
-  console.log(chalk.bold(`Review ${learnings.length} proposed learning(s)`));
-  console.log(chalk.gray("Each learning will be saved to ~/.sheal/learnings/ if accepted\n"));
-
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const accepted: LearningFile[] = [];
-
-  try {
-    for (let i = 0; i < learnings.length; i++) {
-      const result = await reviewLearning(learnings[i], i, learnings.length, rl);
-
-      switch (result.action) {
-        case "accept":
-          accepted.push(learnings[i]);
-          console.log(chalk.green("  ✓ Accepted"));
-          break;
-        case "edit":
-          accepted.push({
-            ...learnings[i],
-            title: result.editedText!.slice(0, 80),
-            body: result.editedText!,
-          });
-          console.log(chalk.green("  ✓ Accepted (edited)"));
-          break;
-        case "skip":
-          console.log(chalk.gray("  — Skipped"));
-          break;
-        case "remove":
-          console.log(chalk.gray("  — Skipped"));
-          break;
-        case "quit":
-          console.log(chalk.gray("  Stopping review."));
-          return accepted;
+/**
+ * Apply a review action to a learning file on disk.
+ * For drafts, "accept" promotes to active. For active learnings, "accept" keeps as-is.
+ */
+function applyAction(
+  learning: LearningFile,
+  result: ReviewResult,
+  dir: string,
+  filename: string,
+): "kept" | "promoted" | "edited" | "removed" | "skipped" {
+  switch (result.action) {
+    case "accept": {
+      if (learning.status === "draft") {
+        // Promote draft to active
+        const updated = { ...learning, status: "active" as const };
+        try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
+        writeLearning(dir, updated);
+        return "promoted";
       }
+      return "kept";
     }
-  } finally {
-    rl.close();
+    case "edit": {
+      const status = learning.status === "draft" ? "active" as const : learning.status;
+      const updated: LearningFile = {
+        ...learning,
+        title: result.editedText!.slice(0, 80),
+        body: result.editedText!,
+        status,
+      };
+      try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
+      writeLearning(dir, updated);
+      return "edited";
+    }
+    case "remove": {
+      try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
+      return "removed";
+    }
+    case "skip":
+      return "skipped";
+    default:
+      return "skipped";
   }
-
-  return accepted;
 }
 
 /**
  * Review existing learnings on disk.
- * Supports accept (keep), edit, remove, skip, quit.
+ * Drafts are shown first. Accepting a draft promotes it to active.
  * Returns counts of actions taken.
  */
 export async function reviewExistingLearnings(
   learnings: LearningFile[],
   dir: string,
   filenames: string[],
-): Promise<{ kept: number; edited: number; removed: number }> {
+): Promise<{ kept: number; promoted: number; edited: number; removed: number; remaining: number }> {
   if (learnings.length === 0) {
     console.log(chalk.yellow("No learnings to review."));
-    return { kept: 0, edited: 0, removed: 0 };
+    return { kept: 0, promoted: 0, edited: 0, removed: 0, remaining: 0 };
   }
 
+  // Sort: drafts first, then by ID
+  const indexed = learnings.map((l, i) => ({ learning: l, filename: filenames[i] }));
+  indexed.sort((a, b) => {
+    if (a.learning.status === "draft" && b.learning.status !== "draft") return -1;
+    if (a.learning.status !== "draft" && b.learning.status === "draft") return 1;
+    return a.learning.id.localeCompare(b.learning.id);
+  });
+
+  const draftCount = indexed.filter((x) => x.learning.status === "draft").length;
+  const activeCount = indexed.length - draftCount;
+
   console.log();
-  console.log(chalk.bold(`Reviewing ${learnings.length} learning(s) in ${dir}`));
-  console.log(chalk.gray("Actions: [a]ccept (keep)  [e]dit  [s]kip  [r]emove  [q]uit\n"));
+  console.log(chalk.bold(`Reviewing ${indexed.length} learning(s) in ${dir}`));
+  if (draftCount > 0) {
+    console.log(chalk.yellow(`  ${draftCount} draft(s) pending review`) + (activeCount > 0 ? chalk.gray(`, ${activeCount} active`) : ""));
+  }
+  console.log(chalk.gray("Actions: [a]ccept  [e]dit  [s]kip  [r]emove  [q]uit\n"));
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   let kept = 0;
+  let promoted = 0;
   let edited = 0;
   let removed = 0;
 
   try {
-    for (let i = 0; i < learnings.length; i++) {
-      const result = await reviewLearning(learnings[i], i, learnings.length, rl);
-      const filename = filenames[i];
+    for (let i = 0; i < indexed.length; i++) {
+      const { learning, filename } = indexed[i];
+      const isDraft = learning.status === "draft";
 
-      switch (result.action) {
-        case "accept":
+      // Show draft badge
+      if (isDraft) {
+        process.stdout.write(chalk.yellow("  [DRAFT] "));
+      }
+
+      const result = await reviewLearning(learning, i, indexed.length, rl);
+
+      if (result.action === "quit") {
+        console.log(chalk.gray("  Stopping review."));
+        // Count remaining drafts
+        const remaining = indexed.slice(i).filter((x) => x.learning.status === "draft").length;
+        return { kept, promoted, edited, removed, remaining };
+      }
+
+      const outcome = applyAction(learning, result, dir, filename);
+      switch (outcome) {
+        case "promoted":
+          promoted++;
+          console.log(chalk.green("  ✓ Accepted (promoted to active)"));
+          break;
+        case "kept":
           kept++;
           console.log(chalk.green("  ✓ Kept"));
           break;
-        case "edit": {
-          // Rewrite the file with updated text
-          const { writeLearning } = await import("./store.js");
-          const updated: LearningFile = {
-            ...learnings[i],
-            title: result.editedText!.slice(0, 80),
-            body: result.editedText!,
-          };
-          // Remove old file first, then write updated
-          try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
-          writeLearning(dir, updated);
+        case "edited":
           edited++;
-          console.log(chalk.green("  ✓ Updated"));
+          console.log(chalk.green(`  ✓ Updated${isDraft ? " (promoted to active)" : ""}`));
           break;
-        }
-        case "remove":
-          try {
-            unlinkSync(join(dir, filename));
-            removed++;
-            console.log(chalk.red("  ✗ Removed"));
-          } catch {
-            console.log(chalk.red("  ✗ Failed to remove"));
-          }
+        case "removed":
+          removed++;
+          console.log(chalk.red("  ✗ Removed"));
           break;
-        case "skip":
-          kept++;
-          console.log(chalk.gray("  — Skipped (kept)"));
+        case "skipped":
+          console.log(chalk.gray(isDraft ? "  — Skipped (remains draft)" : "  — Skipped (kept)"));
           break;
-        case "quit":
-          console.log(chalk.gray("  Stopping review."));
-          return { kept, edited, removed };
       }
     }
   } finally {
     rl.close();
   }
 
-  return { kept, edited, removed };
+  return { kept, promoted, edited, removed, remaining: 0 };
+}
+
+/**
+ * Review only draft learnings in a directory.
+ * Convenience wrapper for the retro --enrich flow.
+ */
+export async function reviewDraftLearnings(
+  dir: string,
+): Promise<{ promoted: number; edited: number; removed: number; remaining: number }> {
+  const allLearnings = listLearnings(dir);
+  const allFiles = readdirSync(dir).filter((f) => f.startsWith("LEARN-") && f.endsWith(".md")).sort();
+
+  const drafts = allLearnings.filter((l) => l.status === "draft");
+  if (drafts.length === 0) {
+    console.log(chalk.gray("No draft learnings to review."));
+    return { promoted: 0, edited: 0, removed: 0, remaining: 0 };
+  }
+
+  const filenames = drafts.map((l) => allFiles.find((f) => f.startsWith(l.id)) || "");
+
+  const result = await reviewExistingLearnings(drafts, dir, filenames);
+  return {
+    promoted: result.promoted,
+    edited: result.edited,
+    removed: result.removed,
+    remaining: result.remaining,
+  };
 }

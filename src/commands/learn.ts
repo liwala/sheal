@@ -75,11 +75,15 @@ export async function runLearnList(opts: LearnListOptions): Promise<void> {
     return;
   }
 
+  const drafts = filtered.filter((l) => l.status === "draft");
+  const active = filtered.filter((l) => l.status !== "draft");
+
   for (const l of filtered) {
     const tags = l.tags.join(", ");
-    console.log(`${l.id}  [${l.severity}] [${tags}]  ${l.title}`);
+    const draftBadge = l.status === "draft" ? chalk.yellow("[draft] ") : "";
+    console.log(`${l.id}  ${draftBadge}[${l.severity}] [${tags}]  ${l.title}`);
   }
-  console.log(`\n${filtered.length} learning(s)`);
+  console.log(`\n${filtered.length} learning(s)${drafts.length > 0 ? chalk.yellow(` (${drafts.length} draft)`) : ""}`);
 }
 
 interface LearnSyncOptions {
@@ -175,5 +179,15 @@ export async function runLearnReview(opts: LearnReviewOptions): Promise<void> {
 
   console.log();
   console.log(chalk.bold("Review complete:"));
-  console.log(`  ${chalk.green(`${result.kept} kept`)}  ${chalk.cyan(`${result.edited} edited`)}  ${chalk.red(`${result.removed} removed`)}`);
+  const parts = [];
+  if (result.promoted > 0) parts.push(chalk.green(`${result.promoted} promoted`));
+  if (result.kept > 0) parts.push(chalk.green(`${result.kept} kept`));
+  if (result.edited > 0) parts.push(chalk.cyan(`${result.edited} edited`));
+  if (result.removed > 0) parts.push(chalk.red(`${result.removed} removed`));
+  if (result.remaining > 0) parts.push(chalk.yellow(`${result.remaining} drafts remaining`));
+  console.log(`  ${parts.join("  ")}`);
+
+  if (result.remaining > 0) {
+    console.log(chalk.gray(`\nRun 'sheal learn review${opts.global ? " --global" : ""}' again to continue.`));
+  }
 }
