@@ -4,6 +4,34 @@ import { join } from "node:path";
 import chalk from "chalk";
 import type { LearningFile } from "./types.js";
 
+/**
+ * Like readline.question(), but returns null if ESC is pressed.
+ */
+function askWithEsc(prompt: string, rl: ReturnType<typeof createInterface>): Promise<string | null> {
+  return new Promise((resolve) => {
+    const onKeypress = (_: string, key: { name?: string; sequence?: string }) => {
+      if (key?.name === "escape" || key?.sequence === "\x1b") {
+        process.stdin.removeListener("keypress", onKeypress);
+        // Clear the current line and resolve null
+        rl.write(null, { ctrl: true, name: "u" }); // clear input
+        process.stdout.write("\n");
+        resolve(null);
+      }
+    };
+
+    if (process.stdin.isTTY) {
+      const { emitKeypressEvents } = require("node:readline");
+      emitKeypressEvents(process.stdin);
+      process.stdin.on("keypress", onKeypress);
+    }
+
+    rl.question(prompt, (answer) => {
+      process.stdin.removeListener("keypress", onKeypress);
+      resolve(answer);
+    });
+  });
+}
+
 export interface ReviewResult {
   action: "accept" | "edit" | "skip" | "remove" | "quit";
   /** Updated text (only set when action is "edit") */
@@ -46,8 +74,12 @@ export async function reviewLearning(
   if (a === "s" || a === "skip" || a === "n") return { action: "skip" };
 
   if (a === "e" || a === "edit") {
-    console.log(chalk.gray("  Enter new text (press enter to confirm):"));
-    const newText = await ask(chalk.white("  > "));
+    console.log(chalk.gray("  Enter new text (enter to confirm, ESC to cancel):"));
+    const newText = await askWithEsc(chalk.white("  > "), rl);
+    if (newText === null) {
+      console.log(chalk.gray("  Edit cancelled."));
+      return { action: "skip" };
+    }
     if (newText.trim()) {
       return { action: "edit", editedText: newText.trim() };
     }
