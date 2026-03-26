@@ -740,15 +740,18 @@ export function parseRulesFromOutput(output: string): string[] {
  */
 async function promptToSaveRules(rules: string[], projectRoot: string, sessionId?: string): Promise<void> {
   const { reviewDraftLearnings } = await import("../learn/review.js");
+  const { getProjectDir } = await import("../learn/store.js");
+  const { mkdirSync } = await import("node:fs");
 
   const projectTags = detectProjectTags(projectRoot);
-  const globalDir = getGlobalDir();
+  const projectDir = getProjectDir(projectRoot);
+  mkdirSync(projectDir, { recursive: true });
   const today = new Date().toISOString().slice(0, 10);
 
-  // Save all proposed rules as drafts first (so they survive a quit)
+  // Save all proposed rules as drafts to the project directory
   const drafts: LearningFile[] = [];
   for (const rule of rules) {
-    const id = nextId(globalDir);
+    const id = nextId(projectDir);
     const learning: LearningFile = {
       id,
       title: rule.slice(0, 80),
@@ -760,19 +763,20 @@ async function promptToSaveRules(rules: string[], projectRoot: string, sessionId
       body: rule,
       ...(sessionId ? { sessionId } : {}),
     };
-    writeLearning(globalDir, learning);
+    writeLearning(projectDir, learning);
     drafts.push(learning);
   }
 
-  console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s). Starting review...`));
+  console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s) to .sheal/learnings/. Starting review...`));
 
   // Review drafts — accepted ones get promoted to active, removed ones get deleted
-  const result = await reviewDraftLearnings(globalDir);
+  const result = await reviewDraftLearnings(projectDir);
 
   if (result.promoted > 0) {
-    console.log(chalk.green(`\n${result.promoted} learning(s) accepted. Run 'sheal learn list --global' to view.`));
+    console.log(chalk.green(`\n${result.promoted} learning(s) accepted. Run 'sheal learn list' to view.`));
+    console.log(chalk.gray("Use 'sheal learn promote' to share with other projects."));
   }
   if (result.remaining > 0) {
-    console.log(chalk.yellow(`${result.remaining} draft(s) remaining. Run 'sheal learn review --global' to continue.`));
+    console.log(chalk.yellow(`${result.remaining} draft(s) remaining. Run 'sheal learn review' to continue.`));
   }
 }

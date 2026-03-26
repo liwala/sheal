@@ -148,9 +148,10 @@ sheal graph --json                 # JSON output
 Manage ADR-style session learnings. Learnings are stored as individual markdown files with frontmatter metadata.
 
 ```bash
-# Add a learning
+# Add a learning (saves to project by default)
 sheal learn add "Always check bd --help before guessing flags" \
   --tags=beads,cli --category=workflow --severity=high
+sheal learn add --global "..."  # Save directly to global store
 
 # List learnings
 sheal learn list              # Project learnings (.sheal/learnings/)
@@ -158,10 +159,13 @@ sheal learn list --global     # Global learnings (~/.sheal/learnings/)
 sheal learn list --tag=beads  # Filter by tag
 
 # Review & curate learnings interactively
-sheal learn review              # Project learnings
+sheal learn review              # Project learnings (drafts shown first)
 sheal learn review --global     # Global learnings
 
-# Sync global learnings to current project (by tag match)
+# Promote curated project learnings to global
+sheal learn promote
+
+# Pull global learnings into project (by tag match)
 sheal learn sync
 ```
 

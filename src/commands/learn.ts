@@ -19,15 +19,17 @@ interface LearnAddOptions {
   category: LearningCategory;
   severity: LearningSeverity;
   projectRoot: string;
+  global?: boolean;
 }
 
 /**
  * `sheal learn add "insight" --tags=x,y --category=workflow --severity=medium`
- * Writes a new learning to the global directory.
+ * Writes a new learning to the project directory by default, or global with --global.
  */
 export async function runLearnAdd(opts: LearnAddOptions): Promise<void> {
-  const globalDir = getGlobalDir();
-  const id = nextId(globalDir);
+  const dir = opts.global ? getGlobalDir() : getProjectDir(opts.projectRoot);
+  mkdirSync(dir, { recursive: true });
+  const id = nextId(dir);
   const today = new Date().toISOString().slice(0, 10);
 
   const learning: LearningFile = {
@@ -41,8 +43,9 @@ export async function runLearnAdd(opts: LearnAddOptions): Promise<void> {
     body: opts.insight,
   };
 
-  const filepath = writeLearning(globalDir, learning);
-  console.log(`Created ${id}: ${filepath}`);
+  const filepath = writeLearning(dir, learning);
+  const scope = opts.global ? "global" : "project";
+  console.log(`Created ${id} (${scope}): ${filepath}`);
 }
 
 interface LearnListOptions {
@@ -145,6 +148,83 @@ export async function runLearnSync(opts: LearnSyncOptions): Promise<void> {
   }
 
   console.log(`Synced ${copied}/${globalLearnings.length} learnings to ${projectDir}`);
+}
+
+interface LearnPromoteOptions {
+  projectRoot: string;
+}
+
+/**
+ * `sheal learn promote`
+ * Interactively select project learnings to copy to the global directory.
+ */
+export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> {
+  const projectDir = getProjectDir(opts.projectRoot);
+  const globalDir = getGlobalDir();
+  const learnings = listLearnings(projectDir).filter((l) => l.status === "active");
+
+  if (learnings.length === 0) {
+    console.log(chalk.yellow("No active project learnings to promote."));
+    console.log(chalk.gray("Add learnings with: sheal learn add \"insight\""));
+    return;
+  }
+
+  // Check which are already in global (by title match)
+  const globalLearnings = listLearnings(globalDir);
+  const globalTitles = new Set(globalLearnings.map((l) => l.title));
+
+  const { createInterface } = await import("node:readline");
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string): Promise<string> =>
+    new Promise((resolve) => rl.question(q, resolve));
+
+  console.log();
+  console.log(chalk.bold(`Promote project learnings to global (~/.sheal/learnings/)`));
+  console.log(chalk.gray(`${learnings.length} active learning(s) in project\n`));
+
+  let promoted = 0;
+
+  try {
+    for (let i = 0; i < learnings.length; i++) {
+      const l = learnings[i];
+      const alreadyGlobal = globalTitles.has(l.title);
+
+      console.log(chalk.bold(`[${i + 1}/${learnings.length}] ${l.id}`));
+      console.log(chalk.cyan(`  ${l.title}`));
+      if (alreadyGlobal) {
+        console.log(chalk.gray("  (already exists in global)"));
+      }
+      console.log(chalk.gray(`  tags: ${l.tags.join(", ")}  severity: ${l.severity}`));
+
+      const answer = await ask(chalk.white(`  Promote to global? [${alreadyGlobal ? "y/N" : "Y/n"}] `));
+      const a = answer.trim().toLowerCase();
+
+      if (a === "q") {
+        console.log(chalk.gray("  Stopping."));
+        break;
+      }
+
+      const shouldPromote = alreadyGlobal
+        ? (a === "y" || a === "yes")
+        : (a === "" || a === "y" || a === "yes");
+
+      if (shouldPromote) {
+        const id = nextId(globalDir);
+        const globalLearning = { ...l, id };
+        writeLearning(globalDir, globalLearning);
+        promoted++;
+        console.log(chalk.green(`  ✓ Promoted as ${id}`));
+      } else {
+        console.log(chalk.gray("  — Skipped"));
+      }
+    }
+  } finally {
+    rl.close();
+  }
+
+  if (promoted > 0) {
+    console.log(chalk.green(`\nPromoted ${promoted} learning(s) to global. Run 'sheal learn list --global' to view.`));
+  }
 }
 
 interface LearnReviewOptions {

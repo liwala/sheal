@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnSync, runLearnReview } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote } from "./commands/learn.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
@@ -59,12 +59,13 @@ Asking Questions
 Learnings
 ─────────
   sheal learn add "Always check real data first" --tags=parsing
-                                  Save a learning
+                                  Save a learning (project-local)
+  sheal learn add --global "..."  Save directly to global store
   sheal learn list                List project learnings
   sheal learn list --global       List global learnings
   sheal learn review              Review & curate project learnings
-  sheal learn review --global     Review & curate global learnings
-  sheal learn sync                Sync global learnings to this project
+  sheal learn promote             Promote project learnings to global
+  sheal learn sync                Pull global learnings into project
 
 Browsing
 ────────
@@ -277,10 +278,11 @@ const learn = program
 
 learn
   .command("add <insight>")
-  .description("Add a new learning to the global store")
+  .description("Add a new learning (project-local by default)")
   .option("--tags <tags>", "Comma-separated tags", "general")
   .option("--category <cat>", "Category: missing-context, failure-loop, wasted-effort, environment, workflow", "workflow")
   .option("--severity <sev>", "Severity: low, medium, high", "medium")
+  .option("--global", "Save to global store instead of project", false)
   .option("-p, --project <path>", "Project root path", process.cwd())
   .action(async (insight: string, opts) => {
     await runLearnAdd({
@@ -289,6 +291,7 @@ learn
       category: opts.category as LearningCategory,
       severity: opts.severity as LearningSeverity,
       projectRoot: opts.project,
+      global: opts.global,
     });
   });
 
@@ -324,6 +327,16 @@ learn
   .action(async (opts) => {
     await runLearnReview({
       global: opts.global,
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("promote")
+  .description("Promote project learnings to global store for sharing")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnPromote({
       projectRoot: opts.project,
     });
   });
