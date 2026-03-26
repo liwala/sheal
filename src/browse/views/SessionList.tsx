@@ -195,9 +195,9 @@ export function SessionList({
           {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
         </Box>
         <Box>
-          {hideEntire && entireCount > 0 && <Text dimColor>{entireCount} entire.io hidden, e to show</Text>}
-          {hideEntire && entireCount > 0 && hidePiped && pipedCount > 0 && <Text dimColor> | </Text>}
-          {hidePiped && pipedCount > 0 && <Text dimColor>{pipedCount} piped hidden, p to show</Text>}
+          {entireCount > 0 && <Text dimColor>{hideEntire ? `${entireCount} entire.io hidden, e to show` : `showing ${entireCount} entire.io, e to hide`}</Text>}
+          {entireCount > 0 && pipedCount > 0 && <Text dimColor> | </Text>}
+          {pipedCount > 0 && <Text dimColor>{hidePiped ? `${pipedCount} piped hidden, p to show` : `showing ${pipedCount} piped, p to hide`}</Text>}
         </Box>
       </Box>
 
