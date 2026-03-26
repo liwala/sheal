@@ -5,6 +5,7 @@ import type { NativeProject } from "../../entire/claude-native.js";
 import type { CheckpointInfo } from "../../entire/types.js";
 import { listCodexSessionsForProject } from "../../entire/codex-native.js";
 import { listAmpSessionsForProject } from "../../entire/amp-native.js";
+import { listGeminiSessionsForProject } from "../../entire/gemini-native.js";
 import { hasEntireBranch, listCheckpoints } from "../../entire/reader.js";
 import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
@@ -14,7 +15,8 @@ const AGENT_COLORS: Record<string, string> = {
   "Claude Code": "blue",
   "Codex": "yellow",
   "Amp": "magenta",
-  "Entire.io": "green",
+  "Gemini": "green",
+  "Entire.io": "greenBright",
 };
 
 interface SessionListProps {
@@ -54,6 +56,8 @@ export function SessionList({
         sessions.push(...listCodexSessionsForProject(project.projectPath));
       } else if (a.agent === "amp") {
         sessions.push(...listAmpSessionsForProject(project.projectPath));
+      } else if (a.agent === "gemini") {
+        sessions.push(...listGeminiSessionsForProject(project.projectPath));
       } else {
         sessions.push(...listNativeSessionsBySlug(a.slug));
       }
@@ -65,6 +69,8 @@ export function SessionList({
         sessions.push(...listCodexSessionsForProject(project.projectPath));
       } else if (project.slug.startsWith("amp:")) {
         sessions.push(...listAmpSessionsForProject(project.projectPath));
+      } else if (project.slug.startsWith("gemini:")) {
+        sessions.push(...listGeminiSessionsForProject(project.projectPath));
       } else {
         sessions.push(...listNativeSessionsBySlug(project.slug));
       }

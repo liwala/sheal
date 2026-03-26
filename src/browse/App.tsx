@@ -10,6 +10,7 @@ import { SessionDetail } from "./views/SessionDetail.js";
 import { AmpSessionDetail } from "./views/AmpSessionDetail.js";
 import { CodexSessionDetail } from "./views/CodexSessionDetail.js";
 import { EntireSessionDetail } from "./views/EntireSessionDetail.js";
+import { GeminiSessionDetail } from "./views/GeminiSessionDetail.js";
 import { SearchResults } from "./views/SearchResults.js";
 import { RetroList } from "./views/RetroList.js";
 import { RetroDetail } from "./views/RetroDetail.js";
@@ -182,6 +183,17 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
       if (selectedAgent === "Codex") {
         return (
           <CodexSessionDetail
+            sessionId={selectedSessionId}
+            projectPath={selectedProject?.projectPath || ""}
+            onBack={handleBack}
+            onQuit={handleQuit}
+            onViewRetro={handleViewRetroFromSession}
+          />
+        );
+      }
+      if (selectedAgent === "Gemini") {
+        return (
+          <GeminiSessionDetail
             sessionId={selectedSessionId}
             projectPath={selectedProject?.projectPath || ""}
             onBack={handleBack}
