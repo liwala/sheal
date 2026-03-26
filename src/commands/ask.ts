@@ -523,6 +523,17 @@ export function runAskList(options: { projectRoot: string; global?: boolean }): 
       console.log(`  ${chalk.gray(file)}`);
     }
   }
+
+  // Hint about global asks when viewing project-scoped results
+  if (!options.global) {
+    const globalDir = join(homedir(), ".sheal", "asks");
+    if (existsSync(globalDir)) {
+      const globalCount = readdirSync(globalDir).filter((f) => f.endsWith(".md")).length;
+      if (globalCount > 0) {
+        console.log(chalk.gray(`\n${globalCount} global ask(s) also available (sheal ask-list --global)`));
+      }
+    }
+  }
 }
 
 /**
