@@ -31,6 +31,38 @@ export interface RetroOptions {
   today?: boolean;
 }
 
+const MIN_USER_PROMPTS = 3;
+const RETRO_PATTERNS = [/sheal\s+retro/i, /\/retro/i, /sheal\s+check/i];
+
+/**
+ * Check if a session is too trivial to analyze.
+ * Returns a reason string if it should be skipped, or null if it's worth analyzing.
+ */
+function shouldSkipSession(checkpoint: import("../entire/types.js").Checkpoint): string | null {
+  const session = checkpoint.sessions[0];
+  if (!session) return "no session data";
+
+  const transcript = session.transcript;
+  const userEntries = transcript.filter((e) => e.type === "user");
+  const filesModified = checkpoint.root.filesTouched?.length ?? 0;
+
+  // Too short
+  if (userEntries.length < MIN_USER_PROMPTS && filesModified === 0) {
+    return `too short to analyze (${userEntries.length} prompt${userEntries.length !== 1 ? "s" : ""}, 0 files modified)`;
+  }
+
+  // Retro-on-retro: session is primarily a retro/check invocation
+  if (userEntries.length <= 2) {
+    const allContent = transcript.map((e) => e.content).join("\n");
+    const isRetroSession = RETRO_PATTERNS.some((p) => p.test(allContent));
+    if (isRetroSession) {
+      return "session is a retro/check invocation, not a coding session";
+    }
+  }
+
+  return null;
+}
+
 export async function runRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
 
@@ -50,6 +82,13 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   // Try Entire.io first, fall back to native Claude Code transcripts
   const checkpoint = await loadSession(repoPath, options.checkpointId);
   if (!checkpoint) return;
+
+  const skipReason = shouldSkipSession(checkpoint);
+  if (skipReason) {
+    const id = checkpoint.root.checkpointId.slice(0, 12);
+    console.log(chalk.yellow(`Skipping session ${id} — ${skipReason}`));
+    return;
+  }
 
   const retro = runRetrospective(checkpoint);
 
@@ -118,6 +157,14 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
       if (options.format !== "json") {
         console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (no transcript)`));
+      }
+      continue;
+    }
+
+    const skipReason = shouldSkipSession(checkpoint);
+    if (skipReason) {
+      if (options.format !== "json") {
+        console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (${skipReason})`));
       }
       continue;
     }
