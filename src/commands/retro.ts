@@ -63,6 +63,46 @@ function shouldSkipSession(checkpoint: import("../entire/types.js").Checkpoint):
   return null;
 }
 
+/**
+ * Find the next session worth analyzing after skipping one.
+ * Scans recent sessions and returns the first that passes shouldSkipSession.
+ */
+async function findNextViableSession(
+  repoPath: string,
+  skipId: string,
+): Promise<{ id: string; title?: string } | null> {
+  // Try native sessions first (most common)
+  if (hasNativeTranscripts(repoPath)) {
+    const sessions = listNativeSessions(repoPath);
+    for (const info of sessions.slice(0, 10)) {
+      if (info.sessionId === skipId || info.checkpointId === skipId) continue;
+      try {
+        const cp = loadNativeSession(repoPath, info.sessionId);
+        if (cp && !shouldSkipSession(cp)) {
+          return { id: info.sessionId, title: info.title?.slice(0, 50) };
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // Try Entire.io
+  const hasBranch = await hasEntireBranch(repoPath);
+  if (hasBranch) {
+    const checkpoints = await listCheckpoints(repoPath);
+    for (const info of checkpoints.slice(0, 10)) {
+      if (info.checkpointId === skipId) continue;
+      try {
+        const cp = await loadCheckpoint(repoPath, info.checkpointId);
+        if (cp && !shouldSkipSession(cp)) {
+          return { id: info.checkpointId, title: info.title?.slice(0, 50) };
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  return null;
+}
+
 export async function runRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
 
@@ -87,6 +127,15 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   if (skipReason) {
     const id = checkpoint.root.checkpointId.slice(0, 12);
     console.log(chalk.yellow(`Skipping session ${id} — ${skipReason}`));
+
+    // If we auto-selected the latest, suggest the next viable session
+    if (!options.checkpointId) {
+      const suggestion = await findNextViableSession(repoPath, checkpoint.root.checkpointId);
+      if (suggestion) {
+        console.log(chalk.gray(`\nTry: sheal retro --checkpoint ${suggestion.id}`) +
+          (suggestion.title ? chalk.gray(` (${suggestion.title})`) : ""));
+      }
+    }
     return;
   }
 
