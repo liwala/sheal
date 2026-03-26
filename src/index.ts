@@ -91,7 +91,11 @@ const program = new Command();
 program
   .name("sheal")
   .description("Self-healing AI coding toolkit")
-  .version(pkg.version);
+  .version(pkg.version)
+  .action(() => {
+    // Bare `sheal` with no command: show the quick guide instead of --help
+    console.log(HOWTO);
+  });
 
 program
   .command("howto")
