@@ -41,6 +41,7 @@ export function SessionList({
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [hidePiped, setHidePiped] = useState(true);
+  const [hideEntire, setHideEntire] = useState(true);
   const [filterActive, setFilterActive] = useState(false);
   const [filterText, setFilterText] = useState("");
   const { stdout } = useStdout();
@@ -119,10 +120,16 @@ export function SessionList({
 
   const hasMultipleAgents = (project.agents?.length ?? 0) > 1;
 
+  const entireCount = useMemo(() => allSessions.filter((s) => s.agent === "Entire.io").length, [allSessions]);
+  const pipedCount = useMemo(() => allSessions.filter((s) => s.title?.startsWith("[piped]")).length, [allSessions]);
+
   const filtered = useMemo(() => {
     let result = allSessions;
     if (hidePiped) {
       result = result.filter((s) => !s.title?.startsWith("[piped]"));
+    }
+    if (hideEntire) {
+      result = result.filter((s) => s.agent !== "Entire.io");
     }
     if (filterText) {
       const q = filterText.toLowerCase();
@@ -138,7 +145,7 @@ export function SessionList({
       );
     }
     return result;
-  }, [allSessions, filterText, agentFilter, hidePiped]);
+  }, [allSessions, filterText, agentFilter, hidePiped, hideEntire]);
 
   useInput((input, key) => {
     if (filterActive) {
@@ -157,6 +164,7 @@ export function SessionList({
     if (input === "s") { onSearch(); return; }
     if (input === "a") { onAgentFilterToggle(); return; }
     if (input === "p") { setHidePiped(!hidePiped); setCursor(0); setScrollOffset(0); return; }
+    if (input === "e") { setHideEntire(!hideEntire); setCursor(0); setScrollOffset(0); return; }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -185,7 +193,11 @@ export function SessionList({
           <Text bold>{" > Sessions"}</Text>
           <Text dimColor> ({filtered.length} of {allSessions.length})</Text>
           {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
-          {hidePiped && <Text dimColor> (hiding piped, p to show)</Text>}
+        </Box>
+        <Box>
+          {hideEntire && entireCount > 0 && <Text dimColor>{entireCount} entire.io hidden, e to show</Text>}
+          {hideEntire && entireCount > 0 && hidePiped && pipedCount > 0 && <Text dimColor> | </Text>}
+          {hidePiped && pipedCount > 0 && <Text dimColor>{pipedCount} piped hidden, p to show</Text>}
         </Box>
       </Box>
 
