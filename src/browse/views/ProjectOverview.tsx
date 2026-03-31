@@ -2,6 +2,7 @@ import { Box, Text, useInput } from "ink";
 import { useMemo } from "react";
 import type { NativeProject } from "../../entire/claude-native.js";
 import { countRetros, countLearnings, countAsks } from "../utils/retro-status.js";
+import { listDigests } from "../../commands/digest.js";
 import { useState } from "react";
 import { StatusBar } from "../components/StatusBar.js";
 
@@ -17,6 +18,7 @@ interface ProjectOverviewProps {
   onViewRetros: () => void;
   onViewLearnings: () => void;
   onViewAsks: () => void;
+  onViewDigests: () => void;
   onBack: () => void;
   onQuit: () => void;
 }
@@ -34,15 +36,17 @@ export function ProjectOverview({
   onViewRetros,
   onViewLearnings,
   onViewAsks,
+  onViewDigests,
   onBack,
   onQuit,
 }: ProjectOverviewProps) {
   const [cursor, setCursor] = useState(0);
 
-  const { retroCount, learningCount, askCount } = useMemo(() => ({
+  const { retroCount, learningCount, askCount, digestCount } = useMemo(() => ({
     retroCount: countRetros(project.projectPath),
     learningCount: countLearnings(project.projectPath),
     askCount: countAsks(project.projectPath),
+    digestCount: listDigests().length,
   }), [project.projectPath]);
 
   const agents = project.agents || [];
@@ -52,6 +56,7 @@ export function ProjectOverview({
     { label: "Retros", count: retroCount, color: "magenta", action: onViewRetros },
     { label: "Learnings", count: learningCount.local, color: "green", action: onViewLearnings },
     { label: "Asks", count: askCount, color: "blueBright", action: onViewAsks },
+    { label: "Digests", count: digestCount, color: "yellowBright", action: onViewDigests },
   ];
 
   useInput((input, key) => {

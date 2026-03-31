@@ -7,6 +7,7 @@ import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
 import { runAsk } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
+import { runDigest } from "./commands/digest.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const program = new Command();
@@ -83,6 +84,26 @@ program
     });
   });
 
+program
+  .command("digest")
+  .description("Generate a categorized digest of user prompts across all agents")
+  .option("--since <window>", "Time window (e.g. '7 days', '1 week', '1 month')", "7 days")
+  .option("--until <date>", "End date (defaults to now)")
+  .option("-p, --project <name>", "Filter to a specific project name")
+  .option("-f, --format <format>", "Output format: pretty | json | markdown", "pretty")
+  .option("-o, --output <path>", "Write output to file")
+  .option("--top <n>", "Top N items per category", "10")
+  .action(async (opts) => {
+    await runDigest({
+      since: opts.since,
+      until: opts.until,
+      project: opts.project,
+      format: opts.format,
+      output: opts.output,
+      topN: parseInt(opts.top, 10),
+    });
+  });
+
 const browse = program
   .command("browse")
   .description("Interactive TUI to browse sessions, retros, and learnings")
@@ -128,6 +149,15 @@ browse
     await runBrowse({
       project: opts.project,
       startView: "learnings",
+    });
+  });
+
+browse
+  .command("digests")
+  .description("Browse digest reports interactively")
+  .action(async () => {
+    await runBrowse({
+      startView: "digests-list",
     });
   });
 

@@ -15,6 +15,8 @@ import { RetroDetail } from "./views/RetroDetail.js";
 import { LearningsList } from "./views/LearningsList.js";
 import { AsksList } from "./views/AsksList.js";
 import { AskDetail } from "./views/AskDetail.js";
+import { DigestsList } from "./views/DigestsList.js";
+import { DigestDetail } from "./views/DigestDetail.js";
 
 const AGENTS = [null, "claude", "codex", "amp", "gemini"];
 
@@ -28,6 +30,7 @@ interface AppProps {
 export function App({ initialProject, initialQuery, initialAgent, initialView }: AppProps) {
   const { exit } = useApp();
   const needsProject = initialView && ["retro-list", "learnings", "sessions", "asks-list"].includes(initialView);
+  const isGlobalView = initialView && ["digests-list"].includes(initialView);
   const [view, setView] = useState<View>(
     needsProject ? "projects" : (initialView || (initialQuery ? "search-results" : "projects")),
   );
@@ -36,6 +39,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [selectedAgent, setSelectedAgent] = useState<string>("");
   const [selectedAskFile, setSelectedAskFile] = useState<string>("");
+  const [selectedDigestFile, setSelectedDigestFile] = useState<string>("");
   const [agentFilter, setAgentFilter] = useState<string | null>(initialAgent || null);
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
@@ -104,6 +108,13 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
     setView("ask-detail");
   }, []);
 
+  const handleViewDigests = useCallback(() => { setView("digests-list"); }, []);
+
+  const handleSelectDigest = useCallback((filename: string) => {
+    setSelectedDigestFile(filename);
+    setView("digest-detail");
+  }, []);
+
   const handleViewRetroFromSession = useCallback(() => {
     setRetroFrom("session");
     setView("retro-detail");
@@ -123,6 +134,10 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
       setView(retroFrom === "session" ? "detail" : "retro-list");
     } else if (view === "ask-detail") {
       setView("asks-list");
+    } else if (view === "digests-list") {
+      setView("project-overview");
+    } else if (view === "digest-detail") {
+      setView("digests-list");
     }
   }, [view, selectedProject, retroFrom]);
 
@@ -148,6 +163,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
           onViewRetros={handleViewRetros}
           onViewLearnings={handleViewLearnings}
           onViewAsks={handleViewAsks}
+          onViewDigests={handleViewDigests}
           onBack={handleBack}
           onQuit={handleQuit}
         />
@@ -260,6 +276,24 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
         <AskDetail
           projectPath={selectedProject?.projectPath || ""}
           filename={selectedAskFile}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "digests-list":
+      return (
+        <DigestsList
+          onSelect={handleSelectDigest}
+          onBack={handleBack}
+          onQuit={handleQuit}
+        />
+      );
+
+    case "digest-detail":
+      return (
+        <DigestDetail
+          filename={selectedDigestFile}
           onBack={handleBack}
           onQuit={handleQuit}
         />
