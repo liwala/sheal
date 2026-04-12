@@ -1,8 +1,32 @@
 {
   "name": "sheal",
   "version": "0.1.0",
-  "description": "Self-healing AI coding toolkit",
+  "description": "Self-healing AI coding toolkit — analyzes AI coding sessions to extract learnings, detect failure patterns, and improve agent behavior",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/luisalima/self-healing-ai-coding.git"
+  },
+  "keywords": [
+    "ai",
+    "coding",
+    "self-healing",
+    "claude",
+    "codex",
+    "amp",
+    "retrospective",
+    "learnings",
+    "cli"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "sheal": "./dist/index.js"
   },

@@ -1,7 +1,6 @@
 import chalk from "chalk";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { createInterface } from "node:readline";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
 import { hasAmpSessions, listAmpProjects, listAmpSessionsForProject, listAmpThreadFiles, getAmpThreadProjectPath } from "../entire/amp-native.js";
@@ -26,10 +25,91 @@ export interface RetroOptions {
   prompt?: boolean;
   enrich?: boolean;
   agent?: string;
+  /** Run retro on the last N sessions */
+  last?: number;
+  /** Run retro on all sessions from today */
+  today?: boolean;
+}
+
+const MIN_USER_PROMPTS = 3;
+const RETRO_PATTERNS = [/sheal\s+retro/i, /\/retro/i, /sheal\s+check/i];
+
+/**
+ * Check if a session is too trivial to analyze.
+ * Returns a reason string if it should be skipped, or null if it's worth analyzing.
+ */
+function shouldSkipSession(checkpoint: import("../entire/types.js").Checkpoint): string | null {
+  const session = checkpoint.sessions[0];
+  if (!session) return "no session data";
+
+  const transcript = session.transcript;
+  const userEntries = transcript.filter((e) => e.type === "user");
+  const filesModified = checkpoint.root.filesTouched?.length ?? 0;
+
+  // Too short
+  if (userEntries.length < MIN_USER_PROMPTS && filesModified === 0) {
+    return `too short to analyze (${userEntries.length} prompt${userEntries.length !== 1 ? "s" : ""}, 0 files modified)`;
+  }
+
+  // Retro-on-retro: session is primarily a retro/check invocation
+  if (userEntries.length <= 2) {
+    const allContent = transcript.map((e) => e.content).join("\n");
+    const isRetroSession = RETRO_PATTERNS.some((p) => p.test(allContent));
+    if (isRetroSession) {
+      return "session is a retro/check invocation, not a coding session";
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find the next session worth analyzing after skipping one.
+ * Scans recent sessions and returns the first that passes shouldSkipSession.
+ */
+async function findNextViableSession(
+  repoPath: string,
+  skipId: string,
+): Promise<{ id: string; title?: string } | null> {
+  // Try native sessions first (most common)
+  if (hasNativeTranscripts(repoPath)) {
+    const sessions = listNativeSessions(repoPath);
+    for (const info of sessions.slice(0, 10)) {
+      if (info.sessionId === skipId || info.checkpointId === skipId) continue;
+      try {
+        const cp = loadNativeSession(repoPath, info.sessionId);
+        if (cp && !shouldSkipSession(cp)) {
+          return { id: info.sessionId, title: info.title?.slice(0, 50) };
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // Try Entire.io
+  const hasBranch = await hasEntireBranch(repoPath);
+  if (hasBranch) {
+    const checkpoints = await listCheckpoints(repoPath);
+    for (const info of checkpoints.slice(0, 10)) {
+      if (info.checkpointId === skipId) continue;
+      try {
+        const cp = await loadCheckpoint(repoPath, info.checkpointId);
+        if (cp && !shouldSkipSession(cp)) {
+          return { id: info.checkpointId, title: info.title?.slice(0, 50) };
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  return null;
 }
 
 export async function runRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
+
+  // Batch mode: multiple sessions
+  if (options.last || options.today) {
+    return runBatchRetro(options);
+  }
 
   // Check if this is an Amp thread
   if (options.checkpointId?.startsWith("T-")) {
@@ -42,6 +122,22 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   // Try Entire.io first, fall back to native Claude Code transcripts
   const checkpoint = await loadSession(repoPath, options.checkpointId);
   if (!checkpoint) return;
+
+  const skipReason = shouldSkipSession(checkpoint);
+  if (skipReason) {
+    const id = checkpoint.root.checkpointId.slice(0, 12);
+    console.log(chalk.yellow(`Skipping session ${id} — ${skipReason}`));
+
+    // If we auto-selected the latest, suggest the next viable session
+    if (!options.checkpointId) {
+      const suggestion = await findNextViableSession(repoPath, checkpoint.root.checkpointId);
+      if (suggestion) {
+        console.log(chalk.gray(`\nTry: sheal retro --checkpoint ${suggestion.id}`) +
+          (suggestion.title ? chalk.gray(` (${suggestion.title})`) : ""));
+      }
+    }
+    return;
+  }
 
   const retro = runRetrospective(checkpoint);
 
@@ -71,6 +167,95 @@ export async function runRetro(options: RetroOptions): Promise<void> {
     console.log(JSON.stringify(clean, null, 2));
   } else {
     printRetro(retro, cached);
+  }
+}
+
+/**
+ * Run retro across multiple sessions (--last N or --today).
+ */
+async function runBatchRetro(options: RetroOptions): Promise<void> {
+  const repoPath = options.projectRoot;
+  const sessions = listNativeSessions(repoPath);
+
+  if (sessions.length === 0) {
+    console.log(chalk.yellow("No sessions found."));
+    return;
+  }
+
+  let selected = sessions;
+  if (options.today) {
+    const today = new Date().toISOString().slice(0, 10);
+    selected = sessions.filter((s) => s.createdAt.startsWith(today));
+    if (selected.length === 0) {
+      console.log(chalk.yellow(`No sessions from today (${today}).`));
+      return;
+    }
+  }
+  if (options.last) {
+    selected = selected.slice(0, options.last);
+  }
+
+  if (options.format !== "json") {
+    console.log(chalk.bold(`Running retro on ${selected.length} session(s)...\n`));
+  }
+
+  const retros: Retrospective[] = [];
+
+  for (const info of selected) {
+    const checkpoint = loadNativeSession(repoPath, info.sessionId);
+    if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
+      if (options.format !== "json") {
+        console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (no transcript)`));
+      }
+      continue;
+    }
+
+    const skipReason = shouldSkipSession(checkpoint);
+    if (skipReason) {
+      if (options.format !== "json") {
+        console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (${skipReason})`));
+      }
+      continue;
+    }
+
+    const retro = runRetrospective(checkpoint);
+    retros.push(retro);
+
+    if (options.format === "json") {
+      // JSON mode: collect and output at end
+    } else {
+      // Print each retro with a separator
+      console.log(chalk.gray("─".repeat(60)));
+      console.log(chalk.bold(`Session: ${info.sessionId.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
+      if (info.title) console.log(chalk.gray(`  ${info.title.slice(0, 70)}`));
+      console.log();
+
+      const cached = loadCachedEnrichments(repoPath, retro.checkpointId);
+      printRetro(retro, cached);
+    }
+  }
+
+  if (options.format === "json") {
+    const clean = retros.map((r) => ({
+      ...r,
+      failureLoops: r.failureLoops.map(({ entries, ...rest }) => rest),
+    }));
+    console.log(JSON.stringify(clean, null, 2));
+  }
+
+  // Summary
+  if (options.format !== "json" && retros.length > 1) {
+    console.log(chalk.gray("═".repeat(60)));
+    console.log(chalk.bold.magenta(`\nBatch Summary: ${retros.length} sessions\n`));
+    const avgHealth = Math.round(retros.reduce((s, r) => s + r.healthScore, 0) / retros.length);
+    const totalLoops = retros.reduce((s, r) => s + r.failureLoops.length, 0);
+    const totalReverts = retros.reduce((s, r) => s + r.revertedWork.length, 0);
+    const totalLearnings = retros.reduce((s, r) => s + r.learnings.length, 0);
+    console.log(`  Average health: ${avgHealth}/100`);
+    console.log(`  Total failure loops: ${totalLoops}`);
+    console.log(`  Total reverted work: ${totalReverts}`);
+    console.log(`  Total learnings: ${totalLearnings}`);
+    console.log();
   }
 }
 
@@ -225,7 +410,7 @@ async function enrichAmpRetro(
   const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
   const allRules = parseRulesFromOutput(ruleSource.content);
   if (allRules.length > 0) {
-    await promptToSaveRules(allRules, projectRoot);
+    await promptToSaveRules(allRules, projectRoot, retro.sessionId);
   }
 }
 
@@ -500,7 +685,7 @@ async function enrichRetro(retro: Retrospective, checkpoint: import("../entire/t
   const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
   const allRules = parseRulesFromOutput(ruleSource.content);
   if (allRules.length > 0) {
-    await promptToSaveRules(allRules, projectRoot);
+    await promptToSaveRules(allRules, projectRoot, retro.sessionId);
   }
 }
 
@@ -620,11 +805,15 @@ function severityIcon(learning: Learning): string {
 
 /**
  * Parse rules from the agent's enrichment output.
- * Looks for bullet points under the **Rules:** section.
+ * Looks for bullet points under a "Rules" section heading.
+ * Tolerates various LLM formatting: **Rules:**, ## Rules, ### Rules:, etc.
  */
-function parseRulesFromOutput(output: string): string[] {
-  // Find the Rules section
-  const rulesMatch = output.match(/\*\*Rules:\*\*\s*\n([\s\S]*?)(?:\n\*\*|\n##|$)/);
+export function parseRulesFromOutput(output: string): string[] {
+  // Match various heading formats for "Rules":
+  //   **Rules:**   **Rules**:   ## Rules   ### Rules:   Rules:
+  const rulesMatch = output.match(
+    /(?:\*{1,2}Rules\*{0,2}\s*:?\s*\*{0,2}|#{1,4}\s*Rules\s*:?)\s*\n([\s\S]*?)(?:\n\*{1,2}[A-Z]|\n#{1,4}\s|$)/,
+  );
   if (!rulesMatch) return [];
 
   const rulesBlock = rulesMatch[1];
@@ -632,8 +821,8 @@ function parseRulesFromOutput(output: string): string[] {
 
   for (const line of rulesBlock.split("\n")) {
     const trimmed = line.trim();
-    // Match bullet lines: "- rule text" or "* rule text"
-    const bulletMatch = trimmed.match(/^[-*]\s+(.+)/);
+    // Match bullet lines: "- rule text", "* rule text", or "N. rule text"
+    const bulletMatch = trimmed.match(/^(?:[-*]|\d+[.)]\s)\s*(.+)/);
     if (bulletMatch) {
       rules.push(bulletMatch[1].trim());
     }
@@ -643,60 +832,47 @@ function parseRulesFromOutput(output: string): string[] {
 }
 
 /**
- * Ask the user to confirm each rule and save confirmed ones as learnings.
+ * Ask the user to review each rule and save accepted ones as learnings.
  */
-async function promptToSaveRules(rules: string[], projectRoot: string): Promise<void> {
-  console.log();
-  console.log(chalk.bold(`Save ${rules.length} suggested rule(s) as learnings?`));
-  console.log(chalk.gray("Each rule will be saved to ~/.sheal/learnings/\n"));
-
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  const ask = (question: string): Promise<string> =>
-    new Promise((resolve) => rl.question(question, resolve));
+async function promptToSaveRules(rules: string[], projectRoot: string, sessionId?: string): Promise<void> {
+  const { reviewDraftLearnings } = await import("../learn/review.js");
+  const { getProjectDir } = await import("../learn/store.js");
+  const { mkdirSync } = await import("node:fs");
 
   const projectTags = detectProjectTags(projectRoot);
-  const globalDir = getGlobalDir();
-  let saved = 0;
+  const projectDir = getProjectDir(projectRoot);
+  mkdirSync(projectDir, { recursive: true });
+  const today = new Date().toISOString().slice(0, 10);
 
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i];
-    console.log(chalk.cyan(`  ${i + 1}. ${rule}`));
-    const answer = await ask(chalk.gray("     Save? [Y/n/q] "));
-    const a = answer.trim().toLowerCase();
-
-    if (a === "q") {
-      console.log(chalk.gray("  Skipping remaining rules."));
-      break;
-    }
-
-    if (a === "" || a === "y" || a === "yes") {
-      const id = nextId(globalDir);
-      const today = new Date().toISOString().slice(0, 10);
-      const learning: LearningFile = {
-        id,
-        title: rule.slice(0, 80),
-        date: today,
-        tags: projectTags.slice(0, 5), // use detected project tags
-        category: "workflow",
-        severity: "medium",
-        status: "active",
-        body: rule,
-      };
-      const path = writeLearning(globalDir, learning);
-      console.log(chalk.green(`     Saved ${id}`));
-      saved++;
-    } else {
-      console.log(chalk.gray("     Skipped."));
-    }
+  // Save all proposed rules as drafts to the project directory
+  const drafts: LearningFile[] = [];
+  for (const rule of rules) {
+    const id = nextId(projectDir);
+    const learning: LearningFile = {
+      id,
+      title: rule.slice(0, 80),
+      date: today,
+      tags: projectTags.slice(0, 5),
+      category: "workflow",
+      severity: "medium",
+      status: "draft",
+      body: rule,
+      ...(sessionId ? { sessionId } : {}),
+    };
+    writeLearning(projectDir, learning);
+    drafts.push(learning);
   }
 
-  rl.close();
+  console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s) to .sheal/learnings/. Starting review...`));
 
-  if (saved > 0) {
-    console.log(chalk.green(`\nSaved ${saved} learning(s). Run 'sheal learn list --global' to view.`));
+  // Review drafts — accepted ones get promoted to active, removed ones get deleted
+  const result = await reviewDraftLearnings(projectDir);
+
+  if (result.promoted > 0) {
+    console.log(chalk.green(`\n${result.promoted} learning(s) accepted. Run 'sheal learn list' to view.`));
+    console.log(chalk.gray("Use 'sheal learn promote' to share with other projects."));
+  }
+  if (result.remaining > 0) {
+    console.log(chalk.yellow(`${result.remaining} draft(s) remaining. Run 'sheal learn review' to continue.`));
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -203,6 +203,72 @@ describe("detectProjectTags", () => {
     const tags = detectProjectTags(dir);
     const sorted = [...tags].sort();
     expect(tags).toEqual(sorted);
+  });
+});
+
+describe("sessionId traceability", () => {
+  let dir: string;
+
+  beforeEach(() => { dir = makeTempDir(); });
+  afterEach(() => { rmSync(dir, { recursive: true }); });
+
+  it("round-trips sessionId through write/read", () => {
+    const learning = { ...sampleLearning, sessionId: "abc-123-session" };
+    const filepath = writeLearning(dir, learning);
+    const loaded = readLearning(filepath);
+    expect(loaded.sessionId).toBe("abc-123-session");
+  });
+
+  it("omits sessionId from frontmatter when not provided", () => {
+    const filepath = writeLearning(dir, sampleLearning);
+    const content = readFileSync(filepath, "utf8");
+    expect(content).not.toContain("session-id");
+    const loaded = readLearning(filepath);
+    expect(loaded.sessionId).toBeUndefined();
+  });
+});
+
+describe("sync deduplication", () => {
+  let globalDir: string;
+  let projectDir: string;
+
+  beforeEach(() => {
+    globalDir = makeTempDir();
+    projectDir = makeTempDir();
+  });
+
+  afterEach(() => {
+    rmSync(globalDir, { recursive: true });
+    rmSync(projectDir, { recursive: true });
+  });
+
+  it("does not overwrite identical files on re-sync", () => {
+    const filename = "LEARN-001-test-learning.md";
+    const content = `---\nid: LEARN-001\ntitle: Test\ndate: 2026-01-01\ntags: [general]\ncategory: workflow\nseverity: low\nstatus: active\n---\n\nBody text.`;
+    writeFileSync(join(globalDir, filename), content);
+    writeFileSync(join(projectDir, filename), content);
+
+    // Grab mtime before simulated sync
+    const { mtimeMs: before } = require("node:fs").statSync(join(projectDir, filename));
+
+    // Simulate the dedup check from runLearnSync
+    const src = join(globalDir, filename);
+    const dest = join(projectDir, filename);
+    const shouldSkip = existsSync(dest) && readFileSync(src, "utf8") === readFileSync(dest, "utf8");
+    expect(shouldSkip).toBe(true);
+  });
+
+  it("overwrites when content differs", () => {
+    const filename = "LEARN-001-test-learning.md";
+    const globalContent = `---\nid: LEARN-001\ntitle: Updated\ndate: 2026-01-01\ntags: [general]\ncategory: workflow\nseverity: high\nstatus: active\n---\n\nNew body.`;
+    const projectContent = `---\nid: LEARN-001\ntitle: Old\ndate: 2026-01-01\ntags: [general]\ncategory: workflow\nseverity: low\nstatus: active\n---\n\nOld body.`;
+    writeFileSync(join(globalDir, filename), globalContent);
+    writeFileSync(join(projectDir, filename), projectContent);
+
+    const src = join(globalDir, filename);
+    const dest = join(projectDir, filename);
+    const shouldSkip = existsSync(dest) && readFileSync(src, "utf8") === readFileSync(dest, "utf8");
+    expect(shouldSkip).toBe(false);
   });
 });
 

@@ -1,22 +1,113 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
-import { runSessions } from "./commands/sessions.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnSync } from "./commands/learn.js";
-import { runAsk } from "./commands/ask.js";
+import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote } from "./commands/learn.js";
+import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
 import { runDigest } from "./commands/digest.js";
 import { runCost } from "./commands/cost.js";
+import { runExport } from "./commands/export.js";
+import { runGraph } from "./commands/graph.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
+
+/** Parse a CLI option as a positive integer, exit with error if invalid. */
+function parsePositiveInt(value: string, flag: string): number {
+  const n = parseInt(value, 10);
+  if (isNaN(n) || n < 1) {
+    console.error(`Invalid value for ${flag}: "${value}" (must be a positive integer)`);
+    process.exit(1);
+  }
+  return n;
+}
+
+const HOWTO = `
+Self-Healing AI Coding (sheal) — Quick Guide
+=============================================
+
+sheal analyzes your AI coding sessions to extract learnings, detect failure
+patterns, and improve agent behavior over time.
+
+Getting Started
+───────────────
+  sheal check                     Health-check your project setup
+  sheal init                      Bootstrap sheal into your agent config files
+
+Retrospectives
+──────────────
+  sheal retro                     Static retro on your latest session
+  sheal retro --enrich            Deep LLM-enriched retro (uses agent CLI)
+  sheal retro --agent codex       Use a specific agent for enrichment
+
+Asking Questions
+────────────────
+  sheal ask "what went wrong with auth?"
+                                  Search this project's sessions
+  sheal ask --global "recurring test failures"
+                                  Search ALL projects
+  sheal ask -p /path/to/project "what happened?"
+                                  Search a specific project
+  sheal ask --agent codex "..."   Use codex/amp/gemini for analysis
+  sheal ask-list                  List saved ask results
+  sheal ask-show "auth"           Show a saved result
+
+Learnings
+─────────
+  sheal learn add "Always check real data first" --tags=parsing
+                                  Save a learning (project-local)
+  sheal learn add --global "..."  Save directly to global store
+  sheal learn list                List project learnings
+  sheal learn list --global       List global learnings
+  sheal learn review              Review & curate project learnings
+  sheal learn promote             Promote project learnings to global
+  sheal learn sync                Pull global learnings into project
+
+Browsing
+────────
+  sheal browse                    Interactive TUI for sessions & retros
+  sheal browse sessions           Browse sessions
+  sheal browse retros             Browse retrospectives
+  sheal browse learnings          Browse learnings
+  sheal export                    Export session data as JSON (for piping)
+  sheal graph                     Cross-session knowledge graph
+
+Agents
+──────
+  Supported: claude, codex, amp, gemini
+  Auto-detected from PATH. Override with --agent <name>.
+
+Tips
+────
+  • Run "sheal check" at the start of every session
+  • Run "sheal retro" at the end to extract learnings
+  • Use "sheal ask --global" to search across all your projects
+  • Set SHEAL_DEBUG=1 for verbose output
+`;
 
 const program = new Command();
 
 program
   .name("sheal")
   .description("Self-healing AI coding toolkit")
-  .version("0.1.0");
+  .version(pkg.version)
+  .action(() => {
+    // Bare `sheal` with no command: show the quick guide instead of --help
+    console.log(HOWTO);
+  });
+
+program
+  .command("howto")
+  .description("Show quick-start guide and usage examples")
+  .action(() => {
+    console.log(HOWTO);
+  });
 
 program
   .command("check")
@@ -33,15 +124,13 @@ program
   });
 
 program
-  .command("sessions")
-  .description("List and inspect session data")
-  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .command("export")
+  .description("Export session data as JSON (for scripting and piping)")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("-c, --checkpoint <id>", "Load a specific checkpoint by ID")
-  .option("--global", "List all projects and sessions from ~/.claude/projects/", false)
+  .option("--global", "Export all projects and sessions from ~/.claude/projects/", false)
   .action(async (opts) => {
-    await runSessions({
-      format: opts.format,
+    await runExport({
       projectRoot: opts.project,
       checkpointId: opts.checkpoint,
       global: opts.global,
@@ -57,6 +146,8 @@ program
   .option("--prompt", "Output an LLM prompt for deep analysis (pipe to any agent)")
   .option("--enrich", "Invoke the session's agent CLI for LLM-enriched analysis")
   .option("--agent <name>", "Override agent CLI for --enrich (e.g. claude, gemini, codex)")
+  .option("--last <n>", "Run retro on the last N sessions")
+  .option("--today", "Run retro on all sessions from today", false)
   .action(async (opts) => {
     await runRetro({
       format: opts.format,
@@ -65,6 +156,8 @@ program
       prompt: opts.prompt,
       enrich: opts.enrich,
       agent: opts.agent,
+      last: opts.last ? parsePositiveInt(opts.last, "--last") : undefined,
+      today: opts.today,
     });
   });
 
@@ -80,9 +173,27 @@ program
       question,
       projectRoot: opts.project,
       agent: opts.agent,
-      limit: parseInt(opts.limit, 10),
+      limit: parsePositiveInt(opts.limit, "--limit"),
       global: opts.global,
     });
+  });
+
+program
+  .command("ask-list")
+  .description("List previously saved ask results")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--global", "List global ask results", false)
+  .action(async (opts) => {
+    await runAskList({ projectRoot: opts.project, global: opts.global });
+  });
+
+program
+  .command("ask-show <query>")
+  .description("Show a saved ask result by filename or search term")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--global", "Search global ask results", false)
+  .action(async (query: string, opts) => {
+    await runAskShow({ query, projectRoot: opts.project, global: opts.global });
   });
 
 program
@@ -219,16 +330,35 @@ program
     });
   });
 
+program
+  .command("graph")
+  .description("Show cross-session knowledge graph (files, agents, patterns)")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--file <path>", "Show history for a specific file")
+  .option("--agent <name>", "Show details for a specific agent")
+  .option("-n, --limit <count>", "Max sessions to analyze", "50")
+  .option("--json", "Output as JSON", false)
+  .action(async (opts) => {
+    await runGraph({
+      projectRoot: opts.project,
+      file: opts.file,
+      agent: opts.agent,
+      limit: parsePositiveInt(opts.limit, "--limit"),
+      json: opts.json,
+    });
+  });
+
 const learn = program
   .command("learn")
   .description("Manage ADR-style session learnings");
 
 learn
   .command("add <insight>")
-  .description("Add a new learning to the global store")
+  .description("Add a new learning (project-local by default)")
   .option("--tags <tags>", "Comma-separated tags", "general")
   .option("--category <cat>", "Category: missing-context, failure-loop, wasted-effort, environment, workflow", "workflow")
   .option("--severity <sev>", "Severity: low, medium, high", "medium")
+  .option("--global", "Save to global store instead of project", false)
   .option("-p, --project <path>", "Project root path", process.cwd())
   .action(async (insight: string, opts) => {
     await runLearnAdd({
@@ -237,6 +367,7 @@ learn
       category: opts.category as LearningCategory,
       severity: opts.severity as LearningSeverity,
       projectRoot: opts.project,
+      global: opts.global,
     });
   });
 
@@ -263,5 +394,32 @@ learn
       projectRoot: opts.project,
     });
   });
+
+learn
+  .command("review")
+  .description("Interactively review learnings (accept, edit, remove)")
+  .option("--global", "Review global learnings instead of project", false)
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnReview({
+      global: opts.global,
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("promote")
+  .description("Promote project learnings to global store for sharing")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnPromote({
+      projectRoot: opts.project,
+    });
+  });
+
+process.on("unhandledRejection", (err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
 
 program.parse();

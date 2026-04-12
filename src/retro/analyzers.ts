@@ -2,8 +2,8 @@
  * Session analysis functions that detect patterns in transcript data.
  */
 
-import type { Session, SessionEntry } from "../entire/types.js";
-import type { EffortBreakdown, FailureLoop, RevertedWork, Learning, HumanPatterns } from "./types.js";
+import type { Session, SessionEntry, Checkpoint } from "../entire/types.js";
+import type { EffortBreakdown, FailureLoop, RevertedWork, Learning, HumanPatterns, CoordinationIssue } from "./types.js";
 
 /**
  * Build an effort breakdown from session transcript.
@@ -349,4 +349,108 @@ export function calculateHealthScore(
   if (maxTouches > 8) score -= 5;
 
   return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Detect coordination issues across multiple sessions in a checkpoint.
+ * Returns empty array if there's only one session.
+ */
+export function detectCoordinationIssues(checkpoint: Checkpoint): CoordinationIssue[] {
+  const sessions = checkpoint.sessions;
+  if (sessions.length < 2) return [];
+
+  const issues: CoordinationIssue[] = [];
+
+  // Build per-session file touch maps
+  const sessionFiles: Array<{
+    sessionId: string;
+    agent: string;
+    files: Set<string>;
+    writeFiles: Set<string>;
+  }> = sessions.map((s) => {
+    const files = new Set<string>(s.metadata.filesTouched ?? []);
+    const writeFiles = new Set<string>();
+    for (const entry of s.transcript) {
+      if (entry.toolName && ["Write", "Edit"].includes(entry.toolName)) {
+        for (const f of entry.filesAffected ?? []) {
+          writeFiles.add(f);
+        }
+      }
+    }
+    return {
+      sessionId: s.metadata.sessionId,
+      agent: s.metadata.agent ?? "unknown",
+      files,
+      writeFiles,
+    };
+  });
+
+  // Detect conflicting edits: multiple sessions writing to the same files
+  for (let i = 0; i < sessionFiles.length; i++) {
+    for (let j = i + 1; j < sessionFiles.length; j++) {
+      const a = sessionFiles[i];
+      const b = sessionFiles[j];
+      const sharedWrites = [...a.writeFiles].filter((f) => b.writeFiles.has(f));
+      if (sharedWrites.length > 0) {
+        issues.push({
+          type: "conflicting-edits",
+          description: `${a.agent} and ${b.agent} both wrote to ${sharedWrites.length} shared file(s): ${sharedWrites.map((f) => f.split("/").pop()).join(", ")}`,
+          severity: sharedWrites.length >= 3 ? "high" : "medium",
+          sessionIds: [a.sessionId, b.sessionId],
+          agents: [a.agent, b.agent],
+          files: sharedWrites,
+        });
+      }
+    }
+  }
+
+  // Detect duplicated work: sessions with high file overlap but no shared writes
+  // (suggests parallel work on same area without coordination)
+  for (let i = 0; i < sessionFiles.length; i++) {
+    for (let j = i + 1; j < sessionFiles.length; j++) {
+      const a = sessionFiles[i];
+      const b = sessionFiles[j];
+      const sharedReads = [...a.files].filter((f) => b.files.has(f));
+      const sharedWrites = [...a.writeFiles].filter((f) => b.writeFiles.has(f));
+      // High read overlap without write conflicts suggests duplicated exploration
+      if (sharedReads.length >= 5 && sharedWrites.length === 0) {
+        issues.push({
+          type: "duplicated-work",
+          description: `${a.agent} and ${b.agent} explored ${sharedReads.length} of the same files — possible duplicated investigation`,
+          severity: "low",
+          sessionIds: [a.sessionId, b.sessionId],
+          agents: [a.agent, b.agent],
+          files: sharedReads,
+        });
+      }
+    }
+  }
+
+  // Detect missed handoffs: session that ends with errors and next session
+  // touches the same files (suggests first session should have handed off earlier)
+  for (let i = 0; i < sessions.length - 1; i++) {
+    const current = sessions[i];
+    const next = sessions[i + 1];
+    const currentFails = detectBashFailures(current);
+    const currentReverts = detectRevertedWork(current);
+
+    if (currentFails.length >= 3 || currentReverts.length > 0) {
+      const currentFiles = sessionFiles[i].writeFiles;
+      const nextFiles = sessionFiles[i + 1].writeFiles;
+      const overlap = [...currentFiles].filter((f) => nextFiles.has(f));
+
+      if (overlap.length > 0) {
+        issues.push({
+          type: "missed-handoff",
+          description: `Session ${sessionFiles[i].agent} struggled (${currentFails.length} failures, ${currentReverts.reduce((s, r) => s + r.wastedOperations, 0)} wasted ops) then ${sessionFiles[i + 1].agent} reworked ${overlap.length} of the same files`,
+          severity: currentFails.length >= 5 ? "high" : "medium",
+          sessionIds: [current.metadata.sessionId, next.metadata.sessionId],
+          agents: [sessionFiles[i].agent, sessionFiles[i + 1].agent],
+          files: overlap,
+        });
+      }
+    }
+  }
+
+  return issues;
 }

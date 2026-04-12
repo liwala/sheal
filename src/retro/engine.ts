@@ -14,6 +14,7 @@ import {
   detectBashFailures,
   extractLearnings,
   calculateHealthScore,
+  detectCoordinationIssues,
 } from "./analyzers.js";
 
 /**
@@ -36,6 +37,7 @@ export function runRetrospective(
   const bashFailures = detectBashFailures(session);
   const learnings = extractLearnings(effort, failureLoops, revertedWork, bashFailures);
   const healthScore = calculateHealthScore(failureLoops, revertedWork, bashFailures, effort);
+  const coordinationIssues = detectCoordinationIssues(checkpoint);
 
   return {
     checkpointId: checkpoint.root.checkpointId,
@@ -49,5 +51,6 @@ export function runRetrospective(
     learnings,
     healthScore,
     humanPatterns,
+    ...(coordinationIssues.length > 0 ? { coordinationIssues } : {}),
   };
 }

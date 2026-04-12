@@ -1,10 +1,12 @@
 import { Box, Text, useInput, useStdout } from "ink";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { listNativeSessionsBySlug } from "../../entire/claude-native.js";
 import type { NativeProject } from "../../entire/claude-native.js";
 import type { CheckpointInfo } from "../../entire/types.js";
 import { listCodexSessionsForProject } from "../../entire/codex-native.js";
 import { listAmpSessionsForProject } from "../../entire/amp-native.js";
+import { listGeminiSessionsForProject } from "../../entire/gemini-native.js";
+import { hasEntireBranch, listCheckpoints } from "../../entire/reader.js";
 import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
@@ -13,6 +15,8 @@ const AGENT_COLORS: Record<string, string> = {
   "Claude Code": "blue",
   "Codex": "yellow",
   "Amp": "magenta",
+  "Gemini": "green",
+  "Entire.io": "greenBright",
 };
 
 interface SessionListProps {
@@ -37,13 +41,14 @@ export function SessionList({
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [hidePiped, setHidePiped] = useState(true);
+  const [hideEntire, setHideEntire] = useState(true);
   const [filterActive, setFilterActive] = useState(false);
   const [filterText, setFilterText] = useState("");
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
-  // Load sessions from ALL agent sources for this project
-  const allSessions = useMemo(() => {
+  // Load sessions from ALL agent sources for this project (sync sources)
+  const syncSessions = useMemo(() => {
     const sessions: CheckpointInfo[] = [];
     const agents = project.agents || [];
 
@@ -52,6 +57,8 @@ export function SessionList({
         sessions.push(...listCodexSessionsForProject(project.projectPath));
       } else if (a.agent === "amp") {
         sessions.push(...listAmpSessionsForProject(project.projectPath));
+      } else if (a.agent === "gemini") {
+        sessions.push(...listGeminiSessionsForProject(project.projectPath));
       } else {
         sessions.push(...listNativeSessionsBySlug(a.slug));
       }
@@ -63,15 +70,43 @@ export function SessionList({
         sessions.push(...listCodexSessionsForProject(project.projectPath));
       } else if (project.slug.startsWith("amp:")) {
         sessions.push(...listAmpSessionsForProject(project.projectPath));
+      } else if (project.slug.startsWith("gemini:")) {
+        sessions.push(...listGeminiSessionsForProject(project.projectPath));
       } else {
         sessions.push(...listNativeSessionsBySlug(project.slug));
       }
     }
 
-    // Sort all sessions by date, most recent first
-    sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return sessions;
   }, [project.slug, project.projectPath, project.agents]);
+
+  // Load Entire.io sessions asynchronously
+  const [entireSessions, setEntireSessions] = useState<CheckpointInfo[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!project.projectPath.startsWith("/")) return;
+    hasEntireBranch(project.projectPath).then((has) => {
+      if (!has || cancelled) return;
+      listCheckpoints(project.projectPath).then((checkpoints) => {
+        if (cancelled) return;
+        // Mark Entire.io sessions so they can be routed to the right detail view
+        const marked = checkpoints.map((cp) => ({
+          ...cp,
+          agent: "Entire.io" as const,
+          // Use checkpointId as sessionId for routing
+          sessionId: cp.checkpointId,
+        }));
+        setEntireSessions(marked);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [project.projectPath]);
+
+  const allSessions = useMemo(() => {
+    const sessions = [...syncSessions, ...entireSessions];
+    sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return sessions;
+  }, [syncSessions, entireSessions]);
 
   const retroSet = useMemo(() => {
     const set = new Set<string>();
@@ -85,10 +120,16 @@ export function SessionList({
 
   const hasMultipleAgents = (project.agents?.length ?? 0) > 1;
 
+  const entireCount = useMemo(() => allSessions.filter((s) => s.agent === "Entire.io").length, [allSessions]);
+  const pipedCount = useMemo(() => allSessions.filter((s) => s.title?.startsWith("[piped]")).length, [allSessions]);
+
   const filtered = useMemo(() => {
     let result = allSessions;
     if (hidePiped) {
       result = result.filter((s) => !s.title?.startsWith("[piped]"));
+    }
+    if (hideEntire) {
+      result = result.filter((s) => s.agent !== "Entire.io");
     }
     if (filterText) {
       const q = filterText.toLowerCase();
@@ -104,7 +145,7 @@ export function SessionList({
       );
     }
     return result;
-  }, [allSessions, filterText, agentFilter, hidePiped]);
+  }, [allSessions, filterText, agentFilter, hidePiped, hideEntire]);
 
   useInput((input, key) => {
     if (filterActive) {
@@ -123,6 +164,7 @@ export function SessionList({
     if (input === "s") { onSearch(); return; }
     if (input === "a") { onAgentFilterToggle(); return; }
     if (input === "p") { setHidePiped(!hidePiped); setCursor(0); setScrollOffset(0); return; }
+    if (input === "e") { setHideEntire(!hideEntire); setCursor(0); setScrollOffset(0); return; }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -151,7 +193,11 @@ export function SessionList({
           <Text bold>{" > Sessions"}</Text>
           <Text dimColor> ({filtered.length} of {allSessions.length})</Text>
           {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
-          {hidePiped && <Text dimColor> (hiding piped, p to show)</Text>}
+        </Box>
+        <Box>
+          {entireCount > 0 && <Text dimColor>{hideEntire ? `${entireCount} entire.io hidden, e to show` : `showing ${entireCount} entire.io, e to hide`}</Text>}
+          {entireCount > 0 && pipedCount > 0 && <Text dimColor> | </Text>}
+          {pipedCount > 0 && <Text dimColor>{hidePiped ? `${pipedCount} piped hidden, p to show` : `showing ${pipedCount} piped, p to hide`}</Text>}
         </Box>
       </Box>
 
@@ -175,6 +221,7 @@ export function SessionList({
               <Text color={agentColor as any}> [{s.agent === "Claude Code" ? "claude" : s.agent.toLowerCase()}]</Text>
             )}
             {retroSet.has(s.sessionId) && <Text color="magenta"> [R]</Text>}
+            {s.filesTouched.length > 0 && <Text dimColor> {s.filesTouched.length}f</Text>}
             {s.title && <Text dimColor={isPiped && globalIdx !== cursor}> {s.title.slice(0, 50)}</Text>}
           </Box>
           );

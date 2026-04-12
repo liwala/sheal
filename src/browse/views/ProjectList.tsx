@@ -4,6 +4,7 @@ import { listAllNativeProjects } from "../../entire/claude-native.js";
 import type { NativeProject } from "../../entire/claude-native.js";
 import { listCodexProjects } from "../../entire/codex-native.js";
 import { listAmpProjects } from "../../entire/amp-native.js";
+import { listGeminiProjects } from "../../entire/gemini-native.js";
 import { countRetros, countLearnings, countAsks } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
@@ -12,11 +13,13 @@ const AGENT_COLORS: Record<string, string> = {
   claude: "blue",
   codex: "yellow",
   amp: "magenta",
+  gemini: "green",
 };
 
 function agentFromSlug(slug: string): string {
   if (slug.startsWith("codex:")) return "codex";
   if (slug.startsWith("amp:")) return "amp";
+  if (slug.startsWith("gemini:")) return "gemini";
   return "claude";
 }
 
@@ -96,7 +99,8 @@ export function ProjectList({
     const claude = listAllNativeProjects();
     const codex = listCodexProjects();
     const amp = listAmpProjects();
-    const all: NativeProject[] = [...claude, ...codex, ...amp];
+    const gemini = listGeminiProjects();
+    const all: NativeProject[] = [...claude, ...codex, ...amp, ...gemini];
     return mergeProjects(all);
   }, []);
 

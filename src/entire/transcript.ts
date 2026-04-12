@@ -25,8 +25,14 @@ export function parseTranscript(
   for (const line of lines) {
     try {
       const raw = JSON.parse(line);
-      const entry = normalizeEntry(raw, agent);
-      if (entry) entries.push(entry);
+      const result = normalizeEntry(raw, agent);
+      if (result) {
+        if (Array.isArray(result)) {
+          entries.push(...result);
+        } else {
+          entries.push(result);
+        }
+      }
     } catch {
       // Skip malformed lines
     }
@@ -41,7 +47,7 @@ export function parseTranscript(
 function normalizeEntry(
   raw: Record<string, unknown>,
   agent?: AgentType,
-): SessionEntry | null {
+): SessionEntry | SessionEntry[] | null {
   // Claude Code envelope format (real transcripts): { type, message, uuid, timestamp }
   if (detectClaudeEnvelopeFormat(raw)) {
     return normalizeClaudeEnvelopeEntry(raw);
@@ -115,7 +121,7 @@ function detectGeminiFormat(raw: Record<string, unknown>): boolean {
  * - "queue-operation": queue ops — skip these
  * - "last-prompt": session end marker — skip
  */
-function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntry | null {
+function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntry | SessionEntry[] | null {
   const type = raw.type as string;
   const uuid = (raw.uuid as string) ?? "";
   const timestamp = raw.timestamp as string | undefined;
@@ -151,13 +157,11 @@ function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntr
     const resultBlocks = blocks.filter((b) => b.type === "tool_result");
     const textBlocks = blocks.filter((b) => b.type === "text" && b.text);
 
-    // If there are tool_use blocks, return the first one
-    // (multi-tool messages will lose some data, but this is MVP)
+    // Return all tool_use blocks as separate entries
     if (toolBlocks.length > 0) {
-      const tb = toolBlocks[0];
-      return {
+      const toolEntries: SessionEntry[] = toolBlocks.map((tb) => ({
         uuid: (tb.id as string) ?? uuid,
-        type: "tool",
+        type: "tool" as const,
         timestamp,
         content: `Tool: ${tb.name}`,
         toolName: tb.name as string,
@@ -166,7 +170,17 @@ function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntr
           tb.name as string,
           tb.input as Record<string, unknown>,
         ),
-      };
+      }));
+      // Also include any text blocks (assistant reasoning before tool calls)
+      if (textBlocks.length > 0) {
+        toolEntries.unshift({
+          uuid,
+          type: mapRole(role || type),
+          timestamp,
+          content: textBlocks.map((b) => b.text).join("\n"),
+        });
+      }
+      return toolEntries.length === 1 ? toolEntries[0] : toolEntries;
     }
 
     // Tool results

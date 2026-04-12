@@ -1,6 +1,6 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo, useEffect } from "react";
-import { readFileSync, readdirSync } from "node:fs";
+import { openSync, readSync, closeSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { listAllNativeProjects } from "../../entire/claude-native.js";
@@ -117,9 +117,24 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
   );
 }
 
+/** Read the first `maxBytes` of a file and return complete lines. */
+function readHeadBytes(path: string, maxBytes: number): string {
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = readSync(fd, buf, 0, maxBytes, 0);
+    const raw = buf.toString("utf-8", 0, bytesRead);
+    const lastNewline = raw.lastIndexOf("\n");
+    return lastNewline >= 0 ? raw.slice(0, lastNewline) : raw;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Search all session JSONL files for a query string.
  * Does raw string matching on JSONL lines (no JSON parsing) for speed.
+ * Reads only the first 128KB per file to avoid loading multi-MB sessions.
  */
 function searchTranscripts(
   projects: ReturnType<typeof listAllNativeProjects>,
@@ -141,7 +156,8 @@ function searchTranscripts(
     for (const file of files) {
       const sessionId = file.replace(".jsonl", "");
       try {
-        const content = readFileSync(join(dir, file), "utf-8");
+        // Read only first 128KB per session file for search (avoid loading multi-MB files)
+        const content = readHeadBytes(join(dir, file), 128 * 1024);
         const lines = content.split("\n");
         let matchCount = 0;
         let firstSnippet = "";

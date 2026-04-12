@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
@@ -31,20 +31,15 @@ export async function runAsk(options: AskOptions): Promise<void> {
   const { question, projectRoot } = options;
   const limit = options.limit ?? 10;
 
-  // Detect agent CLI early so we fail fast
   const cli = await detectAgentCli(options.agent);
-  if (!cli) {
-    console.log(chalk.yellow("No compatible agent CLI found."));
-    console.log(chalk.gray("Supported: claude, gemini, codex, amp"));
-    return;
-  }
 
-  // Phase 1: Ask the agent to generate search terms from the question
-  console.log(chalk.gray(`Phase 1: Generating search terms (${cli.command})...`));
+  // Phase 1: Extract search terms (agent with local fallback)
+  const agentLabel = cli ? cli.command : "local";
+  console.log(chalk.gray(`Phase 1: Generating search terms (${agentLabel})...`));
   const keywords = await generateSearchTerms(cli, question);
 
   if (keywords.length === 0) {
-    console.log(chalk.yellow("Agent could not extract search terms from your question."));
+    console.log(chalk.yellow("Could not extract search terms from your question."));
     return;
   }
 
@@ -72,18 +67,26 @@ export async function runAsk(options: AskOptions): Promise<void> {
 
   console.log(chalk.gray(`Found ${matches.length} relevant session(s).`));
 
-  // Phase 3: Pass relevant excerpts to the agent for deep analysis
-  console.log(chalk.gray(`Phase 3: Analyzing with ${cli.command}...`));
-  const prompt = buildAnalysisPrompt(question, matches);
-  const result = await invokeAgent(cli, prompt, 180_000);
+  // Phase 3: Try agent analysis, fall back to showing excerpts directly
+  let answer: string;
+  if (cli) {
+    console.log(chalk.gray(`Phase 3: Analyzing with ${cli.command}...`));
+    const prompt = buildAnalysisPrompt(question, matches, options.global);
+    const result = await invokeAgent(cli, prompt, 180_000);
 
-  if (!result.success) {
-    console.log(chalk.red(`Agent analysis failed: ${result.error}`));
-    return;
+    if (result.success && result.output) {
+      answer = result.output;
+    } else {
+      console.log(chalk.yellow(`Agent analysis unavailable (${result.error ?? "empty output"}), showing raw excerpts.`));
+      answer = formatExcerptsAsAnswer(question, matches);
+    }
+  } else {
+    console.log(chalk.gray("Phase 3: No agent available, showing raw excerpts."));
+    answer = formatExcerptsAsAnswer(question, matches);
   }
 
   console.log();
-  console.log(result.output);
+  console.log(answer);
 
   // Save the ask result
   const saveDir = options.global
@@ -93,22 +96,59 @@ export async function runAsk(options: AskOptions): Promise<void> {
     question,
     searchTerms: keywords,
     matches,
-    answer: result.output,
-    agent: cli.command,
+    answer,
+    agent: agentLabel,
     global: !!options.global,
   });
   console.log(chalk.gray(`\nSaved to ${savedPath}`));
 }
 
+/** Common stop words to exclude from local keyword extraction */
+const STOP_WORDS = new Set([
+  "a", "an", "the", "is", "was", "were", "are", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "will", "would", "could",
+  "should", "may", "might", "shall", "can", "need", "dare", "ought",
+  "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+  "into", "through", "during", "before", "after", "above", "below",
+  "between", "out", "off", "over", "under", "again", "further", "then",
+  "once", "here", "there", "when", "where", "why", "how", "all", "both",
+  "each", "few", "more", "most", "other", "some", "such", "no", "nor",
+  "not", "only", "own", "same", "so", "than", "too", "very", "just",
+  "about", "up", "down", "and", "but", "or", "if", "while", "that",
+  "what", "which", "who", "whom", "this", "these", "those", "it", "its",
+  "i", "me", "my", "we", "our", "you", "your", "he", "him", "his",
+  "she", "her", "they", "them", "their",
+  // Generic words unhelpful for session search
+  "error", "errors", "problem", "problems", "fix", "fixes", "fixed",
+  "issue", "issues", "session", "sessions", "agent", "agents", "main",
+  "work", "working", "worked", "works", "use", "using", "used", "make", "made",
+  "get", "got", "set", "try", "tried", "thing", "things", "way", "ways",
+  "project", "projects", "code", "file", "files", "like", "want", "know",
+  "bad", "good", "big", "small", "new", "old", "first", "last",
+  "happen", "happened", "happening", "change", "changed", "changes",
+]);
+
 /**
- * Phase 1: Ask the agent to generate precise search terms from a natural language question.
- * This is a quick, focused invocation — we ask for just a comma-separated list.
+ * Extract search keywords locally from the question text.
+ * Pulls out non-stopword tokens, keeping technical-looking terms.
+ */
+function extractKeywordsLocally(question: string): string[] {
+  return question
+    .toLowerCase()
+    .replace(/[^a-z0-9_\-./]+/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+}
+
+/**
+ * Phase 1: Generate search terms from a natural language question.
+ * Tries the agent first; falls back to local keyword extraction.
  */
 async function generateSearchTerms(
   cli: Awaited<ReturnType<typeof detectAgentCli>>,
   question: string,
 ): Promise<string[]> {
-  if (!cli) return [];
+  if (!cli) return extractKeywordsLocally(question);
 
   const prompt = [
     "You are a search term extractor. Given the user's question about their AI coding sessions,",
@@ -128,13 +168,19 @@ async function generateSearchTerms(
 
   const result = await invokeAgent(cli, prompt, 30_000);
 
-  if (!result.success || !result.output) return [];
+  if (result.success && result.output) {
+    const terms = result.output
+      .split(/[,\n]/)
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 1 && !t.includes("search terms"));
+    if (terms.length > 0) return terms;
+  }
 
-  // Parse comma-separated response
-  return result.output
-    .split(/[,\n]/)
-    .map((t) => t.trim().toLowerCase())
-    .filter((t) => t.length > 1 && !t.includes("search terms"));
+  // Fallback: extract keywords locally
+  if (process.env.SHEAL_DEBUG) {
+    console.error("[generateSearchTerms] Agent returned no terms, falling back to local extraction");
+  }
+  return extractKeywordsLocally(question);
 }
 
 interface SessionMatch {
@@ -368,12 +414,42 @@ ${sessionRefs}
 }
 
 /**
+ * Format matched excerpts directly when no agent is available for analysis.
+ */
+function formatExcerptsAsAnswer(question: string, matches: SessionMatch[]): string {
+  const parts: string[] = [];
+  parts.push(`## Excerpts matching: ${question}`);
+  parts.push("");
+
+  let totalChars = 0;
+  for (const match of matches) {
+    if (totalChars > TOTAL_BUDGET) break;
+    const projectLabel = match.projectName ? `[${match.projectName}] ` : "";
+    parts.push(`### ${projectLabel}Session ${match.sessionId.slice(0, 12)} (${match.createdAt?.slice(0, 16) || "?"}, ${match.score} hits)`);
+    parts.push("");
+    for (const excerpt of match.excerpts) {
+      if (totalChars + excerpt.length > TOTAL_BUDGET) break;
+      parts.push(excerpt);
+      parts.push("");
+      totalChars += excerpt.length;
+    }
+  }
+
+  return parts.join("\n");
+}
+
+/**
  * Phase 3: Build the analysis prompt with the question and relevant session excerpts.
  */
-function buildAnalysisPrompt(question: string, matches: SessionMatch[]): string {
+function buildAnalysisPrompt(question: string, matches: SessionMatch[], global?: boolean): string {
   const parts: string[] = [];
 
   parts.push("You are analyzing AI coding session transcripts to answer a user's question.");
+  if (global) {
+    const projectNames = [...new Set(matches.map((m) => m.projectName).filter(Boolean))];
+    parts.push(`These excerpts come from ${projectNames.length} different project(s): ${projectNames.join(", ")}.`);
+    parts.push("Treat each project as a separate codebase. Do not assume shared context between projects.");
+  }
   parts.push("Below are relevant excerpts from sessions that matched search terms derived from the question.");
   parts.push("");
   parts.push(`**User's question:** ${question}`);
@@ -410,4 +486,89 @@ function buildAnalysisPrompt(question: string, matches: SessionMatch[]): string 
   parts.push("5. Keep your answer concise and actionable (under 500 words)");
 
   return parts.join("\n");
+}
+
+/**
+ * List previously saved ask results.
+ */
+export function runAskList(options: { projectRoot: string; global?: boolean }): void {
+  const dir = options.global
+    ? join(homedir(), ".sheal", "asks")
+    : join(options.projectRoot, ".sheal", "asks");
+
+  if (!existsSync(dir)) {
+    console.log(chalk.yellow("No saved ask results found."));
+    return;
+  }
+
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort().reverse();
+  if (files.length === 0) {
+    console.log(chalk.yellow("No saved ask results found."));
+    return;
+  }
+
+  console.log(chalk.bold(`${files.length} saved ask result(s)`));
+  console.log(chalk.gray("─".repeat(50)));
+
+  for (const file of files) {
+    try {
+      const content = readFileSync(join(dir, file), "utf-8");
+      const questionMatch = content.match(/^question:\s*(.+)/m);
+      const dateMatch = content.match(/^date:\s*(.+)/m);
+      const question = questionMatch?.[1] || file;
+      const date = dateMatch?.[1] || "";
+      console.log(`  ${chalk.gray(date)}  ${chalk.cyan(question)}`);
+      console.log(chalk.gray(`    ${file}`));
+    } catch {
+      console.log(`  ${chalk.gray(file)}`);
+    }
+  }
+
+  // Hint about global asks when viewing project-scoped results
+  if (!options.global) {
+    const globalDir = join(homedir(), ".sheal", "asks");
+    if (existsSync(globalDir)) {
+      const globalCount = readdirSync(globalDir).filter((f) => f.endsWith(".md")).length;
+      if (globalCount > 0) {
+        console.log(chalk.gray(`\n${globalCount} global ask(s) also available (sheal ask-list --global)`));
+      }
+    }
+  }
+}
+
+/**
+ * Show a specific saved ask result by filename or search term.
+ */
+export function runAskShow(options: { projectRoot: string; query: string; global?: boolean }): void {
+  const dir = options.global
+    ? join(homedir(), ".sheal", "asks")
+    : join(options.projectRoot, ".sheal", "asks");
+
+  if (!existsSync(dir)) {
+    console.log(chalk.yellow("No saved ask results found."));
+    return;
+  }
+
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort().reverse();
+  const q = options.query.toLowerCase();
+
+  // Match by filename substring or question content
+  const match = files.find((f) => {
+    if (f.toLowerCase().includes(q)) return true;
+    try {
+      const content = readFileSync(join(dir, f), "utf-8");
+      const questionMatch = content.match(/^question:\s*(.+)/m);
+      return questionMatch?.[1]?.toLowerCase().includes(q);
+    } catch {
+      return false;
+    }
+  });
+
+  if (!match) {
+    console.log(chalk.yellow(`No ask result matching "${options.query}"`));
+    return;
+  }
+
+  const content = readFileSync(join(dir, match), "utf-8");
+  console.log(content);
 }

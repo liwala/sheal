@@ -13,7 +13,7 @@
  *   { type, message, uuid, timestamp, sessionId, version, cwd, ... }
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parseTranscript } from "./transcript.js";
@@ -22,7 +22,6 @@ import type {
   CheckpointInfo,
   CheckpointRoot,
   Session,
-  SessionMetadata,
   TokenUsage,
 } from "./types.js";
 
@@ -59,7 +58,14 @@ export function hasNativeTranscripts(projectRoot: string): boolean {
 export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
   const dir = getClaudeProjectDir(projectRoot);
   if (!dir) return [];
+  return listSessionsFromDir(dir);
+}
 
+/**
+ * List sessions from a given Claude Code project directory.
+ * Shared implementation for both project-root and slug-based lookups.
+ */
+function listSessionsFromDir(dir: string): CheckpointInfo[] {
   const jsonlFiles = readdirSync(dir)
     .filter((f) => f.endsWith(".jsonl"))
     .map((f) => ({
@@ -73,14 +79,13 @@ export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
   for (const file of jsonlFiles) {
     try {
       const stat = statSync(file.path);
-      // Read first few lines to extract metadata
       const meta = extractSessionMeta(file.path);
 
       sessions.push({
         checkpointId: file.sessionId,
         sessionId: file.sessionId,
         createdAt: meta.createdAt || stat.mtime.toISOString(),
-        filesTouched: [],
+        filesTouched: meta.filesTouched ?? [],
         agent: "Claude Code",
         sessionCount: 1,
         sessionIds: [file.sessionId],
@@ -91,23 +96,49 @@ export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
     }
   }
 
-  // Sort most recent first
   sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
   return sessions;
 }
 
+/** Max bytes to read when extracting metadata for listing (64KB). */
+const META_READ_LIMIT = 64 * 1024;
+
 /**
- * Extract basic metadata from the first few lines of a session JSONL.
+ * Read the first `maxBytes` of a file and return complete lines.
+ * Avoids reading multi-MB session files when we only need metadata.
  */
-function extractSessionMeta(path: string): {
+function readHeadBytes(path: string, maxBytes: number): string {
+  const fd = openSync(path, "r");
+  try {
+    const buf = Buffer.alloc(maxBytes);
+    const bytesRead = readSync(fd, buf, 0, maxBytes, 0);
+    const raw = buf.toString("utf-8", 0, bytesRead);
+    // Drop the last partial line (if the file was truncated mid-line)
+    const lastNewline = raw.lastIndexOf("\n");
+    return lastNewline >= 0 ? raw.slice(0, lastNewline) : raw;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * Extract basic metadata from a session JSONL.
+ *
+ * When called with only a path (listing mode), reads only the first 64KB
+ * to avoid loading multi-MB files just for titles and dates.
+ *
+ * When called with content (loading mode), parses the full content —
+ * this avoids a redundant re-read since the caller already has the file.
+ */
+function extractSessionMeta(path: string, fullContent?: string): {
   createdAt: string;
   model?: string;
   version?: string;
   totalTokens?: TokenUsage;
   firstPrompt?: string;
+  filesTouched?: string[];
 } {
-  const content = readFileSync(path, "utf-8");
+  const content = fullContent ?? readHeadBytes(path, META_READ_LIMIT);
   const lines = content.split("\n").filter(Boolean);
 
   let createdAt = "";
@@ -120,6 +151,7 @@ function extractSessionMeta(path: string): {
   let totalCacheRead = 0;
   let totalCacheCreate = 0;
   let apiCalls = 0;
+  const filesSet = new Set<string>();
 
   for (const line of lines) {
     try {
@@ -140,6 +172,19 @@ function extractSessionMeta(path: string): {
           const raw = extractRawUserText(obj);
           if (raw && raw.length > 20) {
             pipedFallback = `[piped] ${summarizePipedPrompt(raw)}`;
+          }
+        }
+      }
+
+      // Extract file paths from tool_use blocks in assistant messages
+      if (obj.type === "assistant" && obj.message?.content) {
+        const blocks = Array.isArray(obj.message.content) ? obj.message.content : [];
+        for (const block of blocks) {
+          if (block.type === "tool_use" && block.input) {
+            const fp = block.input.file_path ?? block.input.filePath ?? block.input.path;
+            if (typeof fp === "string" && fp.startsWith("/")) {
+              filesSet.add(fp);
+            }
           }
         }
       }
@@ -172,7 +217,8 @@ function extractSessionMeta(path: string): {
     apiCallCount: apiCalls,
   } : undefined;
 
-  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback };
+  const filesTouched = filesSet.size > 0 ? [...filesSet] : undefined;
+  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback, filesTouched };
 }
 
 /**
@@ -185,15 +231,21 @@ export function loadNativeSession(
 ): Checkpoint | null {
   const dir = getClaudeProjectDir(projectRoot);
   if (!dir) return null;
+  return loadSessionFromDir(dir, sessionId);
+}
 
+/**
+ * Load a session from a given directory.
+ * Shared implementation for both project-root and slug-based lookups.
+ */
+function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
   const path = join(dir, `${sessionId}.jsonl`);
   if (!existsSync(path)) return null;
 
   const content = readFileSync(path, "utf-8");
-  const meta = extractSessionMeta(path);
+  const meta = extractSessionMeta(path, content);
   const transcript = parseTranscript(content, "Claude Code");
 
-  // Build Session
   const session: Session = {
     metadata: {
       checkpointId: sessionId,
@@ -212,7 +264,6 @@ export function loadNativeSession(
       .map((e) => e.content),
   };
 
-  // Build CheckpointRoot
   const root: CheckpointRoot = {
     checkpointId: sessionId,
     strategy: "native",
@@ -302,39 +353,7 @@ export function listAllNativeProjects(): NativeProject[] {
 export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
   const dir = join(homedir(), ".claude", "projects", slug);
   if (!existsSync(dir)) return [];
-
-  const jsonlFiles = readdirSync(dir)
-    .filter((f) => f.endsWith(".jsonl"))
-    .map((f) => ({
-      name: f,
-      sessionId: f.replace(".jsonl", ""),
-      path: join(dir, f),
-    }));
-
-  const sessions: CheckpointInfo[] = [];
-
-  for (const file of jsonlFiles) {
-    try {
-      const stat = statSync(file.path);
-      const meta = extractSessionMeta(file.path);
-
-      sessions.push({
-        checkpointId: file.sessionId,
-        sessionId: file.sessionId,
-        createdAt: meta.createdAt || stat.mtime.toISOString(),
-        filesTouched: [],
-        agent: "Claude Code",
-        sessionCount: 1,
-        sessionIds: [file.sessionId],
-        title: meta.firstPrompt,
-      });
-    } catch {
-      // skip
-    }
-  }
-
-  sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return sessions;
+  return listSessionsFromDir(dir);
 }
 
 /**
@@ -345,41 +364,7 @@ export function loadNativeSessionBySlug(
   sessionId: string,
 ): Checkpoint | null {
   const dir = join(homedir(), ".claude", "projects", slug);
-  const path = join(dir, `${sessionId}.jsonl`);
-  if (!existsSync(path)) return null;
-
-  const content = readFileSync(path, "utf-8");
-  const meta = extractSessionMeta(path);
-  const transcript = parseTranscript(content, "Claude Code");
-
-  const session: Session = {
-    metadata: {
-      checkpointId: sessionId,
-      sessionId,
-      strategy: "native",
-      createdAt: meta.createdAt,
-      checkpointsCount: 0,
-      filesTouched: extractFilesTouched(transcript),
-      agent: "Claude Code",
-      model: meta.model,
-      tokenUsage: meta.totalTokens,
-    },
-    transcript,
-    prompts: transcript
-      .filter((e) => e.type === "user")
-      .map((e) => e.content),
-  };
-
-  const root: CheckpointRoot = {
-    checkpointId: sessionId,
-    strategy: "native",
-    checkpointsCount: 0,
-    filesTouched: session.metadata.filesTouched,
-    sessions: [],
-    tokenUsage: meta.totalTokens,
-  };
-
-  return { root, sessions: [session] };
+  return loadSessionFromDir(dir, sessionId);
 }
 
 /**
@@ -481,14 +466,18 @@ function isUsefulPrompt(text: string): boolean {
  * We take the last segment as the name.
  */
 function slugToName(slug: string): string {
-  // Split on - and take the last non-empty segment
-  // But project names can contain hyphens, so we need a heuristic.
+  // First try to reconstruct the real path and use the last component
+  const path = slug2path(slug);
+  if (path) {
+    return path.split("/").filter(Boolean).pop() || slug;
+  }
+
+  // Fallback heuristic: split on - and find the project name.
   // Common pattern: -Users-<user>-code-<...>-<project-name>
-  // Try to find the project name after common path segments.
   const parts = slug.split("-").filter(Boolean);
 
   // Known path segments to skip
-  const skipWords = new Set(["Users", "home", "code", "projects", "small", "lu", "var", "tmp", "opt", "src", "Dropbox"]);
+  const skipWords = new Set(["Users", "home", "code", "projects", "small", "var", "tmp", "opt", "src", "Dropbox"]);
 
   // Walk backwards to find the first meaningful segment
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -506,28 +495,64 @@ function slugToName(slug: string): string {
  * Returns null if no cwd found.
  */
 function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
-  // Try the first file's first few lines
-  const first = jsonlFiles[0];
-  if (!first) return null;
+  // Try up to 3 files' first few lines to find a cwd
+  const filesToTry = jsonlFiles.slice(0, 3);
 
-  try {
-    const content = readFileSync(join(dir, first), "utf-8");
-    // Only read up to the first 5 lines to avoid parsing huge files
-    const lines = content.split("\n").slice(0, 5);
-    for (const line of lines) {
-      if (!line) continue;
-      try {
-        const obj = JSON.parse(line);
-        if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
-          return obj.cwd;
+  for (const file of filesToTry) {
+    try {
+      const content = readHeadBytes(join(dir, file), 4096);
+      const lines = content.split("\n").slice(0, 5);
+      for (const line of lines) {
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line);
+          if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
+            return obj.cwd;
+          }
+        } catch {
+          // skip
         }
-      } catch {
-        // skip
       }
+    } catch {
+      // skip
     }
-  } catch {
-    // skip
   }
+
+  // Fallback: reconstruct path from slug.
+  // Slug format is the absolute path with / replaced by -.
+  // e.g., -Users-lu-code-foo → /Users/lu/code/foo
+  // This is ambiguous when directory names contain hyphens, but we can
+  // validate by checking if the reconstructed path exists.
+  const reconstructed = slug2path(dir.split("/").pop() || "");
+  if (reconstructed && existsSync(reconstructed)) {
+    return reconstructed;
+  }
+
+  return null;
+}
+
+/**
+ * Attempt to reconstruct an absolute path from a Claude Code slug.
+ * Tries the simple case (replace leading - with / and remaining - with /)
+ * then validates the result exists on disk.
+ */
+function slug2path(slug: string): string | null {
+  if (!slug.startsWith("-")) return null;
+  // Simple reconstruction: replace all - with /
+  const candidate = slug.replace(/-/g, "/");
+  if (existsSync(candidate)) return candidate;
+
+  // Try splitting at common prefixes and reconstructing
+  // e.g., -Users-lu-code-my-project → /Users/lu/code/my-project
+  const parts = slug.slice(1).split("-"); // remove leading -
+  // Try progressively joining later segments with hyphens
+  for (let splitAt = parts.length - 1; splitAt >= 3; splitAt--) {
+    const prefix = "/" + parts.slice(0, splitAt).join("/");
+    const suffix = parts.slice(splitAt).join("-");
+    const path = suffix ? prefix + "/" + suffix : prefix;
+    if (existsSync(path)) return path;
+  }
+
   return null;
 }
 

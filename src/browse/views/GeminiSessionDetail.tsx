@@ -1,14 +1,36 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
-import { loadNativeSessionBySlug } from "../../entire/claude-native.js";
-import { hasRetro } from "../utils/retro-status.js";
-import { buildBlocks, PREVIEW_LINES, TYPE_COLORS, TYPE_LABELS } from "../utils/blocks.js";
-import type { DisplayBlock } from "../utils/blocks.js";
+import { loadGeminiSession } from "../../entire/gemini-native.js";
+import type { GeminiTranscriptEntry } from "../../entire/gemini-native.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
 
-interface SessionDetailProps {
-  slug: string;
+interface DisplayBlock {
+  type: "user" | "assistant" | "tool-group";
+  summary: string;
+  lines: string[];
+  entryCount: number;
+}
+
+const PREVIEW_LINES: Record<DisplayBlock["type"], number> = {
+  "user": 3,
+  "assistant": 4,
+  "tool-group": 0,
+};
+
+const TYPE_COLORS: Record<DisplayBlock["type"], string> = {
+  "user": "green",
+  "assistant": "blue",
+  "tool-group": "yellow",
+};
+
+const TYPE_LABELS: Record<DisplayBlock["type"], string> = {
+  "user": "USER",
+  "assistant": "ASSISTANT",
+  "tool-group": "TOOLS",
+};
+
+interface GeminiSessionDetailProps {
   sessionId: string;
   projectPath: string;
   onBack: () => void;
@@ -16,7 +38,7 @@ interface SessionDetailProps {
   onViewRetro: () => void;
 }
 
-export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, onViewRetro }: SessionDetailProps) {
+export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, onViewRetro }: GeminiSessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -24,14 +46,13 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
-  const { checkpoint, blocks, title, hasRetroFile } = useMemo(() => {
-    const cp = loadNativeSessionBySlug(slug, sessionId);
-    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [], title: "", hasRetroFile: false };
-    const blks = buildBlocks(cp.sessions[0].transcript);
+  const { session, blocks, title } = useMemo(() => {
+    const s = loadGeminiSession(sessionId);
+    if (!s) return { session: null, blocks: [], title: "" };
+    const blks = buildGeminiBlocks(s.entries);
     const firstUser = blks.find((b) => b.type === "user");
-    const hr = projectPath ? hasRetro(projectPath, sessionId) : false;
-    return { checkpoint: cp, blocks: blks, title: firstUser?.summary || "", hasRetroFile: hr };
-  }, [slug, sessionId, projectPath]);
+    return { session: s, blocks: blks, title: firstUser?.summary || "" };
+  }, [sessionId]);
 
   const filteredBlocks = useMemo(() => {
     if (!searchText) return blocks;
@@ -44,12 +65,8 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
 
   useInput((input, key) => {
     if (searchActive) {
-      if (key.escape) {
-        setSearchActive(false);
-        setSearchText("");
-      } else if (key.return) {
-        setSearchActive(false);
-      }
+      if (key.escape) { setSearchActive(false); setSearchText(""); }
+      else if (key.return) { setSearchActive(false); }
       return;
     }
 
@@ -67,7 +84,6 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     } else if (key.pageUp) {
       setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
     } else if (key.return) {
-      // Toggle block expansion
       setExpanded((prev) => {
         const next = new Set(prev);
         if (next.has(scrollPos)) next.delete(scrollPos);
@@ -77,19 +93,17 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     }
   });
 
-  if (!checkpoint) {
+  if (!session) {
     return (
       <Box flexDirection="column">
-        <Text color="red">Session not found: {sessionId}</Text>
+        <Text color="red">Gemini session not found: {sessionId}</Text>
         <StatusBar view="detail" searchActive={false} />
       </Box>
     );
   }
 
-  const session = checkpoint.sessions[0];
-  const meta = session.metadata;
+  const meta = session.meta;
 
-  // Render blocks into visible lines
   const renderedLines: Array<{ text: string; color?: string; bold?: boolean; dim?: boolean }> = [];
 
   for (let bi = scrollPos; bi < filteredBlocks.length && renderedLines.length < maxRows; bi++) {
@@ -100,15 +114,11 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     const label = TYPE_LABELS[block.type];
     const previewCount = PREVIEW_LINES[block.type];
 
-    // Separator between blocks
     if (renderedLines.length > 0) {
       renderedLines.push({ text: "" });
     }
 
-    // Content lines (skip first line since it's already in the summary)
     const contentLines = block.lines.slice(1);
-
-    // Header line: "> ASSISTANT: [+N] first line..."
     const cursor = isCurrent ? ">" : " ";
     const callCount = block.type === "tool-group" && block.entryCount > 1
       ? ` (${block.entryCount} calls)` : "";
@@ -146,17 +156,11 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         <Box>
           <Text bold>Session </Text>
           <Text bold color="cyan">{sessionId.slice(0, 12)}</Text>
-          <Text dimColor> | {meta.createdAt?.slice(0, 16)}</Text>
-          {meta.agent && <Text dimColor> | {meta.agent}</Text>}
+          <Text dimColor> | {meta.startTime?.slice(0, 16)}</Text>
+          <Text color="green"> [Gemini]</Text>
           {meta.model && <Text dimColor> | {meta.model}</Text>}
-          {hasRetroFile && <Text color="magenta"> [R] retro available (r)</Text>}
         </Box>
         {title && <Text>{title}</Text>}
-        {meta.tokenUsage && (
-          <Text dimColor>
-            Tokens: {meta.tokenUsage.inputTokens.toLocaleString()} in / {meta.tokenUsage.outputTokens.toLocaleString()} out ({meta.tokenUsage.apiCallCount} calls)
-          </Text>
-        )}
         <Text dimColor>
           {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
           {" | "}{scrollPos + 1}/{filteredBlocks.length}
@@ -184,9 +188,57 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       <StatusBar
         view="detail"
         searchActive={searchActive}
-        info={`^/v Scroll  enter Expand/collapse  / Search${hasRetroFile ? "  r Retro" : ""}  esc Back`}
+        info={`^/v Scroll  enter Expand/collapse  / Search  esc Back`}
       />
     </Box>
   );
 }
 
+function buildGeminiBlocks(entries: GeminiTranscriptEntry[]): DisplayBlock[] {
+  const blocks: DisplayBlock[] = [];
+  let toolGroup: GeminiTranscriptEntry[] = [];
+
+  const flushToolGroup = () => {
+    if (toolGroup.length === 0) return;
+
+    const names = toolGroup
+      .filter((e) => e.toolName)
+      .map((e) => e.toolName!);
+    const uniqueNames = [...new Set(names)];
+    const summary = uniqueNames.join(", ") || `${toolGroup.length} calls`;
+
+    const lines: string[] = [];
+    for (const entry of toolGroup) {
+      if (entry.toolName) {
+        lines.push(entry.toolName);
+        if (entry.toolInput) lines.push(`  ${entry.toolInput.slice(0, 100)}`);
+        if (entry.toolOutput) lines.push(`  -> ${entry.toolOutput.replace(/\n/g, " ").slice(0, 100)}`);
+      }
+    }
+
+    blocks.push({ type: "tool-group", summary, lines, entryCount: toolGroup.length });
+    toolGroup = [];
+  };
+
+  for (const entry of entries) {
+    if (entry.role === "tool") {
+      toolGroup.push(entry);
+      continue;
+    }
+
+    flushToolGroup();
+
+    if (entry.role === "user") {
+      const lines = entry.content.split("\n").filter((l) => l.trim());
+      if (lines.length === 0) continue;
+      blocks.push({ type: "user", summary: lines[0].slice(0, 120), lines, entryCount: 1 });
+    } else if (entry.role === "assistant") {
+      const lines = entry.content.split("\n").filter((l) => l.trim());
+      if (lines.length === 0) continue;
+      blocks.push({ type: "assistant", summary: lines[0].slice(0, 120), lines, entryCount: 1 });
+    }
+  }
+
+  flushToolGroup();
+  return blocks;
+}
