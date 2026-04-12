@@ -10,8 +10,9 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { loadSessionsInWindow, parseSince } from "../digest/loader.js";
-import { categorizePrompts } from "../digest/categorize.js";
-import { formatPretty, formatJSON, formatMarkdown } from "../digest/formatter.js";
+import { categorizePrompts, enrichWithLLM } from "../digest/categorize.js";
+import { formatPretty, formatJSON, formatMarkdown, formatDiffPretty } from "../digest/formatter.js";
+import { estimateCost, diffDigests } from "../digest/cost.js";
 import type { DigestReport } from "../digest/types.js";
 
 export interface DigestOptions {
@@ -21,6 +22,8 @@ export interface DigestOptions {
   format: string;
   output?: string;
   topN: number;
+  compare?: boolean;
+  enrich?: boolean;
 }
 
 export async function runDigest(options: DigestOptions): Promise<void> {
@@ -31,7 +34,7 @@ export async function runDigest(options: DigestOptions): Promise<void> {
 
   log(chalk.gray(`Loading sessions since ${sinceDate.toISOString().slice(0, 10)}...`));
 
-  const { prompts, tokens, sessionCount } = loadSessionsInWindow({
+  const { prompts, tokens, sessionCount, agentScans } = loadSessionsInWindow({
     since: sinceDate,
     until: untilDate,
     projectFilter: options.project,
@@ -39,12 +42,37 @@ export async function runDigest(options: DigestOptions): Promise<void> {
 
   if (sessionCount === 0) {
     log(chalk.yellow("No sessions found in the specified time window."));
+    // Still show agent scan status so user knows what was checked
+    for (const scan of agentScans) {
+      if (!scan.available) {
+        log(chalk.gray(`  ${scan.agent}: ${scan.error || "not available"}`));
+      }
+    }
     return;
   }
 
   log(chalk.gray(`Found ${sessionCount} sessions, ${prompts.length} prompts. Categorizing...`));
 
-  const { categories, uncategorized } = categorizePrompts(prompts);
+  // Show agent scan status
+  const unavailable = agentScans.filter((s) => !s.available);
+  if (unavailable.length > 0) {
+    for (const scan of unavailable) {
+      log(chalk.gray(`  Skipped ${scan.agent}: ${scan.error || "not available"}`));
+    }
+  }
+
+  let { categories, uncategorized } = categorizePrompts(prompts);
+
+  // LLM enrichment with Haiku for smarter categorization
+  if (options.enrich) {
+    log(chalk.gray("Enriching categorization with Haiku..."));
+    const enriched = await enrichWithLLM({ categories, uncategorized });
+    categories = enriched.categories;
+    uncategorized = enriched.uncategorized;
+    log(chalk.gray("Done."));
+  }
+
+  const cost = estimateCost(tokens);
 
   const report: DigestReport = {
     generatedAt: new Date().toISOString(),
@@ -59,20 +87,35 @@ export async function runDigest(options: DigestOptions): Promise<void> {
     categories,
     uncategorized,
     tokens,
+    agentScans,
+    cost,
   };
 
   // Format output
   let output: string;
-  switch (options.format) {
-    case "json":
-      output = formatJSON(report);
-      break;
-    case "markdown":
-    case "md":
-      output = formatMarkdown(report);
-      break;
-    default:
+
+  // If --compare, find previous digest and show diff
+  if (options.compare) {
+    const previous = findPreviousDigest(report);
+    if (previous) {
+      const diff = diffDigests(report, previous);
+      output = formatDiffPretty(diff);
+    } else {
+      log(chalk.yellow("No previous digest found to compare against. Showing full report."));
       output = formatPretty(report);
+    }
+  } else {
+    switch (options.format) {
+      case "json":
+        output = formatJSON(report);
+        break;
+      case "markdown":
+      case "md":
+        output = formatMarkdown(report);
+        break;
+      default:
+        output = formatPretty(report);
+    }
   }
 
   console.log(output);
@@ -99,6 +142,26 @@ function saveDigestReport(dir: string, report: DigestReport): string {
 
   writeFileSync(path, JSON.stringify(report, null, 2), "utf-8");
   return path;
+}
+
+/**
+ * Find the most recent previous digest matching the same scope.
+ */
+function findPreviousDigest(current: DigestReport): DigestReport | null {
+  const digests = listDigests();
+  const currentDate = current.generatedAt.slice(0, 10);
+  const scope = current.projectFilter || "global";
+
+  for (const info of digests) {
+    // Skip the current one (same date + scope)
+    if (info.date === currentDate && info.scope === scope) continue;
+    // Must match scope
+    if (info.scope !== scope) continue;
+
+    const report = loadDigest(info.filename);
+    if (report) return report;
+  }
+  return null;
 }
 
 /**

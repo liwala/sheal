@@ -5,7 +5,7 @@
  */
 
 import chalk from "chalk";
-import type { DigestReport, DigestCategory, DigestItem, TokenSummary } from "./types.js";
+import type { DigestReport, DigestCategory, DigestItem, TokenSummary, DigestDiff } from "./types.js";
 
 function formatTokenCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -65,6 +65,33 @@ export function formatPretty(report: DigestReport): string {
     lines.push(chalk.bold("  Top Projects by Tokens"));
     for (const [project, data] of projectEntries) {
       lines.push(`    ${project}: ${formatTokenCount(data.input + data.output)} (${data.sessionCount}s)`);
+    }
+  }
+
+  // Cost estimate
+  if (report.cost) {
+    lines.push("");
+    lines.push(chalk.bold("  Estimated Cost"));
+    lines.push(`    Total: ${chalk.yellowBright(`$${report.cost.totalCost.toFixed(2)}`)}`);
+    const projCosts = Object.entries(report.cost.byProject)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+    for (const [project, cost] of projCosts) {
+      lines.push(`    ${project}: ${chalk.yellow(`$${cost.toFixed(2)}`)}`);
+    }
+  }
+
+  // Agent scan status (#10)
+  if (report.agentScans && report.agentScans.length > 0) {
+    const unavailable = report.agentScans.filter((s) => !s.available);
+    const available = report.agentScans.filter((s) => s.available);
+    lines.push("");
+    lines.push(chalk.bold("  Agents Scanned"));
+    for (const scan of available) {
+      lines.push(`    ${chalk.green("●")} ${scan.agent} (${scan.projectCount}p, ${scan.sessionCount}s)`);
+    }
+    for (const scan of unavailable) {
+      lines.push(`    ${chalk.red("●")} ${scan.agent}: ${chalk.gray(scan.error || "skipped")}`);
     }
   }
 
@@ -194,6 +221,83 @@ export function formatMarkdown(report: DigestReport): string {
 
   lines.push("---");
   lines.push("*Reply with session ID to see full context*");
+
+  return lines.join("\n");
+}
+
+function delta(n: number): string {
+  if (n > 0) return chalk.green(`+${n}`);
+  if (n < 0) return chalk.red(`${n}`);
+  return chalk.gray("0");
+}
+
+function deltaCost(n: number): string {
+  if (n > 0) return chalk.red(`+$${n.toFixed(2)}`);
+  if (n < 0) return chalk.green(`-$${Math.abs(n).toFixed(2)}`);
+  return chalk.gray("$0.00");
+}
+
+/**
+ * Format a digest diff for terminal output (#9).
+ */
+export function formatDiffPretty(diff: DigestDiff): string {
+  const lines: string[] = [];
+
+  lines.push(chalk.bold.white("Digest Comparison"));
+  lines.push(chalk.gray(`Current:  ${diff.current.window.since.slice(0, 10)} → ${diff.current.window.until.slice(0, 10)}`));
+  lines.push(chalk.gray(`Previous: ${diff.previous.window.since.slice(0, 10)} → ${diff.previous.window.until.slice(0, 10)}`));
+  lines.push("");
+
+  // Summary deltas
+  lines.push(chalk.bold("  Changes"));
+  lines.push(`    Sessions: ${diff.current.totalSessions} (${delta(diff.sessionDelta)})`);
+  lines.push(`    Prompts:  ${diff.current.totalPrompts} (${delta(diff.promptDelta)})`);
+  lines.push(`    Tokens:   ${delta(diff.tokenDelta.input)} in / ${delta(diff.tokenDelta.output)} out`);
+  lines.push(`    Cost:     ${deltaCost(diff.tokenDelta.costDelta)}`);
+  lines.push(`    API:      ${delta(diff.tokenDelta.apiCalls)} calls`);
+  lines.push("");
+
+  // Category deltas
+  lines.push(chalk.bold("  Category Trends"));
+  const allCats: DigestCategory[] = ["SKILLS", "AGENTS", "SCHEDULED_TASKS", "CLAUDE_MD"];
+  for (const cat of allCats) {
+    const d = diff.categoryDeltas[cat];
+    const color = CATEGORY_COLORS[cat];
+    const label = cat.padEnd(16);
+    const arrow = d > 0 ? chalk.green("▲") : d < 0 ? chalk.red("▼") : chalk.gray("─");
+    lines.push(`    ${arrow} ${(chalk as any)[color](label)} ${delta(d)}`);
+  }
+  lines.push("");
+
+  // New items
+  if (diff.newItems.length > 0) {
+    lines.push(chalk.green.bold(`  New This Period (${diff.newItems.length})`));
+    for (const item of diff.newItems.slice(0, 5)) {
+      lines.push(`    ${chalk.green("+")} ${item.count}x ${item.description.slice(0, 60)}`);
+    }
+    if (diff.newItems.length > 5) {
+      lines.push(chalk.gray(`    ... and ${diff.newItems.length - 5} more`));
+    }
+    lines.push("");
+  }
+
+  // Trending up
+  if (diff.trendingUp.length > 0) {
+    lines.push(chalk.yellow.bold(`  Trending Up (${diff.trendingUp.length})`));
+    for (const item of diff.trendingUp.slice(0, 5)) {
+      lines.push(`    ${chalk.green("▲")} ${item.count}x ${item.description.slice(0, 60)}`);
+    }
+    lines.push("");
+  }
+
+  // Dropped
+  if (diff.droppedItems.length > 0) {
+    lines.push(chalk.red.bold(`  Dropped (${diff.droppedItems.length})`));
+    for (const item of diff.droppedItems.slice(0, 5)) {
+      lines.push(`    ${chalk.red("−")} ${item.count}x ${item.description.slice(0, 60)}`);
+    }
+    lines.push("");
+  }
 
   return lines.join("\n");
 }

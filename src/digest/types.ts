@@ -45,6 +45,22 @@ export interface TokenSummary {
     output: number;
     sessionCount: number;
   }>;
+  /** Breakdown per model (claude-opus-4-6, claude-sonnet-4-6, etc.) */
+  byModel: Record<string, {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheCreate: number;
+    apiCalls: number;
+  }>;
+  /** Breakdown per project per model */
+  byProjectModel: Record<string, Record<string, {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheCreate: number;
+    apiCalls: number;
+  }>>;
 }
 
 export interface DigestReport {
@@ -57,6 +73,8 @@ export interface DigestReport {
   categories: Record<DigestCategory, DigestItem[]>;
   uncategorized: DigestItem[];
   tokens: TokenSummary;
+  agentScans: AgentScanStatus[];
+  cost?: CostEstimate;
 }
 
 export interface RawPrompt {
@@ -65,4 +83,42 @@ export interface RawPrompt {
   project: string;
   agent: string;
   timestamp: string;
+}
+
+/** Agent scan status for graceful degradation reporting (#10) */
+export interface AgentScanStatus {
+  agent: string;
+  available: boolean;
+  projectCount: number;
+  sessionCount: number;
+  error?: string;
+}
+
+/** Cost estimate for a token summary */
+export interface CostEstimate {
+  totalCost: number;
+  byAgent: Record<string, number>;
+  byProject: Record<string, number>;
+  /** Plan comparison — how much the subscription saves */
+  planSavings?: {
+    planName: string;
+    planCost: number;
+    apiCost: number;
+    saved: number;
+    savedPercent: number;
+  };
+}
+
+/** Digest diff comparing two reports */
+export interface DigestDiff {
+  current: DigestReport;
+  previous: DigestReport;
+  tokenDelta: { input: number; output: number; apiCalls: number; costDelta: number };
+  sessionDelta: number;
+  promptDelta: number;
+  categoryDeltas: Record<DigestCategory, number>;
+  newItems: DigestItem[];
+  droppedItems: DigestItem[];
+  trendingUp: DigestItem[];
+  trendingDown: DigestItem[];
 }

@@ -5,6 +5,9 @@
  * filters sessions by date range, and extracts user prompts with token usage.
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import {
   listAllNativeProjects,
   listNativeSessionsBySlug,
@@ -14,12 +17,13 @@ import { listCodexProjects, listCodexSessionsForProject, loadCodexSession } from
 import { listAmpProjects } from "../entire/amp-native.js";
 import type { NativeProject } from "../entire/claude-native.js";
 import type { TokenUsage } from "../entire/types.js";
-import type { RawPrompt, TokenSummary } from "./types.js";
+import type { RawPrompt, TokenSummary, AgentScanStatus } from "./types.js";
 
 export interface LoadResult {
   prompts: RawPrompt[];
   tokens: TokenSummary;
   sessionCount: number;
+  agentScans: AgentScanStatus[];
 }
 
 /**
@@ -75,8 +79,11 @@ export function loadSessionsInWindow(opts: {
     totalApiCalls: 0,
     byAgent: {},
     byProject: {},
+    byModel: {},
+    byProjectModel: {},
   };
   let sessionCount = 0;
+  const agentScans: AgentScanStatus[] = [];
 
   // --- Claude Code sessions ---
   const claudeProjects = listAllNativeProjects();
@@ -95,8 +102,12 @@ export function loadSessionsInWindow(opts: {
 
       sessionCount++;
 
+      // Extract per-model tokens from raw JSONL
+      const jsonlPath = join(homedir(), ".claude", "projects", project.slug, `${info.sessionId}.jsonl`);
+      extractModelTokens(jsonlPath, tokens, project.name);
+
       for (const session of cp.sessions) {
-        // Extract token usage
+        // Extract aggregated token usage
         const tu = session.metadata.tokenUsage;
         if (tu) {
           addTokens(tokens, tu, "claude", project.name);
@@ -117,6 +128,13 @@ export function loadSessionsInWindow(opts: {
       }
     }
   }
+
+  agentScans.push({
+    agent: "claude",
+    available: true,
+    projectCount: filteredClaude.length,
+    sessionCount: tokens.byAgent["claude"]?.sessionCount || 0,
+  });
 
   // --- Codex sessions ---
   try {
@@ -150,8 +168,20 @@ export function loadSessionsInWindow(opts: {
         }
       }
     }
-  } catch {
-    // Codex not available, skip
+    agentScans.push({
+      agent: "codex",
+      available: true,
+      projectCount: filteredCodex.length,
+      sessionCount: tokens.byAgent["codex"]?.sessionCount || 0,
+    });
+  } catch (e) {
+    agentScans.push({
+      agent: "codex",
+      available: false,
+      projectCount: 0,
+      sessionCount: 0,
+      error: e instanceof Error ? e.message : "Not available",
+    });
   }
 
   // --- Amp sessions ---
@@ -172,11 +202,82 @@ export function loadSessionsInWindow(opts: {
         tokens.byAgent["amp"].sessionCount += project.sessionCount;
       }
     }
-  } catch {
-    // Amp not available, skip
+    agentScans.push({
+      agent: "amp",
+      available: true,
+      projectCount: filteredAmp.length,
+      sessionCount: tokens.byAgent["amp"]?.sessionCount || 0,
+    });
+  } catch (e) {
+    agentScans.push({
+      agent: "amp",
+      available: false,
+      projectCount: 0,
+      sessionCount: 0,
+      error: e instanceof Error ? e.message : "Not available",
+    });
   }
 
-  return { prompts, tokens, sessionCount };
+  return { prompts, tokens, sessionCount, agentScans };
+}
+
+/**
+ * Extract per-model token usage from raw JSONL.
+ * Reads assistant messages with model + usage fields.
+ */
+function extractModelTokens(jsonlPath: string, summary: TokenSummary, projectName?: string): void {
+  if (!existsSync(jsonlPath)) return;
+
+  try {
+    const content = readFileSync(jsonlPath, "utf-8");
+    for (const line of content.split("\n")) {
+      if (!line) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (obj.type === "assistant" && obj.message?.model && obj.message?.usage) {
+          let model = obj.message.model as string;
+          if (model === "<synthetic>") continue;
+
+          // Detect fast mode (6x pricing multiplier)
+          const u = obj.message.usage;
+          if (u.speed === "fast") model = `${model}-fast`;
+
+          const input = u.input_tokens ?? 0;
+          const output = u.output_tokens ?? 0;
+          const cacheRead = u.cache_read_input_tokens ?? 0;
+          const cacheCreate = u.cache_creation_input_tokens ?? 0;
+
+          if (!summary.byModel[model]) {
+            summary.byModel[model] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0 };
+          }
+          summary.byModel[model].input += input;
+          summary.byModel[model].output += output;
+          summary.byModel[model].cacheRead += cacheRead;
+          summary.byModel[model].cacheCreate += cacheCreate;
+          summary.byModel[model].apiCalls++;
+
+          // Track per-project-per-model
+          if (projectName) {
+            if (!summary.byProjectModel[projectName]) {
+              summary.byProjectModel[projectName] = {};
+            }
+            if (!summary.byProjectModel[projectName][model]) {
+              summary.byProjectModel[projectName][model] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0 };
+            }
+            summary.byProjectModel[projectName][model].input += input;
+            summary.byProjectModel[projectName][model].output += output;
+            summary.byProjectModel[projectName][model].cacheRead += cacheRead;
+            summary.byProjectModel[projectName][model].cacheCreate += cacheCreate;
+            summary.byProjectModel[projectName][model].apiCalls++;
+          }
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+  } catch {
+    // skip unreadable files
+  }
 }
 
 function addTokens(

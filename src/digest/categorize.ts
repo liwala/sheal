@@ -5,6 +5,10 @@
  * Filters noise, deduplicates similar prompts by normalized prefix.
  */
 
+import { spawn } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
 import type { DigestCategory, DigestItem, RawPrompt } from "./types.js";
 
 interface CategoryRule {
@@ -33,6 +37,9 @@ const NOISE_PATTERNS: RegExp[] = [
   /^Usage:\s+\//,
   /^Date:\s+\w{3}\s+\d/,
   /^Caveat:\s+The messages below/,
+  /^Reply with just the number/,    // Test prompts
+  /^This session is being continued/,  // Session continuation boilerplate
+  /^-$/,                              // Single dash (empty stdin)
 ];
 
 /**
@@ -74,6 +81,10 @@ const RULES: CategoryRule[] = [
       /\b(set up|create|add)\b.*\b(cron|schedule|timer|launchd)\b/i,
       /\bfollow these steps exactly\b/i,  // Recurring loop prompts pattern
       /\bscan\s+(latest|new|recent)\b/i,  // Scanning/monitoring patterns
+      /^check\s+(slack|gmail|email|the\s+followup|my\s+gmail|my\s+email|my\s+slack)/i,  // Monitoring checks
+      /\bcheck\s+.*\bfor\s+new\s+(message|email|notification)/i,
+      /\bcheck\s+.*\btracker\b/i,
+      /\bpull\s+(new|latest|recent)\b/i,
     ],
   },
   {
@@ -254,6 +265,227 @@ export function categorizePrompts(prompts: RawPrompt[]): {
   }
 
   // Sort each category by frequency descending
+  for (const cat of Object.values(categories)) {
+    cat.sort((a, b) => b.count - a.count);
+  }
+  uncategorized.sort((a, b) => b.count - a.count);
+
+  return { categories, uncategorized };
+}
+
+/**
+ * Build the LLM prompt for Haiku categorization.
+ */
+function buildCategorizationPrompt(items: Array<{ id: number; description: string; count: number }>): string {
+  const itemLines = items.map((i) => `${i.id}|${i.count}x|${i.description}`).join("\n");
+
+  return `You are categorizing user prompts from AI coding sessions into exactly 4 categories.
+
+CATEGORIES:
+- SKILLS: Repeatable creative tasks triggered manually (writing posts, creating infographics, building dashboards, drafting outreach, content creation)
+- AGENTS: Autonomous research or action workflows (enriching data, scraping, crawling, researching prospects, checking emails, multi-step pipelines)
+- SCHEDULED_TASKS: Recurring things that should be automated (daily checks, weekly reports, monitoring, periodic scans, loop-based tasks, anything that runs repeatedly)
+- CLAUDE_MD: Repeated preferences or context to bake into instructions (formatting rules, behavior corrections, "always do X", "never do Y", tool preferences)
+
+PROMPTS TO CATEGORIZE:
+${itemLines}
+
+RULES:
+- Output ONLY lines in format: ID|CATEGORY
+- One line per prompt, no explanation
+- If a prompt doesn't fit any category, output: ID|NONE
+- High-frequency prompts (5x+) that aren't slash commands are likely SCHEDULED_TASKS
+- Prompts about formatting, preferences, or corrections are CLAUDE_MD
+- Prompts asking to "check", "scan", "monitor", "pull" regularly are SCHEDULED_TASKS
+- Prompts about creating content, writing posts, building pages are SKILLS
+
+OUTPUT:`;
+}
+
+/**
+ * Extract assistant text from a Claude Code session JSONL file.
+ */
+function extractAssistantText(sessionId: string): string | null {
+  // Search all project dirs for this session
+  const projectsDir = join(homedir(), ".claude", "projects");
+  if (!existsSync(projectsDir)) return null;
+
+  for (const slug of readdirSync(projectsDir)) {
+    const jsonlPath = join(projectsDir, slug, `${sessionId}.jsonl`);
+    if (!existsSync(jsonlPath)) continue;
+
+    const content = readFileSync(jsonlPath, "utf-8");
+    const texts: string[] = [];
+
+    for (const line of content.split("\n")) {
+      if (!line) continue;
+      try {
+        const obj = JSON.parse(line);
+        if (obj.type === "assistant" && obj.message?.content) {
+          const blocks = Array.isArray(obj.message.content) ? obj.message.content : [obj.message.content];
+          for (const block of blocks) {
+            if (typeof block === "string") texts.push(block);
+            else if (block.type === "text" && block.text) texts.push(block.text);
+          }
+        }
+      } catch { /* skip */ }
+    }
+
+    if (texts.length > 0) return texts.join("\n");
+  }
+  return null;
+}
+
+/**
+ * Invoke Haiku for smart categorization.
+ *
+ * Uses claude -p with JSON output, then reads the actual response from
+ * the session JSONL (workaround: claude -p returns empty result field
+ * when invoked inside a parent Claude Code session).
+ */
+async function invokeHaiku(prompt: string, timeoutMs = 60_000): Promise<string | null> {
+  return new Promise((resolve) => {
+    const child = spawn("claude", ["-p", "-", "--output-format", "json", "--model", "haiku"], {
+      timeout: timeoutMs,
+      env: { ...process.env, NO_COLOR: "1" },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    const stdout: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+
+    child.on("error", () => resolve(null));
+    child.on("close", (code) => {
+      if (code !== 0) { resolve(null); return; }
+
+      const raw = Buffer.concat(stdout).toString().trim();
+
+      // Try to parse JSON and get session_id
+      try {
+        const json = JSON.parse(raw);
+
+        // If result has text, use it directly
+        if (json.result && json.result.length > 0) {
+          resolve(json.result);
+          return;
+        }
+
+        // Workaround: read response from session JSONL
+        if (json.session_id) {
+          const text = extractAssistantText(json.session_id);
+          if (text) {
+            resolve(text);
+            return;
+          }
+        }
+      } catch {
+        // Not JSON — might be plain text
+        if (raw.length > 0) {
+          resolve(raw);
+          return;
+        }
+      }
+
+      resolve(null);
+    });
+
+    child.stdin.write(prompt);
+    child.stdin.end();
+  });
+}
+
+/**
+ * LLM-enriched categorization using Haiku.
+ * Takes the regex output and re-categorizes with semantic understanding.
+ * Processes in batches to stay within token limits.
+ */
+export async function enrichWithLLM(
+  regexResult: { categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] },
+): Promise<{ categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] }> {
+  // Collect ALL items (categorized + uncategorized) for re-classification
+  const allItems: Array<{ id: number; item: DigestItem }> = [];
+  let id = 0;
+
+  const allCats: DigestCategory[] = ["SKILLS", "AGENTS", "SCHEDULED_TASKS", "CLAUDE_MD"];
+  for (const cat of allCats) {
+    for (const item of regexResult.categories[cat]) {
+      allItems.push({ id: id++, item });
+    }
+  }
+  for (const item of regexResult.uncategorized) {
+    allItems.push({ id: id++, item });
+  }
+
+  if (allItems.length === 0) return regexResult;
+
+  // Process in batches of 50 to stay within token limits
+  const BATCH_SIZE = 50;
+  const llmCategories = new Map<number, DigestCategory | null>();
+
+  for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
+    const batch = allItems.slice(i, i + BATCH_SIZE);
+    const promptItems = batch.map((b) => ({
+      id: b.id,
+      description: b.item.description.slice(0, 80),
+      count: b.item.count,
+    }));
+
+    const prompt = buildCategorizationPrompt(promptItems);
+    const result = await invokeHaiku(prompt);
+
+    if (!result) {
+      // LLM failed for this batch — keep regex categories
+      for (const b of batch) {
+        llmCategories.set(b.id, null); // null = keep original
+      }
+      continue;
+    }
+
+    // Parse LLM output: "ID|CATEGORY" per line
+    for (const line of result.split("\n")) {
+      const match = line.trim().match(/^(\d+)\|(\w+)/);
+      if (!match) continue;
+      const itemId = parseInt(match[1], 10);
+      const cat = match[2] as string;
+
+      if (allCats.includes(cat as DigestCategory)) {
+        llmCategories.set(itemId, cat as DigestCategory);
+      } else if (cat === "NONE") {
+        llmCategories.set(itemId, null);
+      }
+    }
+  }
+
+  // Rebuild categories with LLM assignments
+  const categories: Record<DigestCategory, DigestItem[]> = {
+    SKILLS: [],
+    AGENTS: [],
+    SCHEDULED_TASKS: [],
+    CLAUDE_MD: [],
+  };
+  const uncategorized: DigestItem[] = [];
+
+  for (const { id: itemId, item } of allItems) {
+    const llmCat = llmCategories.get(itemId);
+
+    if (llmCat === undefined) {
+      // Not processed by LLM — keep original placement
+      if (item.category && allCats.includes(item.category)) {
+        categories[item.category].push(item);
+      } else {
+        uncategorized.push(item);
+      }
+    } else if (llmCat === null) {
+      // LLM said NONE or failed — uncategorized
+      uncategorized.push(item);
+    } else {
+      item.category = llmCat;
+      categories[llmCat].push(item);
+    }
+  }
+
+  // Sort each category by frequency
   for (const cat of Object.values(categories)) {
     cat.sort((a, b) => b.count - a.count);
   }
