@@ -1,12 +1,44 @@
-# Self-Healing AI Coding (`sheal`)
+<p align="center">
+  <img src="assets/sheal-mascot.png" width="200" alt="sheal mascot" />
+</p>
+
+<h1 align="center">sheal</h1>
+
+<p align="center"><b>your ai agent keeps making the same mistakes. sheal fixes that.</b></p>
+
+<p align="center">
+  <a href="https://github.com/liwala/sheal/stargazers"><img src="https://img.shields.io/github/stars/liwala/sheal?style=flat-square" alt="stars" /></a>
+  <a href="https://github.com/liwala/sheal/commits/main"><img src="https://img.shields.io/github/last-commit/liwala/sheal?style=flat-square" alt="last commit" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="license" /></a>
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> &bull;
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#commands">Commands</a> &bull;
+  <a href="#how-it-works">How It Works</a> &bull;
+  <a href="#supported-agents">Agents</a>
+</p>
+
+---
+
+<p align="center">
+  <img src="assets/sheal-hero.png" width="700" alt="sheal hero banner" />
+</p>
 
 A CLI toolkit that analyzes AI coding sessions to extract learnings, detect failure patterns, and continuously improve agent behavior.
+
+Your AI agent has amnesia. Every session it repeats the same mistakes, burns the same tokens, forgets the same rules. **sheal** closes the loop — it reads your sessions, extracts the patterns, writes rules back to your agent config, and makes the next session smarter. It compounds.
+
+<p align="center">
+  <img src="assets/sheal-evolution.png" width="700" alt="session 1 to session 20 — zero repeated mistakes" />
+</p>
 
 ## Install
 
 ```bash
-git clone https://github.com/luisalima/self-healing-ai-coding
-cd self-healing-ai-coding
+git clone https://github.com/liwala/sheal
+cd sheal
 npm install
 npx tsc
 npm link
@@ -20,6 +52,12 @@ sheal check
 
 # Run a retrospective on your latest session
 sheal retro
+
+# See your token spend per project
+sheal cost
+
+# Get a categorized digest of what you worked on
+sheal digest --since "7 days"
 
 # Ask a question across all your sessions
 sheal ask "what went wrong with beads?" --agent claude
@@ -107,6 +145,7 @@ sheal browse                       # Full TUI (project list)
 sheal browse sessions              # Jump to sessions view
 sheal browse retros                # Jump to retros view
 sheal browse learnings             # Jump to learnings view
+sheal browse digests               # Browse digest reports
 sheal browse -p myproject          # Pre-filter by project name
 sheal browse --agent codex         # Pre-filter by agent
 ```
@@ -142,6 +181,48 @@ sheal graph --file src/index.ts    # History for a specific file
 sheal graph --agent claude         # Details for a specific agent
 sheal graph --json                 # JSON output
 ```
+
+### `sheal digest`
+
+Categorized digest of all your prompts across agents. See what you actually worked on.
+
+```bash
+sheal digest                           # Last 7 days, pretty output
+sheal digest --since "1 month"         # Custom window
+sheal digest --enrich                  # LLM-powered categorization (Haiku)
+sheal digest --compare                 # Diff against previous digest
+sheal digest -p myproject              # Filter to one project
+sheal digest -f markdown -o report.md  # Export as markdown
+```
+
+The `--enrich` flag uses Haiku to smart-categorize prompts that rule-based matching missed. The `--compare` flag finds the previous digest for the same scope and shows what changed.
+
+### `sheal cost`
+
+Token cost dashboard — see exactly where your Claude budget goes.
+
+```bash
+sheal cost                             # Last 7 days
+sheal cost --since "1 month"           # Custom window
+sheal cost -p myproject                # Single project
+sheal cost --plan "Max 5x"            # Compare against your plan
+sheal cost --format json               # JSON output for scripting
+```
+
+Shows per-model breakdown, per-project spend, project-by-model matrix, cost type split (input/output/cache-read/cache-write), and subscription savings vs Pro / Max 5x / Max 20x plans.
+
+### `sheal weekly`
+
+Full weekly report — runs digest + cost together, optionally with deep Claude analysis and Slack delivery.
+
+```bash
+sheal weekly                           # Digest + cost for last 7 days
+sheal weekly --agent                   # Add deep LLM analysis
+sheal weekly --slack                   # Post summary to Slack
+sheal weekly --plan "Max 20x"          # Include plan savings
+```
+
+Reports are saved to `~/.sheal/weekly-digests/` for historical tracking.
 
 ### `sheal learn`
 
