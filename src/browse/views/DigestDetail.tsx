@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { loadDigest } from "../../commands/digest.js";
 import type { DigestReport, DigestCategory, DigestItem } from "../../digest/types.js";
 import { StatusBar } from "../components/StatusBar.js";
+import { formatTokens } from "../utils/format.js";
 
 interface DigestDetailProps {
   filename: string;
@@ -23,12 +24,6 @@ const CATEGORY_LABELS: Record<DigestCategory, string> = {
   SCHEDULED_TASKS: "SCHEDULED",
   CLAUDE_MD: "CLAUDE.MD",
 };
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
 
 interface DisplayLine {
   type: "header" | "agent" | "item" | "empty";
