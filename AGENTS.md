@@ -134,7 +134,7 @@ Commit and push after every logical change. Do not accumulate uncommitted work a
 ## Self-Healing Workflow
 
 Run `sheal check` at the start of every session to catch environment issues early.
-Run `sheal retro` at the end of sessions to extract learnings (requires Entire.io).
+Run `sheal retro` at the end of sessions to extract learnings.
 
 ## Session Learnings
 
