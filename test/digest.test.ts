@@ -145,6 +145,14 @@ describe("getPricing", () => {
     expect(p.output).toBe(150);
   });
 
+  it("returns Opus 4.5+ pricing for future versions (4.10, 4.15)", () => {
+    const p10 = getPricing("claude-opus-4-10-20270101");
+    expect(p10.input).toBe(5);
+    expect(p10.output).toBe(25);
+    const p15 = getPricing("claude-opus-4-15-20270601");
+    expect(p15.input).toBe(5);
+  });
+
   it("returns default pricing for unknown model", () => {
     const p = getPricing("unknown-model");
     expect(p.input).toBe(3);
