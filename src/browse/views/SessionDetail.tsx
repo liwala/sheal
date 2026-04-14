@@ -16,13 +16,24 @@ interface SessionDetailProps {
   onViewRetro: () => void;
 }
 
+interface RenderedLine {
+  text: string;
+  color?: string;
+  bold?: boolean;
+  dim?: boolean;
+  blockIndex?: number; // which block this line belongs to (for enter to toggle)
+}
+
 export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, onViewRetro }: SessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
+  const [selectedBlock, setSelectedBlock] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const { stdout } = useStdout();
-  const maxRows = (stdout?.rows ?? 24) - 8;
+  // Reserve: 4 header lines + 1 margin + 2 status bar lines + 1 buffer
+  const termRows = stdout?.rows ?? 24;
+  const maxRows = Math.max(3, termRows - 8);
 
   const { checkpoint, blocks, title, hasRetroFile } = useMemo(() => {
     const cp = loadNativeSessionBySlug(slug, sessionId);
@@ -42,6 +53,63 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     );
   }, [blocks, searchText]);
 
+  // Flatten all blocks into lines for line-level scrolling
+  const { allLines, blockStarts } = useMemo(() => {
+    const lines: RenderedLine[] = [];
+    const starts: number[] = [];
+
+    for (let bi = 0; bi < filteredBlocks.length; bi++) {
+      const block = filteredBlocks[bi];
+      const isExpanded = expanded.has(bi);
+      const isSelected = bi === selectedBlock;
+      const color = TYPE_COLORS[block.type];
+      const label = TYPE_LABELS[block.type];
+      const previewCount = PREVIEW_LINES[block.type];
+      const contentLines = block.lines.slice(1);
+      const cursor = isSelected ? ">" : " ";
+
+      if (lines.length > 0) {
+        lines.push({ text: "" });
+      }
+
+      starts.push(lines.length);
+
+      const callCount = block.type === "tool-group" && block.entryCount > 1
+        ? ` (${block.entryCount} calls)` : "";
+
+      if (isExpanded) {
+        lines.push({
+          text: `${cursor} ${label}:${callCount} [-]`,
+          color,
+          bold: isSelected,
+          blockIndex: bi,
+        });
+        for (const line of block.lines) {
+          lines.push({ text: "    " + line, dim: true, blockIndex: bi });
+        }
+      } else {
+        const expandHint = contentLines.length > previewCount
+          ? ` [+${contentLines.length}]`
+          : "";
+        lines.push({
+          text: `${cursor} ${label}:${callCount}${expandHint} ${block.summary.slice(0, 100)}`,
+          color,
+          bold: isSelected,
+          blockIndex: bi,
+        });
+        if (previewCount > 0 && contentLines.length > 0) {
+          for (const line of contentLines.slice(0, previewCount)) {
+            lines.push({ text: "    " + line.slice(0, 116), dim: true, blockIndex: bi });
+          }
+          if (contentLines.length > previewCount) {
+            lines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true, blockIndex: bi });
+          }
+        }
+      }
+    }
+    return { allLines: lines, blockStarts: starts };
+  }, [filteredBlocks, expanded, selectedBlock]);
+
   useInput((input, key) => {
     if (searchActive) {
       if (key.escape) {
@@ -58,20 +126,40 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     if (input === "/") { setSearchActive(true); return; }
     if (input === "r") { onViewRetro(); return; }
 
+    const totalLines = allLines.length;
+    const cap = (v: number) => Math.max(0, Math.min(Math.max(0, totalLines - maxRows), v));
+    const blockCount = filteredBlocks.length;
+
     if (key.upArrow) {
-      setScrollPos((p) => Math.max(0, p - 1));
+      setScrollPos((p) => cap(p - 3));
     } else if (key.downArrow) {
-      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + 1));
+      setScrollPos((p) => cap(p + 3));
     } else if (key.pageDown) {
-      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3)));
+      setScrollPos((p) => cap(p + maxRows));
     } else if (key.pageUp) {
-      setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
+      setScrollPos((p) => cap(p - maxRows));
+    } else if (input === "n" || key.tab) {
+      // Move cursor to next block and scroll to show it
+      setSelectedBlock((b) => {
+        const next = Math.min(blockCount - 1, b + 1);
+        const lineIdx = blockStarts[next];
+        if (lineIdx !== undefined) setScrollPos(cap(lineIdx));
+        return next;
+      });
+    } else if (input === "p") {
+      // Move cursor to previous block and scroll to show it
+      setSelectedBlock((b) => {
+        const prev = Math.max(0, b - 1);
+        const lineIdx = blockStarts[prev];
+        if (lineIdx !== undefined) setScrollPos(cap(lineIdx));
+        return prev;
+      });
     } else if (key.return) {
-      // Toggle block expansion
+      // Toggle the block at the cursor
       setExpanded((prev) => {
         const next = new Set(prev);
-        if (next.has(scrollPos)) next.delete(scrollPos);
-        else next.add(scrollPos);
+        if (next.has(selectedBlock)) next.delete(selectedBlock);
+        else next.add(selectedBlock);
         return next;
       });
     }
@@ -89,56 +177,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
   const session = checkpoint.sessions[0];
   const meta = session.metadata;
 
-  // Render blocks into visible lines
-  const renderedLines: Array<{ text: string; color?: string; bold?: boolean; dim?: boolean }> = [];
-
-  for (let bi = scrollPos; bi < filteredBlocks.length && renderedLines.length < maxRows; bi++) {
-    const block = filteredBlocks[bi];
-    const isExpanded = expanded.has(bi);
-    const isCurrent = bi === scrollPos;
-    const color = TYPE_COLORS[block.type];
-    const label = TYPE_LABELS[block.type];
-    const previewCount = PREVIEW_LINES[block.type];
-
-    // Separator between blocks
-    if (renderedLines.length > 0) {
-      renderedLines.push({ text: "" });
-    }
-
-    // Content lines (skip first line since it's already in the summary)
-    const contentLines = block.lines.slice(1);
-
-    // Header line: "> ASSISTANT: [+N] first line..."
-    const cursor = isCurrent ? ">" : " ";
-    const callCount = block.type === "tool-group" && block.entryCount > 1
-      ? ` (${block.entryCount} calls)` : "";
-    const expandHint = contentLines.length > previewCount
-      ? (isExpanded ? " [-]" : ` [+${contentLines.length}]`)
-      : "";
-    renderedLines.push({
-      text: `${cursor} ${label}:${callCount}${expandHint} ${block.summary.slice(0, 100)}`,
-      color,
-      bold: isCurrent,
-    });
-    if (isExpanded) {
-      const maxShow = 30;
-      for (const line of contentLines.slice(0, maxShow)) {
-        renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
-        if (renderedLines.length >= maxRows) break;
-      }
-      if (contentLines.length > maxShow) {
-        renderedLines.push({ text: `    ... (${contentLines.length - maxShow} more lines)`, dim: true });
-      }
-    } else if (previewCount > 0 && contentLines.length > 0) {
-      for (const line of contentLines.slice(0, previewCount)) {
-        renderedLines.push({ text: "    " + line.slice(0, 116), dim: true });
-        if (renderedLines.length >= maxRows) break;
-      }
-      if (contentLines.length > previewCount) {
-        renderedLines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true });
-      }
-    }
-  }
+  const visibleLines = allLines.slice(scrollPos, scrollPos + maxRows);
 
   return (
     <Box flexDirection="column">
@@ -159,7 +198,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         )}
         <Text dimColor>
           {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
-          {" | "}{scrollPos + 1}/{filteredBlocks.length}
+          {" | "}line {scrollPos + 1}/{allLines.length}
         </Text>
       </Box>
 
@@ -167,14 +206,14 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         <SearchBar label="Search" value={searchText} onChange={setSearchText} />
       )}
 
-      <Box flexDirection="column">
-        {renderedLines.map((line, i) => (
+      <Box flexDirection="column" height={maxRows}>
+        {visibleLines.map((line, i) => (
           <Text
             key={i}
             color={line.color as any}
             bold={line.bold}
             dimColor={line.dim}
-            wrap="wrap"
+            wrap="truncate"
           >
             {line.text}
           </Text>
@@ -184,7 +223,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       <StatusBar
         view="detail"
         searchActive={searchActive}
-        info={`^/v Scroll  enter Expand/collapse  / Search${hasRetroFile ? "  r Retro" : ""}  esc Back`}
+        info={`^/v Scroll  n/p Next/prev block  enter Expand  / Search${hasRetroFile ? "  r Retro" : ""}  esc Back`}
       />
     </Box>
   );
