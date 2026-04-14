@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
@@ -415,6 +415,45 @@ learn
     await runLearnPromote({
       projectRoot: opts.project,
     });
+  });
+
+learn
+  .command("push")
+  .description("Commit and push global learnings to remote git repo")
+  .action(async () => {
+    await runLearnPush();
+  });
+
+learn
+  .command("pull")
+  .description("Pull and merge remote learnings into global store")
+  .action(async () => {
+    await runLearnPull();
+  });
+
+const learnRemote = learn
+  .command("remote")
+  .description("Manage git remote for global learnings backup");
+
+learnRemote
+  .command("add <url>")
+  .description("Connect global learnings store to a remote git repo")
+  .action(async (url: string) => {
+    await runLearnRemoteAdd({ url });
+  });
+
+learnRemote
+  .command("show")
+  .description("Show current remote configuration")
+  .action(async () => {
+    await runLearnRemoteShow();
+  });
+
+learnRemote
+  .command("remove")
+  .description("Disconnect global learnings from remote")
+  .action(async () => {
+    await runLearnRemoteRemove();
   });
 
 process.on("unhandledRejection", (err) => {

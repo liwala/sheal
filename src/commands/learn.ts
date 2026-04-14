@@ -11,6 +11,8 @@ import {
   detectProjectTags,
 } from "../learn/index.js";
 import { reviewExistingLearnings } from "../learn/review.js";
+import { readGlobalConfig, writeGlobalConfig } from "../learn/remote-config.js";
+import { isGitRepo, initRepo, addRemote, removeRemote, getRemoteUrl, commitAll, push, pull, lastCommitInfo } from "../learn/git.js";
 import type { LearningCategory, LearningSeverity, LearningFile } from "../learn/types.js";
 
 interface LearnAddOptions {
@@ -269,5 +271,139 @@ export async function runLearnReview(opts: LearnReviewOptions): Promise<void> {
 
   if (result.remaining > 0) {
     console.log(chalk.gray(`\nRun 'sheal learn review${opts.global ? " --global" : ""}' again to continue.`));
+  }
+}
+
+// ── Remote / Push / Pull ────────────────────────────────────────────
+
+export async function runLearnRemoteAdd(opts: { url: string }): Promise<void> {
+  const dir = getGlobalDir();
+
+  if (!(await isGitRepo(dir))) {
+    console.log(chalk.gray("Initializing git repo in global learnings directory..."));
+    await initRepo(dir);
+  }
+
+  await addRemote(dir, opts.url);
+
+  const config = readGlobalConfig();
+  config.remote = { url: opts.url };
+  writeGlobalConfig(config);
+
+  console.log(chalk.green(`Remote set to ${opts.url}`));
+  console.log(chalk.gray(`Run 'sheal learn push' to push your learnings.`));
+}
+
+export async function runLearnRemoteShow(): Promise<void> {
+  const dir = getGlobalDir();
+  const config = readGlobalConfig();
+  const isRepo = await isGitRepo(dir);
+
+  if (!config.remote?.url) {
+    console.log(chalk.yellow("No remote configured."));
+    console.log(chalk.gray("Run: sheal learn remote add <git-url>"));
+    return;
+  }
+
+  console.log(`${chalk.bold("Remote:")}  ${config.remote.url}`);
+  console.log(`${chalk.bold("Git:")}     ${isRepo ? chalk.green("initialized") : chalk.red("not initialized")}`);
+  console.log(`${chalk.bold("Dir:")}     ${dir}`);
+
+  if (isRepo) {
+    const last = await lastCommitInfo(dir);
+    if (last) {
+      console.log(`${chalk.bold("Last:")}    ${last}`);
+    }
+  }
+}
+
+export async function runLearnRemoteRemove(): Promise<void> {
+  const dir = getGlobalDir();
+
+  if (await isGitRepo(dir)) {
+    const url = await getRemoteUrl(dir);
+    if (url) {
+      await removeRemote(dir);
+    }
+  }
+
+  const config = readGlobalConfig();
+  delete config.remote;
+  writeGlobalConfig(config);
+
+  console.log(chalk.green("Remote disconnected."));
+  console.log(chalk.gray("The git repo is preserved — only the remote link was removed."));
+}
+
+export async function runLearnPush(): Promise<void> {
+  const dir = getGlobalDir();
+  const config = readGlobalConfig();
+
+  if (!config.remote?.url) {
+    console.log(chalk.red("No remote configured."));
+    console.log(chalk.gray("Run: sheal learn remote add <git-url>"));
+    return;
+  }
+
+  if (!(await isGitRepo(dir))) {
+    console.log(chalk.red("Global learnings directory is not a git repo."));
+    console.log(chalk.gray("Run: sheal learn remote add <git-url>"));
+    return;
+  }
+
+  const commit = await commitAll(dir);
+  if (commit.committed) {
+    console.log(chalk.gray(`Committed: ${commit.summary.split("\n")[0]}`));
+  } else {
+    console.log(chalk.gray(commit.summary));
+  }
+
+  console.log(chalk.gray(`Pushing to ${config.remote.url}...`));
+  const result = await push(dir);
+
+  if (result.ok) {
+    console.log(chalk.green("Pushed successfully."));
+  } else {
+    console.log(chalk.red("Push failed:"));
+    console.log(chalk.gray(result.output));
+  }
+}
+
+export async function runLearnPull(): Promise<void> {
+  const dir = getGlobalDir();
+  const config = readGlobalConfig();
+
+  if (!config.remote?.url) {
+    console.log(chalk.red("No remote configured."));
+    console.log(chalk.gray("Run: sheal learn remote add <git-url>"));
+    return;
+  }
+
+  if (!(await isGitRepo(dir))) {
+    console.log(chalk.red("Global learnings directory is not a git repo."));
+    console.log(chalk.gray("Run: sheal learn remote add <git-url>"));
+    return;
+  }
+
+  // Auto-commit local changes before pulling to avoid losing work
+  const commit = await commitAll(dir);
+  if (commit.committed) {
+    console.log(chalk.gray(`Auto-committed local changes: ${commit.summary.split("\n")[0]}`));
+  }
+
+  console.log(chalk.gray(`Pulling from ${config.remote.url}...`));
+  const result = await pull(dir);
+
+  if (result.ok) {
+    console.log(chalk.green("Pulled successfully."));
+  } else if (result.conflicts.length > 0) {
+    console.log(chalk.red(`Merge conflicts in ${result.conflicts.length} file(s):`));
+    for (const f of result.conflicts) {
+      console.log(chalk.red(`  ${f}`));
+    }
+    console.log(chalk.yellow(`\nResolve conflicts in ${dir} then run 'sheal learn push'.`));
+  } else {
+    console.log(chalk.red("Pull failed:"));
+    console.log(chalk.gray(result.output));
   }
 }
