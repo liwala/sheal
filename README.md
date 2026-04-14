@@ -252,29 +252,38 @@ sheal learn sync
 
 #### Git-based backup & sync
 
-Back up your global learnings to a git repo for cross-machine sync and team sharing.
+Back up `~/.sheal/` to a git repo for cross-machine sync and team sharing. By default backs up learnings, digests, and config. Optionally includes retros from all projects.
 
 ```bash
-# Connect to a remote repo (initializes git in ~/.sheal/learnings/)
-sheal learn remote add git@github.com:you/sheal-learnings.git
+# Connect to a remote repo (initializes git in ~/.sheal/)
+sheal backup remote add git@github.com:you/sheal-data.git
 
-# Push your learnings (auto-commits uncommitted changes)
+# Push (learnings + digests + config)
+sheal backup push
+
+# Also gather retros from all projects
+sheal backup push --include retros
+
+# Pull from remote
+sheal backup pull
+
+# Show or disconnect
+sheal backup remote show
+sheal backup remote remove
+
+# learn push/pull are aliases for backup push/pull
 sheal learn push
-
-# Pull from remote (auto-commits local changes before merging)
 sheal learn pull
-
-# Show or disconnect the remote
-sheal learn remote show
-sheal learn remote remove
 ```
 
-The full learnings lifecycle:
+The full lifecycle:
 
 ```
-retro → project drafts → review → active → promote → global → push → remote
-                                                              pull ← remote
-                                                              sync → project
+retro → project drafts → review → active → promote → global ─┐
+                                                    digests ──┤
+                                                    config  ──┼─ backup push → remote
+                                                    retros  ──┘  backup pull ← remote
+                                                    global ──── sync → project
 ```
 
 **Learning format** (`~/.sheal/learnings/LEARN-001-inspect-real-data.md`):

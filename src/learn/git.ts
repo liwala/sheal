@@ -17,9 +17,21 @@ export async function isGitRepo(dir: string): Promise<boolean> {
   return r.exitCode === 0;
 }
 
+const GITIGNORE = `# Whitelist: only track sheal data
+*
+!.gitignore
+!config.json
+!learnings/
+!learnings/**
+!digests/
+!digests/**
+!retros/
+!retros/**
+`;
+
 export async function initRepo(dir: string): Promise<void> {
   await git(["init"], dir);
-  writeFileSync(join(dir, ".gitignore"), ".DS_Store\n", "utf-8");
+  writeFileSync(join(dir, ".gitignore"), GITIGNORE, "utf-8");
   await git(["add", ".gitignore"], dir);
   await git(["commit", "-m", "Initial commit"], dir);
 }
@@ -54,7 +66,7 @@ export async function commitAll(dir: string, message?: string): Promise<{ commit
     return { committed: false, summary: "Nothing to commit" };
   }
 
-  const msg = message || `sheal: update learnings ${new Date().toISOString().slice(0, 10)}`;
+  const msg = message || `sheal: backup ${new Date().toISOString().slice(0, 10)}`;
   const r = await git(["commit", "-m", msg], dir);
   if (r.exitCode !== 0) {
     return { committed: false, summary: r.stderr.trim() || r.stdout.trim() };

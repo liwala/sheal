@@ -67,10 +67,14 @@ describe("git operations", () => {
     expect(await isGitRepo(workDir)).toBe(false);
   });
 
-  it("initRepo creates a git repo", async () => {
+  it("initRepo creates a git repo with whitelist .gitignore", async () => {
     await initRepo(workDir);
     expect(await isGitRepo(workDir)).toBe(true);
-    expect(existsSync(join(workDir, ".gitignore"))).toBe(true);
+    const gitignore = readFileSync(join(workDir, ".gitignore"), "utf-8");
+    expect(gitignore).toContain("!learnings/");
+    expect(gitignore).toContain("!digests/");
+    expect(gitignore).toContain("!retros/");
+    expect(gitignore).toContain("!config.json");
   });
 
   it("addRemote + getRemoteUrl round-trip", async () => {
@@ -98,7 +102,8 @@ describe("git operations", () => {
 
   it("commitAll commits new files", async () => {
     await initRepo(workDir);
-    writeFileSync(join(workDir, "LEARN-001-test.md"), "---\nid: LEARN-001\n---\nTest learning\n");
+    mkdirSync(join(workDir, "learnings"), { recursive: true });
+    writeFileSync(join(workDir, "learnings", "LEARN-001-test.md"), "---\nid: LEARN-001\n---\nTest learning\n");
     const result = await commitAll(workDir, "add learning");
     expect(result.committed).toBe(true);
   });
@@ -113,7 +118,8 @@ describe("git operations", () => {
   it("push succeeds to bare repo", async () => {
     await initRepo(workDir);
     await addRemote(workDir, bareDir);
-    writeFileSync(join(workDir, "LEARN-001-test.md"), "test content\n");
+    mkdirSync(join(workDir, "learnings"), { recursive: true });
+    writeFileSync(join(workDir, "learnings", "LEARN-001-test.md"), "test content\n");
     await commitAll(workDir, "add learning");
     const result = await push(workDir);
     expect(result.ok).toBe(true);
@@ -122,14 +128,16 @@ describe("git operations", () => {
   it("pull succeeds from bare repo", async () => {
     await initRepo(workDir);
     await addRemote(workDir, bareDir);
-    writeFileSync(join(workDir, "LEARN-001.md"), "first\n");
+    mkdirSync(join(workDir, "learnings"), { recursive: true });
+    writeFileSync(join(workDir, "learnings", "LEARN-001.md"), "first\n");
     await commitAll(workDir, "initial");
     await push(workDir);
 
     // Clone into a second dir, make a change, push
     const workDir2 = tmpDir("work2");
     gitInDir(workDir2, "clone", bareDir, ".");
-    writeFileSync(join(workDir2, "LEARN-002.md"), "from other machine\n");
+    mkdirSync(join(workDir2, "learnings"), { recursive: true });
+    writeFileSync(join(workDir2, "learnings", "LEARN-002.md"), "from other machine\n");
     gitInDir(workDir2, "add", "-A");
     gitInDir(workDir2, "commit", "-m", "add LEARN-002");
     gitInDir(workDir2, "push");
@@ -137,7 +145,7 @@ describe("git operations", () => {
     // Pull in original
     const result = await pull(workDir);
     expect(result.ok).toBe(true);
-    expect(existsSync(join(workDir, "LEARN-002.md"))).toBe(true);
+    expect(existsSync(join(workDir, "learnings", "LEARN-002.md"))).toBe(true);
 
     rmSync(workDir2, { recursive: true, force: true });
   });

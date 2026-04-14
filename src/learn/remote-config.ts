@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
+import { getShealHomeDir } from "./store.js";
 
 export interface GlobalConfig {
   remote?: {
@@ -9,7 +9,7 @@ export interface GlobalConfig {
 }
 
 function getConfigPath(): string {
-  return join(homedir(), ".sheal", "config.json");
+  return join(getShealHomeDir(), "config.json");
 }
 
 export function readGlobalConfig(): GlobalConfig {
@@ -24,6 +24,5 @@ export function readGlobalConfig(): GlobalConfig {
 
 export function writeGlobalConfig(config: GlobalConfig): void {
   const path = getConfigPath();
-  mkdirSync(join(homedir(), ".sheal"), { recursive: true });
   writeFileSync(path, JSON.stringify(config, null, 2) + "\n", "utf-8");
 }
