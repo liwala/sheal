@@ -401,34 +401,30 @@ async function invokeHaiku(prompt: string, timeoutMs = 60_000): Promise<string |
 
 /**
  * LLM-enriched categorization using Haiku.
- * Takes the regex output and re-categorizes with semantic understanding.
+ * Only enriches UNCATEGORIZED items — regex matches are trusted.
+ * This prevents the LLM from downgrading correct regex categorizations.
  * Processes in batches to stay within token limits.
  */
 export async function enrichWithLLM(
   regexResult: { categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] },
 ): Promise<{ categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] }> {
-  // Collect ALL items (categorized + uncategorized) for re-classification
-  const allItems: Array<{ id: number; item: DigestItem }> = [];
-  let id = 0;
-
   const allCats: DigestCategory[] = ["SKILLS", "AGENTS", "SCHEDULED_TASKS", "CLAUDE_MD"];
-  for (const cat of allCats) {
-    for (const item of regexResult.categories[cat]) {
-      allItems.push({ id: id++, item });
-    }
-  }
+
+  // Only send uncategorized items to the LLM — regex matches are already correct
+  const toEnrich: Array<{ id: number; item: DigestItem }> = [];
+  let id = 0;
   for (const item of regexResult.uncategorized) {
-    allItems.push({ id: id++, item });
+    toEnrich.push({ id: id++, item });
   }
 
-  if (allItems.length === 0) return regexResult;
+  if (toEnrich.length === 0) return regexResult;
 
   // Process in batches of 50 to stay within token limits
   const BATCH_SIZE = 50;
   const llmCategories = new Map<number, DigestCategory | null>();
 
-  for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
-    const batch = allItems.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < toEnrich.length; i += BATCH_SIZE) {
+    const batch = toEnrich.slice(i, i + BATCH_SIZE);
     const promptItems = batch.map((b) => ({
       id: b.id,
       description: b.item.description.slice(0, 80),
@@ -439,10 +435,7 @@ export async function enrichWithLLM(
     const result = await invokeHaiku(prompt);
 
     if (!result) {
-      // LLM failed for this batch — keep regex categories
-      for (const b of batch) {
-        llmCategories.set(b.id, null); // null = keep original
-      }
+      // LLM failed for this batch — items stay uncategorized
       continue;
     }
 
@@ -455,37 +448,28 @@ export async function enrichWithLLM(
 
       if (allCats.includes(cat as DigestCategory)) {
         llmCategories.set(itemId, cat as DigestCategory);
-      } else if (cat === "NONE") {
-        llmCategories.set(itemId, null);
       }
+      // NONE or unrecognized → stays uncategorized (no action needed)
     }
   }
 
-  // Rebuild categories with LLM assignments
+  // Start with existing regex categories (preserved as-is)
   const categories: Record<DigestCategory, DigestItem[]> = {
-    SKILLS: [],
-    AGENTS: [],
-    SCHEDULED_TASKS: [],
-    CLAUDE_MD: [],
+    SKILLS: [...regexResult.categories.SKILLS],
+    AGENTS: [...regexResult.categories.AGENTS],
+    SCHEDULED_TASKS: [...regexResult.categories.SCHEDULED_TASKS],
+    CLAUDE_MD: [...regexResult.categories.CLAUDE_MD],
   };
   const uncategorized: DigestItem[] = [];
 
-  for (const { id: itemId, item } of allItems) {
+  // Apply LLM enrichment to previously-uncategorized items
+  for (const { id: itemId, item } of toEnrich) {
     const llmCat = llmCategories.get(itemId);
-
-    if (llmCat === undefined) {
-      // Not processed by LLM — keep original placement
-      if (item.category && allCats.includes(item.category)) {
-        categories[item.category].push(item);
-      } else {
-        uncategorized.push(item);
-      }
-    } else if (llmCat === null) {
-      // LLM said NONE or failed — uncategorized
-      uncategorized.push(item);
-    } else {
+    if (llmCat) {
       item.category = llmCat;
       categories[llmCat].push(item);
+    } else {
+      uncategorized.push(item);
     }
   }
 
