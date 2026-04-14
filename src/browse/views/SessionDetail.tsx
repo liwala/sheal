@@ -3,7 +3,6 @@ import { useState, useMemo } from "react";
 import { loadNativeSessionBySlug } from "../../entire/claude-native.js";
 import { hasRetro } from "../utils/retro-status.js";
 import { buildBlocks, PREVIEW_LINES, TYPE_COLORS, TYPE_LABELS } from "../utils/blocks.js";
-import type { DisplayBlock } from "../utils/blocks.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
 
@@ -21,12 +20,12 @@ interface RenderedLine {
   color?: string;
   bold?: boolean;
   dim?: boolean;
-  blockIndex?: number; // which block this line belongs to (for enter to toggle)
 }
 
 export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, onViewRetro }: SessionDetailProps) {
-  const [scrollPos, setScrollPos] = useState(0);
   const [selectedBlock, setSelectedBlock] = useState(0);
+  const [innerMode, setInnerMode] = useState(false);   // inside an expanded block
+  const [innerScroll, setInnerScroll] = useState(0);    // scroll offset within expanded block
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
@@ -53,11 +52,29 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     );
   }, [blocks, searchText]);
 
-  // Flatten all blocks into lines for line-level scrolling
-  const { allLines, blockStarts } = useMemo(() => {
-    const lines: RenderedLine[] = [];
-    const starts: number[] = [];
+  // Build visible lines based on mode
+  const visibleOutput = useMemo(() => {
+    if (innerMode && expanded.has(selectedBlock) && filteredBlocks[selectedBlock]) {
+      // Inner mode: show the expanded block's full content with scroll
+      const block = filteredBlocks[selectedBlock];
+      const color = TYPE_COLORS[block.type];
+      const label = TYPE_LABELS[block.type];
+      const callCount = block.type === "tool-group" && block.entryCount > 1
+        ? ` (${block.entryCount} calls)` : "";
 
+      const lines: RenderedLine[] = [];
+      lines.push({ text: `> ${label}:${callCount} [-] (esc to exit)`, color, bold: true });
+      for (const line of block.lines) {
+        lines.push({ text: "  " + line, dim: false });
+      }
+
+      const totalLines = lines.length;
+      const cappedScroll = Math.max(0, Math.min(innerScroll, totalLines - maxRows));
+      return { lines: lines.slice(cappedScroll, cappedScroll + maxRows), totalLines, scrollPos: cappedScroll };
+    }
+
+    // Block mode: show one header line per block, centered on selectedBlock
+    const lines: RenderedLine[] = [];
     for (let bi = 0; bi < filteredBlocks.length; bi++) {
       const block = filteredBlocks[bi];
       const isExpanded = expanded.has(bi);
@@ -67,48 +84,56 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       const previewCount = PREVIEW_LINES[block.type];
       const contentLines = block.lines.slice(1);
       const cursor = isSelected ? ">" : " ";
-
-      if (lines.length > 0) {
-        lines.push({ text: "" });
-      }
-
-      starts.push(lines.length);
-
       const callCount = block.type === "tool-group" && block.entryCount > 1
         ? ` (${block.entryCount} calls)` : "";
 
+      if (lines.length > 0) lines.push({ text: "" });
+
       if (isExpanded) {
-        lines.push({
-          text: `${cursor} ${label}:${callCount} [-]`,
-          color,
-          bold: isSelected,
-          blockIndex: bi,
-        });
+        lines.push({ text: `${cursor} ${label}:${callCount} [-]`, color, bold: isSelected });
         for (const line of block.lines) {
-          lines.push({ text: "    " + line, dim: true, blockIndex: bi });
+          lines.push({ text: "    " + line, dim: true });
         }
       } else {
         const expandHint = contentLines.length > previewCount
-          ? ` [+${contentLines.length}]`
-          : "";
+          ? ` [+${contentLines.length}]` : "";
         lines.push({
           text: `${cursor} ${label}:${callCount}${expandHint} ${block.summary.slice(0, 100)}`,
-          color,
-          bold: isSelected,
-          blockIndex: bi,
+          color, bold: isSelected,
         });
         if (previewCount > 0 && contentLines.length > 0) {
           for (const line of contentLines.slice(0, previewCount)) {
-            lines.push({ text: "    " + line.slice(0, 116), dim: true, blockIndex: bi });
+            lines.push({ text: "    " + line.slice(0, 116), dim: true });
           }
           if (contentLines.length > previewCount) {
-            lines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true, blockIndex: bi });
+            lines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true });
           }
         }
       }
     }
-    return { allLines: lines, blockStarts: starts };
-  }, [filteredBlocks, expanded, selectedBlock]);
+
+    // Find the line index of the selected block header and center viewport
+    let selectedLineIdx = 0;
+    let lineCount = 0;
+    for (let bi = 0; bi < filteredBlocks.length; bi++) {
+      if (bi === selectedBlock) { selectedLineIdx = lineCount; break; }
+      if (lineCount > 0) lineCount++; // blank separator
+      lineCount++; // header line
+      const block = filteredBlocks[bi];
+      if (expanded.has(bi)) {
+        lineCount += block.lines.length;
+      } else {
+        const previewCount = PREVIEW_LINES[block.type];
+        const contentLines = block.lines.slice(1);
+        const shown = Math.min(contentLines.length, previewCount);
+        lineCount += shown;
+        if (contentLines.length > previewCount) lineCount++; // "... more" line
+      }
+    }
+
+    const scrollStart = Math.max(0, Math.min(selectedLineIdx - 2, lines.length - maxRows));
+    return { lines: lines.slice(scrollStart, scrollStart + maxRows), totalLines: lines.length, scrollPos: scrollStart };
+  }, [filteredBlocks, expanded, selectedBlock, innerMode, innerScroll, maxRows]);
 
   useInput((input, key) => {
     if (searchActive) {
@@ -121,45 +146,53 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       return;
     }
 
+    // Inner mode: scrolling within an expanded block
+    if (innerMode) {
+      if (key.escape || input === "q") {
+        setInnerMode(false);
+        setInnerScroll(0);
+        return;
+      }
+      if (key.upArrow) {
+        setInnerScroll((s) => Math.max(0, s - 1));
+      } else if (key.downArrow) {
+        setInnerScroll((s) => s + 1);
+      } else if (key.pageDown) {
+        setInnerScroll((s) => s + maxRows);
+      } else if (key.pageUp) {
+        setInnerScroll((s) => Math.max(0, s - maxRows));
+      }
+      return;
+    }
+
+    // Block mode
     if (input === "q") { onQuit(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
     if (input === "r") { onViewRetro(); return; }
 
-    const totalLines = allLines.length;
-    const cap = (v: number) => Math.max(0, Math.min(Math.max(0, totalLines - maxRows), v));
     const blockCount = filteredBlocks.length;
 
     if (key.upArrow) {
-      setScrollPos((p) => cap(p - 3));
+      setSelectedBlock((b) => Math.max(0, b - 1));
     } else if (key.downArrow) {
-      setScrollPos((p) => cap(p + 3));
+      setSelectedBlock((b) => Math.min(blockCount - 1, b + 1));
     } else if (key.pageDown) {
-      setScrollPos((p) => cap(p + maxRows));
+      setSelectedBlock((b) => Math.min(blockCount - 1, b + 5));
     } else if (key.pageUp) {
-      setScrollPos((p) => cap(p - maxRows));
-    } else if (input === "n" || key.tab) {
-      // Move cursor to next block and scroll to show it
-      setSelectedBlock((b) => {
-        const next = Math.min(blockCount - 1, b + 1);
-        const lineIdx = blockStarts[next];
-        if (lineIdx !== undefined) setScrollPos(cap(lineIdx));
-        return next;
-      });
-    } else if (input === "p") {
-      // Move cursor to previous block and scroll to show it
-      setSelectedBlock((b) => {
-        const prev = Math.max(0, b - 1);
-        const lineIdx = blockStarts[prev];
-        if (lineIdx !== undefined) setScrollPos(cap(lineIdx));
-        return prev;
-      });
+      setSelectedBlock((b) => Math.max(0, b - 5));
     } else if (key.return) {
-      // Toggle the block at the cursor
+      // Toggle expand; if expanding, enter inner mode
       setExpanded((prev) => {
         const next = new Set(prev);
-        if (next.has(selectedBlock)) next.delete(selectedBlock);
-        else next.add(selectedBlock);
+        if (next.has(selectedBlock)) {
+          next.delete(selectedBlock);
+          setInnerMode(false);
+        } else {
+          next.add(selectedBlock);
+          setInnerScroll(0);
+          setInnerMode(true);
+        }
         return next;
       });
     }
@@ -177,7 +210,11 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
   const session = checkpoint.sessions[0];
   const meta = session.metadata;
 
-  const visibleLines = allLines.slice(scrollPos, scrollPos + maxRows);
+  const modeLabel = innerMode ? "READING" : "BLOCKS";
+  const blockPos = `block ${selectedBlock + 1}/${filteredBlocks.length}`;
+  const lineInfo = innerMode
+    ? `line ${visibleOutput.scrollPos + 1}/${visibleOutput.totalLines}`
+    : blockPos;
 
   return (
     <Box flexDirection="column">
@@ -197,8 +234,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
           </Text>
         )}
         <Text dimColor>
-          {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
-          {" | "}line {scrollPos + 1}/{allLines.length}
+          [{modeLabel}] {lineInfo}{searchText ? ` (filtered)` : ""}
         </Text>
       </Box>
 
@@ -207,7 +243,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       )}
 
       <Box flexDirection="column" height={maxRows}>
-        {visibleLines.map((line, i) => (
+        {visibleOutput.lines.map((line, i) => (
           <Text
             key={i}
             color={line.color as any}
@@ -223,7 +259,9 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       <StatusBar
         view="detail"
         searchActive={searchActive}
-        info={`^/v Scroll  n/p Next/prev block  enter Expand  / Search${hasRetroFile ? "  r Retro" : ""}  esc Back`}
+        info={innerMode
+          ? `^/v Scroll  pgup/pgdn Page  esc Exit block`
+          : `^/v Move  enter Expand+read  / Search${hasRetroFile ? "  r Retro" : ""}  esc Back`}
       />
     </Box>
   );
