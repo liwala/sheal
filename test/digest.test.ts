@@ -193,14 +193,34 @@ describe("estimateCost", () => {
     expect(result.planSavings!.planCost).toBe(20);
   });
 
-  it("distributes cost proportionally across projects", () => {
+  it("distributes cost proportionally across projects (fallback)", () => {
     const tokens = makeTokenSummary({
       byProject: {
         "proj-a": { input: 750_000, output: 375_000, sessionCount: 3 },
         "proj-b": { input: 250_000, output: 125_000, sessionCount: 2 },
       },
+      byProjectModel: {}, // empty → triggers proportional fallback
     });
     const result = estimateCost(tokens);
+    const totalProjectCost = Object.values(result.byProject).reduce((s, c) => s + c, 0);
+    expect(totalProjectCost).toBeCloseTo(result.totalCost, 2);
+  });
+
+  it("uses byProjectModel for accurate per-project costs when available", () => {
+    const tokens = makeTokenSummary({
+      byProjectModel: {
+        "proj-a": {
+          "claude-sonnet-4-6-20260401": { input: 800_000, output: 400_000, cacheRead: 1_500_000, cacheCreate: 80_000, apiCalls: 40 },
+        },
+        "proj-b": {
+          "claude-sonnet-4-6-20260401": { input: 200_000, output: 100_000, cacheRead: 500_000, cacheCreate: 20_000, apiCalls: 10 },
+        },
+      },
+    });
+    const result = estimateCost(tokens);
+    // proj-a should have ~80% of cost, proj-b ~20%, computed from real pricing
+    expect(result.byProject["proj-a"]).toBeGreaterThan(result.byProject["proj-b"]);
+    // Both should sum to totalCost (since byProjectModel covers all the same data as byModel)
     const totalProjectCost = Object.values(result.byProject).reduce((s, c) => s + c, 0);
     expect(totalProjectCost).toBeCloseTo(result.totalCost, 2);
   });

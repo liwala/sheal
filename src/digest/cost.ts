@@ -164,12 +164,28 @@ export function estimateCost(tokens: TokenSummary, plan?: string): CostEstimate 
     byAgent[agent] = totalTokens > 0 ? totalCost * (agentTokens / totalTokens) : 0;
   }
 
-  // Per-project cost
+  // Per-project cost — use byProjectModel (same JSONL source as byModel) when available
+  // to avoid mixing data sources (byProject comes from session metadata, byModel from raw JSONL)
   const byProject: Record<string, number> = {};
-  for (const [project, data] of Object.entries(tokens.byProject)) {
-    const projTokens = data.input + data.output;
-    const totalTokens = tokens.totalInput + tokens.totalOutput;
-    byProject[project] = totalTokens > 0 ? totalCost * (projTokens / totalTokens) : 0;
+  if (tokens.byProjectModel && Object.keys(tokens.byProjectModel).length > 0) {
+    for (const [project, models] of Object.entries(tokens.byProjectModel)) {
+      let projCost = 0;
+      for (const [model, data] of Object.entries(models)) {
+        const pricing = getPricing(model);
+        projCost += (data.input / 1_000_000) * pricing.input
+          + (data.output / 1_000_000) * pricing.output
+          + (data.cacheRead / 1_000_000) * pricing.cacheRead
+          + (data.cacheCreate / 1_000_000) * pricing.cacheWrite;
+      }
+      byProject[project] = projCost;
+    }
+  } else {
+    // Fallback: proportional allocation from metadata
+    for (const [project, data] of Object.entries(tokens.byProject)) {
+      const projTokens = data.input + data.output;
+      const totalTokens = tokens.totalInput + tokens.totalOutput;
+      byProject[project] = totalTokens > 0 ? totalCost * (projTokens / totalTokens) : 0;
+    }
   }
 
   // Plan savings calculation
