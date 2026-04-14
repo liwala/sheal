@@ -24,9 +24,9 @@ interface ModelPricing {
 // Last updated: April 2026 — verify periodically as Anthropic adjusts pricing
 // Cache write = 1.25x base input, cache read = 0.1x base input
 export const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
-  // Opus 4.5+ (including 4.6): $5 in, $25 out
+  // Opus 4.5+ (including 4.6, 4.10, etc.): $5 in, $25 out
   {
-    pattern: /opus.*(4-[5-9]|4\.[5-9])/i,
+    pattern: /opus.*4[.-]([5-9]|\d{2,})/i,
     pricing: { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
   },
   // Opus 4.0/4.1 (legacy): $15 in, $75 out
