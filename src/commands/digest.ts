@@ -227,7 +227,10 @@ export function loadDigest(filename: string, dir?: string): DigestReport | null 
 
   try {
     const content = readFileSync(path, "utf-8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    // Validate required shape to avoid runtime crashes on corrupt/hand-edited files
+    if (!parsed || !parsed.generatedAt || !parsed.tokens || !parsed.categories) return null;
+    return parsed as DigestReport;
   } catch {
     return null;
   }
