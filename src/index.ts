@@ -58,6 +58,16 @@ Asking Questions
   sheal ask-list                  List saved ask results
   sheal ask-show "auth"           Show a saved result
 
+Digest & Cost
+─────────────
+  sheal digest                    Categorized digest of prompts (last 7 days)
+  sheal digest --enrich           LLM-powered categorization
+  sheal digest --compare          Diff against previous digest
+  sheal cost                      Token cost dashboard
+  sheal cost --plan "Max 5x"     Compare against subscription plan
+  sheal weekly                    Full weekly report (digest + cost)
+  sheal weekly --slack            Post to Slack
+
 Learnings
 ─────────
   sheal learn add "Always check real data first" --tags=parsing
@@ -69,12 +79,20 @@ Learnings
   sheal learn promote             Promote project learnings to global
   sheal learn sync                Pull global learnings into project
 
+  Backup & Sync (git-based)
+  sheal learn remote add <url>    Connect to a remote git repo
+  sheal learn remote show         Show remote configuration
+  sheal learn remote remove       Disconnect from remote
+  sheal learn push                Commit + push learnings to remote
+  sheal learn pull                Pull + merge from remote
+
 Browsing
 ────────
   sheal browse                    Interactive TUI for sessions & retros
   sheal browse sessions           Browse sessions
   sheal browse retros             Browse retrospectives
   sheal browse learnings          Browse learnings
+  sheal browse digests            Browse digest reports
   sheal export                    Export session data as JSON (for piping)
   sheal graph                     Cross-session knowledge graph
 
@@ -87,6 +105,7 @@ Tips
 ────
   • Run "sheal check" at the start of every session
   • Run "sheal retro" at the end to extract learnings
+  • Use "sheal learn remote add" to back up learnings to git
   • Use "sheal ask --global" to search across all your projects
   • Set SHEAL_DEBUG=1 for verbose output
 `;
