@@ -113,6 +113,7 @@ For each (max 3), one line: issue → root cause → fix. Skip one-off problems.
 **Rules:** 3-5 new rules (not duplicating existing learnings above). Format each as a bullet starting with "- ".
 Each rule must be a direct instruction to a future AI agent. Be specific and actionable — not "be more careful" but "run X before doing Y".
 Only include rules for issues likely to recur.
+IMPORTANT: Rules must be GENERIC and transferable to any project. Do NOT reference project-specific tools, filenames, commands, or workflows (e.g., don't mention "sheal", "dolt", "Entire.io", or specific file paths). Instead, express the underlying principle. For example, instead of "run sheal check before starting", write "run the project's health check command before starting work".
 
 **For the Human:** 2-4 observations about the human's collaboration patterns. Be honest and constructive — this is coaching, not praise. Look at:
 - Session management: was the session too long? Should it have been split? Did context degrade?

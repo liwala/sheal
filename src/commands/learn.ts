@@ -151,6 +151,36 @@ export async function runLearnSync(opts: LearnSyncOptions): Promise<void> {
   console.log(`Synced ${copied}/${globalLearnings.length} learnings to ${projectDir}`);
 }
 
+/**
+ * Detect if a learning references project-specific tools, commands, or paths
+ * that make it unsuitable for global promotion without generalization.
+ */
+function detectProjectSpecificity(learning: LearningFile): string[] {
+  const text = `${learning.title} ${learning.body}`.toLowerCase();
+  const matches: string[] = [];
+
+  // Project-specific tool/service names — extend as needed
+  const patterns: Array<[RegExp, string]> = [
+    [/\bsheal\b/, "sheal"],
+    [/\bdolt\b/, "dolt"],
+    [/\bentire\.io\b/, "Entire.io"],
+    [/\bbeads\b/, "beads"],
+    [/\.self-heal\.json\b/, ".self-heal.json"],
+    [/\.sheal\//, ".sheal/"],
+    // Specific file paths from this project
+    [/\banalyzers\.ts\b/, "analyzers.ts"],
+    [/\bindex\.ts\b\s*\(\d+x\)/, "specific file churn references"],
+  ];
+
+  for (const [pattern, label] of patterns) {
+    if (pattern.test(text)) {
+      matches.push(label);
+    }
+  }
+
+  return matches;
+}
+
 interface LearnPromoteOptions {
   projectRoot: string;
 }
@@ -197,7 +227,13 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
       }
       console.log(chalk.gray(`  tags: ${l.tags.join(", ")}  severity: ${l.severity}`));
 
-      const answer = await ask(chalk.white(`  Promote to global? [${alreadyGlobal ? "y/N" : "Y/n"}] `));
+      const specificity = detectProjectSpecificity(l);
+      if (specificity.length > 0) {
+        console.log(chalk.yellow(`  ⚠ Looks project-specific: mentions ${specificity.join(", ")}`));
+        console.log(chalk.gray(`    Consider generalizing before promoting to global.`));
+      }
+
+      const answer = await ask(chalk.white(`  Promote to global? [${alreadyGlobal || specificity.length > 0 ? "y/N" : "Y/n"}] `));
       const a = answer.trim().toLowerCase();
 
       if (a === "q") {
@@ -205,7 +241,8 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
         break;
       }
 
-      const shouldPromote = alreadyGlobal
+      const defaultNo = alreadyGlobal || specificity.length > 0;
+      const shouldPromote = defaultNo
         ? (a === "y" || a === "yes")
         : (a === "" || a === "y" || a === "yes");
 
