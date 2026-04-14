@@ -12,6 +12,7 @@ import {
 } from "../learn/index.js";
 import { reviewExistingLearnings } from "../learn/review.js";
 import type { LearningCategory, LearningSeverity, LearningFile } from "../learn/types.js";
+import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./backup.js";
 
 interface LearnAddOptions {
   insight: string;
@@ -271,3 +272,11 @@ export async function runLearnReview(opts: LearnReviewOptions): Promise<void> {
     console.log(chalk.gray(`\nRun 'sheal learn review${opts.global ? " --global" : ""}' again to continue.`));
   }
 }
+
+// ── Remote / Push / Pull (delegates to backup) ─────────────────────
+
+export const runLearnRemoteAdd = runBackupRemoteAdd;
+export const runLearnRemoteShow = runBackupRemoteShow;
+export const runLearnRemoteRemove = runBackupRemoteRemove;
+export async function runLearnPush(): Promise<void> { await runBackupPush(); }
+export async function runLearnPull(): Promise<void> { await runBackupPull(); }

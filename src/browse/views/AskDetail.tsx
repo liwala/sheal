@@ -48,7 +48,7 @@ export function AskDetail({ projectPath, filename, onBack, onQuit }: AskDetailPr
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
 

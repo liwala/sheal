@@ -20,7 +20,7 @@ export function DigestsList({ onSelect, onBack, onQuit }: DigestsListProps) {
   const digests = useMemo(() => listDigests(), []);
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
 
     if (key.upArrow) {

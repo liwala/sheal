@@ -5,7 +5,8 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
+import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
@@ -58,6 +59,16 @@ Asking Questions
   sheal ask-list                  List saved ask results
   sheal ask-show "auth"           Show a saved result
 
+Digest & Cost
+─────────────
+  sheal digest                    Categorized digest of prompts (last 7 days)
+  sheal digest --enrich           LLM-powered categorization
+  sheal digest --compare          Diff against previous digest
+  sheal cost                      Token cost dashboard
+  sheal cost --plan "Max 5x"     Compare against subscription plan
+  sheal weekly                    Full weekly report (digest + cost)
+  sheal weekly --slack            Post to Slack
+
 Learnings
 ─────────
   sheal learn add "Always check real data first" --tags=parsing
@@ -69,12 +80,22 @@ Learnings
   sheal learn promote             Promote project learnings to global
   sheal learn sync                Pull global learnings into project
 
+Backup & Sync (git-based)
+─────────────────────────
+  sheal backup remote add <url>   Connect ~/.sheal/ to a remote git repo
+  sheal backup remote show        Show remote configuration
+  sheal backup push               Commit + push (learnings, digests, config)
+  sheal backup push --include retros  Also aggregate project retros
+  sheal backup pull               Pull + merge from remote
+  sheal learn push/pull           Aliases for backup push/pull
+
 Browsing
 ────────
   sheal browse                    Interactive TUI for sessions & retros
   sheal browse sessions           Browse sessions
   sheal browse retros             Browse retrospectives
   sheal browse learnings          Browse learnings
+  sheal browse digests            Browse digest reports
   sheal export                    Export session data as JSON (for piping)
   sheal graph                     Cross-session knowledge graph
 
@@ -87,6 +108,7 @@ Tips
 ────
   • Run "sheal check" at the start of every session
   • Run "sheal retro" at the end to extract learnings
+  • Use "sheal learn remote add" to back up learnings to git
   • Use "sheal ask --global" to search across all your projects
   • Set SHEAL_DEBUG=1 for verbose output
 `;
@@ -415,6 +437,92 @@ learn
     await runLearnPromote({
       projectRoot: opts.project,
     });
+  });
+
+learn
+  .command("push")
+  .description("Commit and push global learnings to remote git repo")
+  .action(async () => {
+    await runLearnPush();
+  });
+
+learn
+  .command("pull")
+  .description("Pull and merge remote learnings into global store")
+  .action(async () => {
+    await runLearnPull();
+  });
+
+const learnRemote = learn
+  .command("remote")
+  .description("Manage git remote for global learnings backup");
+
+learnRemote
+  .command("add <url>")
+  .description("Connect global learnings store to a remote git repo")
+  .action(async (url: string) => {
+    await runLearnRemoteAdd({ url });
+  });
+
+learnRemote
+  .command("show")
+  .description("Show current remote configuration")
+  .action(async () => {
+    await runLearnRemoteShow();
+  });
+
+learnRemote
+  .command("remove")
+  .description("Disconnect global learnings from remote")
+  .action(async () => {
+    await runLearnRemoteRemove();
+  });
+
+// ── Backup ──────────────────────────────────────────────────────────
+
+const backup = program
+  .command("backup")
+  .description("Backup ~/.sheal/ data to a remote git repo (learnings, digests, config, retros)");
+
+backup
+  .command("push")
+  .description("Commit and push backup (learnings + digests + config)")
+  .option("--include <items>", "Additional data: retros")
+  .action(async (opts) => {
+    const includeRetros = opts.include?.split(",").includes("retros") ?? false;
+    await runBackupPush({ includeRetros });
+  });
+
+backup
+  .command("pull")
+  .description("Pull and merge from remote backup")
+  .action(async () => {
+    await runBackupPull();
+  });
+
+const backupRemote = backup
+  .command("remote")
+  .description("Manage git remote for ~/.sheal/ backup");
+
+backupRemote
+  .command("add <url>")
+  .description("Connect ~/.sheal/ to a remote git repo")
+  .action(async (url: string) => {
+    await runBackupRemoteAdd({ url });
+  });
+
+backupRemote
+  .command("show")
+  .description("Show current remote configuration")
+  .action(async () => {
+    await runBackupRemoteShow();
+  });
+
+backupRemote
+  .command("remove")
+  .description("Disconnect from remote")
+  .action(async () => {
+    await runBackupRemoteRemove();
   });
 
 process.on("unhandledRejection", (err) => {

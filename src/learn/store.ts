@@ -4,11 +4,21 @@ import { homedir } from "node:os";
 import type { LearningFile, LearningCategory, LearningSeverity, LearningStatus } from "./types.js";
 
 /**
+ * Get the sheal home directory (~/.sheal/).
+ * Creates the directory if it doesn't exist.
+ */
+export function getShealHomeDir(): string {
+  const dir = join(homedir(), ".sheal");
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/**
  * Get the global learnings directory (~/.sheal/learnings/).
  * Creates the directory if it doesn't exist.
  */
 export function getGlobalDir(): string {
-  const dir = join(homedir(), ".sheal", "learnings");
+  const dir = join(getShealHomeDir(), "learnings");
   mkdirSync(dir, { recursive: true });
   return dir;
 }

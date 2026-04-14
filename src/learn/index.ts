@@ -1,5 +1,6 @@
 export type { LearningFile, LearningCategory, LearningSeverity, LearningStatus } from "./types.js";
 export {
+  getShealHomeDir,
   getGlobalDir,
   getProjectDir,
   nextId,

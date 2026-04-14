@@ -70,7 +70,7 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
     if (input === "r") { onViewRetro(); return; }

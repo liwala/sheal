@@ -161,7 +161,7 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
     if (input === "e" && enrichStatus !== "running") { startEnrich(); return; }
