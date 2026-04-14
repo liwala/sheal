@@ -14,6 +14,7 @@ import { runDigest } from "./commands/digest.js";
 import { runCost } from "./commands/cost.js";
 import { runExport } from "./commands/export.js";
 import { runGraph } from "./commands/graph.js";
+import { runDrift } from "./commands/drift.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -98,6 +99,7 @@ Browsing
   sheal browse digests            Browse digest reports
   sheal export                    Export session data as JSON (for piping)
   sheal graph                     Cross-session knowledge graph
+  sheal drift                     Detect when learnings aren't being applied
 
 Agents
 ──────
@@ -367,6 +369,20 @@ program
       agent: opts.agent,
       limit: parsePositiveInt(opts.limit, "--limit"),
       json: opts.json,
+    });
+  });
+
+program
+  .command("drift")
+  .description("Detect when learnings aren't being applied in recent sessions")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("-n, --last <count>", "Number of recent sessions to analyze", "10")
+  .option("--json", "Output as JSON", false)
+  .action(async (opts) => {
+    await runDrift({
+      projectRoot: opts.project,
+      last: parsePositiveInt(opts.last, "--last"),
+      format: opts.json ? "json" : "text",
     });
   });
 
