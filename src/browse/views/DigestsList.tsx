@@ -3,17 +3,12 @@ import { useState, useMemo } from "react";
 import { listDigests } from "../../commands/digest.js";
 import type { DigestInfo } from "../../commands/digest.js";
 import { StatusBar } from "../components/StatusBar.js";
+import { formatTokens } from "../utils/format.js";
 
 interface DigestsListProps {
   onSelect: (filename: string) => void;
   onBack: () => void;
   onQuit: () => void;
-}
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }
 
 export function DigestsList({ onSelect, onBack, onQuit }: DigestsListProps) {

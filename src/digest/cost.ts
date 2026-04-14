@@ -20,9 +20,10 @@ interface ModelPricing {
 }
 
 // Model name patterns → pricing (per 1M tokens)
-// Source: https://docs.anthropic.com/en/docs/about-claude/pricing (April 2026)
+// Source: https://docs.anthropic.com/en/docs/about-claude/pricing
+// Last updated: April 2026 — verify periodically as Anthropic adjusts pricing
 // Cache write = 1.25x base input, cache read = 0.1x base input
-const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
+export const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
   // Opus 4.5+ (including 4.6): $5 in, $25 out
   {
     pattern: /opus.*(4-[5-9]|4\.[5-9])/i,
@@ -50,10 +51,10 @@ const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
   },
 ];
 
-const DEFAULT_PRICING: ModelPricing = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 };
+export const DEFAULT_PRICING: ModelPricing = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 };
 
-function getPricing(modelName: string): ModelPricing {
-  // Fast mode = 6x standard pricing (Opus 4.6 fast)
+export function getPricing(modelName: string): ModelPricing {
+  // Fast mode = 6x standard pricing — applies to any model used with Claude Code's /fast toggle
   const isFast = modelName.endsWith("-fast");
   const baseName = isFast ? modelName.replace(/-fast$/, "") : modelName;
 
@@ -99,7 +100,7 @@ export interface ModelCostBreakdown {
 }
 
 /** Subscription plans */
-const PLANS: Record<string, number> = {
+export const PLANS: Record<string, number> = {
   "Pro": 20,
   "Max 5x": 100,
   "Max 20x": 200,
