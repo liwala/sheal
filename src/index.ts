@@ -9,6 +9,8 @@ import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromot
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runInit } from "./commands/init.js";
+import { runDigest } from "./commands/digest.js";
+import { runCost } from "./commands/cost.js";
 import { runExport } from "./commands/export.js";
 import { runGraph } from "./commands/graph.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
@@ -194,6 +196,71 @@ program
     await runAskShow({ query, projectRoot: opts.project, global: opts.global });
   });
 
+program
+  .command("digest")
+  .description("Generate a categorized digest of user prompts across all agents")
+  .option("--since <window>", "Time window (e.g. '7 days', '1 week', '1 month')", "7 days")
+  .option("--until <date>", "End date (defaults to now)")
+  .option("-p, --project <name>", "Filter to a specific project name")
+  .option("-f, --format <format>", "Output format: pretty | json | markdown", "pretty")
+  .option("-o, --output <path>", "Write output to file")
+  .option("--top <n>", "Top N items per category", "10")
+  .option("--compare", "Compare with previous digest of same scope", false)
+  .option("--enrich", "Use Haiku LLM for smart categorization (instead of regex only)", false)
+  .action(async (opts) => {
+    await runDigest({
+      since: opts.since,
+      until: opts.until,
+      project: opts.project,
+      format: opts.format,
+      output: opts.output,
+      topN: parseInt(opts.top, 10),
+      compare: opts.compare,
+      enrich: opts.enrich,
+    });
+  });
+
+program
+  .command("cost")
+  .description("Token cost dashboard — estimated spend per project and agent")
+  .option("--since <window>", "Time window (e.g. '7 days', '1 week', '1 month')", "7 days")
+  .option("-p, --project <name>", "Filter to a specific project name")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .option("--plan <plan>", "Your subscription plan: Pro | Max 5x | Max 20x", "Max 20x")
+  .action(async (opts) => {
+    await runCost({
+      since: opts.since,
+      project: opts.project,
+      format: opts.format,
+      plan: opts.plan,
+    });
+  });
+
+program
+  .command("weekly")
+  .description("Run the full weekly digest agent (digest + cost + optional deep analysis)")
+  .option("--since <window>", "Time window", "7 days")
+  .option("-p, --project <name>", "Filter to a specific project")
+  .option("--plan <plan>", "Subscription plan: Pro | Max 5x | Max 20x", "Max 20x")
+  .option("--slack", "Send summary to Slack", false)
+  .option("--agent", "Run deep analysis with Claude after digest", false)
+  .action(async (opts) => {
+    const { execFileSync } = await import("node:child_process");
+    const { join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const __dirname = join(fileURLToPath(import.meta.url), "..");
+    const script = join(__dirname, "..", "bin", "sheal-weekly-digest.sh");
+    const args: string[] = ["--since", opts.since, "--plan", opts.plan];
+    if (opts.project) args.push("--project", opts.project);
+    if (opts.slack) args.push("--slack");
+    if (opts.agent) args.push("--agent");
+    try {
+      execFileSync(script, args, { stdio: "inherit", env: process.env });
+    } catch {
+      process.exit(1);
+    }
+  });
+
 const browse = program
   .command("browse")
   .description("Interactive TUI to browse sessions, retros, and learnings")
@@ -239,6 +306,15 @@ browse
     await runBrowse({
       project: opts.project,
       startView: "learnings",
+    });
+  });
+
+browse
+  .command("digests")
+  .description("Browse digest reports interactively")
+  .action(async () => {
+    await runBrowse({
+      startView: "digests-list",
     });
   });
 
