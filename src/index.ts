@@ -79,7 +79,8 @@ Learnings
   sheal learn promote             Promote project learnings to global
   sheal learn sync                Pull global learnings into project
 
-  Backup & Sync (git-based)
+Backup & Sync (git-based)
+─────────────────────────
   sheal learn remote add <url>    Connect to a remote git repo
   sheal learn remote show         Show remote configuration
   sheal learn remote remove       Disconnect from remote
