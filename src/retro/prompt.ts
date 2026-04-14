@@ -111,9 +111,14 @@ For each (max 3), one line: issue → root cause → fix. Skip one-off problems.
 **Recurring:** Flag any issues that match or relate to existing learnings above. If the same mistake keeps happening, say so and suggest why the existing rule isn't working. If nothing recurs, write "None".
 
 **Rules:** 3-5 new rules (not duplicating existing learnings above). Format each as a bullet starting with "- ".
-Each rule must be a direct instruction to a future AI agent. Be specific and actionable — not "be more careful" but "run X before doing Y".
-Only include rules for issues likely to recur.
-IMPORTANT: Rules must be GENERIC and transferable to any project. Do NOT reference project-specific tools, filenames, commands, or workflows (e.g., don't mention "sheal", "dolt", "Entire.io", or specific file paths). Instead, express the underlying principle. For example, instead of "run sheal check before starting", write "run the project's health check command before starting work".
+Quality bar for rules:
+- Each rule is ONE sentence, max 20 words. No preamble, no explanation, no "this prevents..." suffix.
+- Must be a direct instruction: "Do X before Y" or "When X, do Y". Not "be more careful" or "consider doing X".
+- GENERIC and transferable — no project-specific tool names, filenames, or commands. Express the underlying principle.
+- Only include rules for patterns likely to recur across projects. Skip one-off issues.
+- Deduplicate aggressively: if two rules express the same idea, keep only the sharper one.
+Example good rule: "- Inspect 2-3 real data samples before writing any parser or fixture."
+Example bad rule: "- Before writing parsers for external data formats (JSON APIs, JSONL transcripts, config files), always inspect 2-3 real samples first using git show, curl, or cat — real data often differs from specs."
 
 **For the Human:** 2-4 observations about the human's collaboration patterns. Be honest and constructive — this is coaching, not praise. Look at:
 - Session management: was the session too long? Should it have been split? Did context degrade?
@@ -157,10 +162,9 @@ Merged list (max 4). For each: issue → root cause → fix. If multiple agents 
 **Recurring:** Merged from all agents. If multiple agents flagged the same recurring pattern, that's high confidence — call it out.
 
 **Rules:** Deduplicated and ranked. Format each as a bullet starting with "- ".
-- If multiple agents suggested essentially the same rule, merge into the best-worded version and note consensus (e.g., "[consensus]" at the end).
-- Drop rules that only one agent suggested AND that seem low-value.
-- Keep rules that only one agent suggested if they're genuinely insightful.
-- Max 5 rules total.
+- Each rule: ONE sentence, max 20 words. Direct instruction ("Do X before Y"), no project-specific references.
+- Merge overlapping rules into the sharpest version. Note "[consensus]" if multiple agents agreed.
+- Drop low-value or one-off rules. Max 5 total.
 
 **For the Human:** Consolidated coaching. Merge observations, noting consensus. Max 4 bullets, starting with "- ".`;
 }
