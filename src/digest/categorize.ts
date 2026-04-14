@@ -276,8 +276,20 @@ export function categorizePrompts(prompts: RawPrompt[]): {
 /**
  * Build the LLM prompt for Haiku categorization.
  */
+/**
+ * Sanitize a description before sending to the LLM.
+ * Strips content that could be interpreted as instructions.
+ */
+function sanitizeForLLM(text: string): string {
+  return text
+    .replace(/\b(ignore|disregard|forget|override|instead)\b.*\b(instruction|above|rule|categor)/gi, "[redacted]")
+    .replace(/\b(output|respond|reply|answer|print|say)\b.*\b(only|just|nothing|everything)\b/gi, "[redacted]")
+    .replace(/\n/g, " ")
+    .slice(0, 80);
+}
+
 function buildCategorizationPrompt(items: Array<{ id: number; description: string; count: number }>): string {
-  const itemLines = items.map((i) => `${i.id}|${i.count}x|${i.description}`).join("\n");
+  const itemLines = items.map((i) => `${i.id}|${i.count}x|${sanitizeForLLM(i.description)}`).join("\n");
 
   return `You are categorizing user prompts from AI coding sessions into exactly 4 categories.
 
