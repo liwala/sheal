@@ -20,12 +20,13 @@ interface ModelPricing {
 }
 
 // Model name patterns → pricing (per 1M tokens)
-// Source: https://docs.anthropic.com/en/docs/about-claude/pricing (April 2026)
+// Source: https://docs.anthropic.com/en/docs/about-claude/pricing
+// Last updated: April 2026 — verify periodically as Anthropic adjusts pricing
 // Cache write = 1.25x base input, cache read = 0.1x base input
-const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
-  // Opus 4.5+ (including 4.6): $5 in, $25 out
+export const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
+  // Opus 4.5+ (including 4.6, 4.10, etc.): $5 in, $25 out
   {
-    pattern: /opus.*(4-[5-9]|4\.[5-9])/i,
+    pattern: /opus.*4[.-]([5-9]|\d{2,})/i,
     pricing: { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
   },
   // Opus 4.0/4.1 (legacy): $15 in, $75 out
@@ -50,10 +51,10 @@ const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = [
   },
 ];
 
-const DEFAULT_PRICING: ModelPricing = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 };
+export const DEFAULT_PRICING: ModelPricing = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 };
 
-function getPricing(modelName: string): ModelPricing {
-  // Fast mode = 6x standard pricing (Opus 4.6 fast)
+export function getPricing(modelName: string): ModelPricing {
+  // Fast mode = 6x standard pricing — applies to any model used with Claude Code's /fast toggle
   const isFast = modelName.endsWith("-fast");
   const baseName = isFast ? modelName.replace(/-fast$/, "") : modelName;
 
@@ -99,7 +100,7 @@ export interface ModelCostBreakdown {
 }
 
 /** Subscription plans */
-const PLANS: Record<string, number> = {
+export const PLANS: Record<string, number> = {
   "Pro": 20,
   "Max 5x": 100,
   "Max 20x": 200,
@@ -163,12 +164,28 @@ export function estimateCost(tokens: TokenSummary, plan?: string): CostEstimate 
     byAgent[agent] = totalTokens > 0 ? totalCost * (agentTokens / totalTokens) : 0;
   }
 
-  // Per-project cost
+  // Per-project cost — use byProjectModel (same JSONL source as byModel) when available
+  // to avoid mixing data sources (byProject comes from session metadata, byModel from raw JSONL)
   const byProject: Record<string, number> = {};
-  for (const [project, data] of Object.entries(tokens.byProject)) {
-    const projTokens = data.input + data.output;
-    const totalTokens = tokens.totalInput + tokens.totalOutput;
-    byProject[project] = totalTokens > 0 ? totalCost * (projTokens / totalTokens) : 0;
+  if (tokens.byProjectModel && Object.keys(tokens.byProjectModel).length > 0) {
+    for (const [project, models] of Object.entries(tokens.byProjectModel)) {
+      let projCost = 0;
+      for (const [model, data] of Object.entries(models)) {
+        const pricing = getPricing(model);
+        projCost += (data.input / 1_000_000) * pricing.input
+          + (data.output / 1_000_000) * pricing.output
+          + (data.cacheRead / 1_000_000) * pricing.cacheRead
+          + (data.cacheCreate / 1_000_000) * pricing.cacheWrite;
+      }
+      byProject[project] = projCost;
+    }
+  } else {
+    // Fallback: proportional allocation from metadata
+    for (const [project, data] of Object.entries(tokens.byProject)) {
+      const projTokens = data.input + data.output;
+      const totalTokens = tokens.totalInput + tokens.totalOutput;
+      byProject[project] = totalTokens > 0 ? totalCost * (projTokens / totalTokens) : 0;
+    }
   }
 
   // Plan savings calculation

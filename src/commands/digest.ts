@@ -135,9 +135,11 @@ export async function runDigest(options: DigestOptions): Promise<void> {
 function saveDigestReport(dir: string, report: DigestReport): string {
   mkdirSync(dir, { recursive: true });
 
-  const date = report.generatedAt.slice(0, 10);
+  // Include time in filename to avoid overwriting same-day digests.
+  // This allows --compare to find a previous digest from earlier the same day.
+  const timestamp = report.generatedAt.replace(/:/g, "-").slice(0, 19);
   const scope = report.projectFilter || "global";
-  const filename = `${date}-${scope}.json`;
+  const filename = `${timestamp}-${scope}.json`;
   const path = join(dir, filename);
 
   writeFileSync(path, JSON.stringify(report, null, 2), "utf-8");
@@ -149,14 +151,14 @@ function saveDigestReport(dir: string, report: DigestReport): string {
  */
 function findPreviousDigest(current: DigestReport): DigestReport | null {
   const digests = listDigests();
-  const currentDate = current.generatedAt.slice(0, 10);
+  const currentTimestamp = current.generatedAt;
   const scope = current.projectFilter || "global";
 
   for (const info of digests) {
-    // Skip the current one (same date + scope)
-    if (info.date === currentDate && info.scope === scope) continue;
     // Must match scope
     if (info.scope !== scope) continue;
+    // Skip the current one (same timestamp)
+    if (info.generatedAt === currentTimestamp) continue;
 
     const report = loadDigest(info.filename);
     if (report) return report;
@@ -170,6 +172,7 @@ function findPreviousDigest(current: DigestReport): DigestReport | null {
 export interface DigestInfo {
   filename: string;
   date: string;
+  generatedAt: string;
   scope: string;
   totalSessions: number;
   totalPrompts: number;
@@ -200,6 +203,7 @@ export function listDigests(dir?: string): DigestInfo[] {
       digests.push({
         filename: file,
         date: report.generatedAt.slice(0, 10),
+        generatedAt: report.generatedAt,
         scope: report.projectFilter || "global",
         totalSessions: report.totalSessions,
         totalPrompts: report.totalPrompts,
@@ -223,7 +227,10 @@ export function loadDigest(filename: string, dir?: string): DigestReport | null 
 
   try {
     const content = readFileSync(path, "utf-8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    // Validate required shape to avoid runtime crashes on corrupt/hand-edited files
+    if (!parsed || !parsed.generatedAt || !parsed.tokens || !parsed.categories) return null;
+    return parsed as DigestReport;
   } catch {
     return null;
   }

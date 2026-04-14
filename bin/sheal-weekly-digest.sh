@@ -70,31 +70,31 @@ echo ""
 # ── Step 1: Generate digest with LLM enrichment ──
 echo "[1/4] Generating digest with LLM enrichment..."
 
-DIGEST_ARGS="--since \"$SINCE\" --enrich"
-[ -n "$PROJECT" ] && DIGEST_ARGS="$DIGEST_ARGS --project \"$PROJECT\""
+DIGEST_ARGS=(--since "$SINCE" --enrich)
+[ -n "$PROJECT" ] && DIGEST_ARGS+=(--project "$PROJECT")
 
 # Run digest - save markdown for Slack, pretty for terminal
-eval sheal digest $DIGEST_ARGS --format pretty
+sheal digest "${DIGEST_ARGS[@]}" --format pretty
 echo ""
 
 # Also save markdown version
 DIGEST_MD="$OUTPUT_DIR/$TIMESTAMP-$SCOPE-digest.md"
-eval sheal digest $DIGEST_ARGS --format markdown -o "$DIGEST_MD" 2>/dev/null
+sheal digest "${DIGEST_ARGS[@]}" --format markdown -o "$DIGEST_MD" 2>/dev/null
 echo "  Saved: $DIGEST_MD"
 
 # ── Step 2: Generate cost report ──
 echo ""
 echo "[2/4] Generating cost report..."
 
-COST_ARGS="--since \"$SINCE\" --plan \"$PLAN\""
-[ -n "$PROJECT" ] && COST_ARGS="$COST_ARGS --project \"$PROJECT\""
+COST_ARGS=(--since "$SINCE" --plan "$PLAN")
+[ -n "$PROJECT" ] && COST_ARGS+=(--project "$PROJECT")
 
-eval sheal cost $COST_ARGS
+sheal cost "${COST_ARGS[@]}"
 echo ""
 
 # Save cost JSON
 COST_JSON="$OUTPUT_DIR/$TIMESTAMP-$SCOPE-cost.json"
-eval sheal cost $COST_ARGS --format json > "$COST_JSON" 2>/dev/null
+sheal cost "${COST_ARGS[@]}" --format json > "$COST_JSON" 2>/dev/null
 echo "  Saved: $COST_JSON"
 
 # ── Step 3: Deep agent analysis (optional) ──
