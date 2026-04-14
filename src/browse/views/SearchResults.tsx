@@ -62,7 +62,7 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setInputActive(true); return; }
 

@@ -29,7 +29,7 @@ export function AmpSessionDetail({ threadId, projectPath, onBack, onQuit }: AmpS
   };
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) {
       if (showDiff) {
         setShowDiff(false);
