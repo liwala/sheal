@@ -249,7 +249,7 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
             color={line.color as any}
             bold={line.bold}
             dimColor={line.dim}
-            wrap="truncate"
+            wrap="wrap"
           >
             {line.text}
           </Text>
