@@ -158,7 +158,7 @@ export function SessionList({
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setFilterActive(true); return; }
     if (input === "s") { onSearch(); return; }

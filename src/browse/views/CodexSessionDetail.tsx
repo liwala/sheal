@@ -79,7 +79,7 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
     if (input === "/") { setSearchActive(true); return; }
     if (input === "r" && hasRetroFile) { onViewRetro(); return; }

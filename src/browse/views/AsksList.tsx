@@ -25,7 +25,7 @@ export function AsksList({ projectPath, projectName, onSelect, onBack, onQuit }:
   }, [projectPath]);
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
 
     if (key.upArrow) {

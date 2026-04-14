@@ -48,7 +48,7 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
   const learnings = showGlobal ? globalLearnings : localLearnings;
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) {
       if (expanded !== null) { setExpanded(null); return; }
       onBack();

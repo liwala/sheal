@@ -45,7 +45,7 @@ export function DigestDetail({ filename, onBack, onQuit }: DigestDetailProps) {
   }, [report]);
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") { onBack(); return; }
     if (key.escape) { onBack(); return; }
 
     if (key.upArrow) {
