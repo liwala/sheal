@@ -5,7 +5,7 @@
  * filters sessions by date range, and extracts user prompts with token usage.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import {
@@ -221,17 +221,25 @@ export function loadSessionsInWindow(opts: {
   return { prompts, tokens, sessionCount, agentScans };
 }
 
+// Skip JSONL files larger than this to avoid OOM on heavy sessions
+const MAX_JSONL_SIZE = 200 * 1024 * 1024; // 200 MB
+
 /**
  * Extract per-model token usage from raw JSONL.
  * Reads assistant messages with model + usage fields.
+ * Skips files larger than MAX_JSONL_SIZE to prevent OOM.
  */
 function extractModelTokens(jsonlPath: string, summary: TokenSummary, projectName?: string): void {
   if (!existsSync(jsonlPath)) return;
 
   try {
+    const size = statSync(jsonlPath).size;
+    if (size > MAX_JSONL_SIZE) return;
+
     const content = readFileSync(jsonlPath, "utf-8");
     for (const line of content.split("\n")) {
-      if (!line) continue;
+      // Fast skip: only parse lines that could contain usage data
+      if (!line || !line.includes('"usage"')) continue;
       try {
         const obj = JSON.parse(line);
         if (obj.type === "assistant" && obj.message?.model && obj.message?.usage) {
