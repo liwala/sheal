@@ -4,6 +4,7 @@ dist/
 .env.*
 *.log
 .DS_Store
+.claude/settings.local.json
 coverage/
 .nyc_output/
 tmp/
