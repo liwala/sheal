@@ -306,6 +306,10 @@ OUTPUT:`;
  * Extract assistant text from a Claude Code session JSONL file.
  */
 function extractAssistantText(sessionId: string): string | null {
+  // Validate session ID format to prevent path traversal
+  // Session IDs are UUIDs (hex + dashes), reject anything else
+  if (!/^[a-f0-9-]+$/i.test(sessionId)) return null;
+
   // Search all project dirs for this session
   const projectsDir = join(homedir(), ".claude", "projects");
   if (!existsSync(projectsDir)) return null;
