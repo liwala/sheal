@@ -422,7 +422,25 @@ async function loadSession(
   repoPath: string,
   requestedId?: string,
 ): Promise<import("../entire/types.js").Checkpoint | null> {
-  // Try Entire.io first
+  // Try native Claude Code transcripts first
+  if (hasNativeTranscripts(repoPath)) {
+    let sessionId = requestedId;
+    if (!sessionId) {
+      const sessions = listNativeSessions(repoPath);
+      if (sessions.length > 0) {
+        sessionId = sessions[0].sessionId;
+      }
+    }
+
+    if (sessionId) {
+      const checkpoint = loadNativeSession(repoPath, sessionId);
+      if (checkpoint && checkpoint.sessions.length > 0 && checkpoint.sessions[0].transcript.length > 0) {
+        return checkpoint;
+      }
+    }
+  }
+
+  // Try Entire.io
   const hasBranch = await hasEntireBranch(repoPath);
   if (hasBranch) {
     let checkpointId = requestedId;
@@ -441,37 +459,8 @@ async function loadSession(
     }
   }
 
-  // Fall back to native Claude Code transcripts
-  if (hasNativeTranscripts(repoPath)) {
-    console.log(chalk.gray("No Entire.io data, using native Claude Code transcripts."));
-
-    let sessionId = requestedId;
-    if (!sessionId) {
-      const sessions = listNativeSessions(repoPath);
-      if (sessions.length === 0) {
-        console.log(chalk.yellow("No sessions found."));
-        return null;
-      }
-      sessionId = sessions[0].sessionId;
-    }
-
-    const checkpoint = loadNativeSession(repoPath, sessionId);
-    if (!checkpoint) {
-      console.error(chalk.red(`Session ${sessionId} not found`));
-      process.exitCode = 1;
-      return null;
-    }
-
-    if (checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
-      console.log(chalk.yellow(`Session ${sessionId} has no transcript data.`));
-      return null;
-    }
-
-    return checkpoint;
-  }
-
   console.log(chalk.yellow("No session data found."));
-  console.log(chalk.gray("Supported sources: Entire.io, native Claude Code (~/.claude/projects/), Amp (~/.amp/file-changes/)."));
+  console.log(chalk.gray("Supported sources: native Claude Code (~/.claude/projects/), Entire.io, Amp (~/.amp/file-changes/)."));
   return null;
 }
 
