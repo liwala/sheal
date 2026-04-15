@@ -37,6 +37,12 @@ Your AI agent has amnesia. Every session it repeats the same mistakes, burns the
 ## Install
 
 ```bash
+npm install -g @liwala/sheal
+```
+
+Or from source:
+
+```bash
 git clone https://github.com/liwala/sheal
 cd sheal
 npm install

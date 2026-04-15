@@ -1,5 +1,5 @@
 {
-  "name": "sheal",
+  "name": "@liwala/sheal",
   "version": "0.1.0",
   "description": "Self-healing AI coding toolkit — analyzes AI coding sessions to extract learnings, detect failure patterns, and improve agent behavior",
   "type": "module",
@@ -40,7 +40,8 @@
     "commander": "13.1.0",
     "ink": "6.8.0",
     "ink-text-input": "6.0.0",
-    "react": "19.2.4"
+    "react": "19.2.4",
+    "sheal": "github:liwala/sheal"
   },
   "devDependencies": {
     "@types/node": "22.19.15",
