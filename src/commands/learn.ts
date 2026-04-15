@@ -1,4 +1,4 @@
-import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
 import {
@@ -348,6 +348,189 @@ export async function runLearnReview(opts: LearnReviewOptions): Promise<void> {
 
   if (result.remaining > 0) {
     console.log(chalk.gray(`\nRun 'sheal learn review${opts.global ? " --global" : ""}' again to continue.`));
+  }
+}
+
+// ── Prune ──────────────────────────────────────────────────────────
+
+export interface LearnPruneOptions {
+  global: boolean;
+  dryRun: boolean;
+  days: number;
+  projectRoot: string;
+}
+
+export interface PruneCandidate {
+  learning: LearningFile;
+  filename: string;
+  reasons: string[];
+}
+
+/**
+ * Extract file paths and CLI tool names referenced in learning text.
+ * Returns arrays of { type, value } for each reference found.
+ */
+function extractReferences(text: string): Array<{ type: "file" | "tool"; value: string }> {
+  const refs: Array<{ type: "file" | "tool"; value: string }> = [];
+
+  // File paths: things like src/foo.ts, ./bar.json, /absolute/path.md
+  // Match paths that contain at least one slash and end with an extension
+  const filePatterns = text.matchAll(/(?:^|\s|`)((?:\.{0,2}\/)?(?:[\w.-]+\/)+[\w.-]+\.\w+)/gm);
+  for (const m of filePatterns) {
+    refs.push({ type: "file", value: m[1] });
+  }
+
+  // Backtick-quoted commands that look like CLI tools (single word, no spaces)
+  const toolPatterns = text.matchAll(/`(\w[\w-]*)(?:\s|`)/g);
+  const knownTools = new Set([
+    // Only flag tools that are specific enough to be meaningful
+    "dolt", "amp", "codex", "gemini", "entire",
+  ]);
+  for (const m of toolPatterns) {
+    if (knownTools.has(m[1].toLowerCase())) {
+      refs.push({ type: "tool", value: m[1] });
+    }
+  }
+
+  return refs;
+}
+
+/**
+ * Check if a file path reference still exists, resolving relative to projectRoot.
+ */
+function fileRefExists(ref: string, projectRoot: string): boolean {
+  // Try as-is (absolute or relative to cwd)
+  if (existsSync(ref)) return true;
+  // Try relative to project root
+  if (existsSync(join(projectRoot, ref))) return true;
+  return false;
+}
+
+/**
+ * Check if a CLI tool is available on PATH.
+ */
+function toolExists(name: string): boolean {
+  try {
+    const { execFileSync } = require("node:child_process");
+    execFileSync("which", [name], { stdio: "pipe" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Analyze a learning for staleness. Returns reasons it should be pruned, or empty array if healthy.
+ */
+export function analyzeStaleness(
+  learning: LearningFile,
+  daysThreshold: number,
+  projectRoot: string,
+): string[] {
+  const reasons: string[] = [];
+
+  // Signal 1: Already marked superseded or retired
+  if (learning.status === "superseded") {
+    reasons.push("status is superseded");
+  }
+  if (learning.status === "retired") {
+    reasons.push("status is retired");
+  }
+
+  // Signal 2: Dead references — files or tools that no longer exist
+  const fullText = `${learning.title}\n${learning.body}`;
+  const refs = extractReferences(fullText);
+  for (const ref of refs) {
+    if (ref.type === "file" && !fileRefExists(ref.value, projectRoot)) {
+      reasons.push(`references missing file: ${ref.value}`);
+    }
+    if (ref.type === "tool" && !toolExists(ref.value)) {
+      reasons.push(`references missing tool: ${ref.value}`);
+    }
+  }
+
+  // Signal 3: Age — older than threshold
+  if (learning.date) {
+    const ageMs = Date.now() - new Date(learning.date).getTime();
+    const ageDays = Math.floor(ageMs / 86_400_000);
+    if (ageDays > daysThreshold) {
+      reasons.push(`${ageDays} days old (threshold: ${daysThreshold})`);
+    }
+  }
+
+  return reasons;
+}
+
+/**
+ * `sheal learn prune [--global] [--days N] [--dry-run | --apply]`
+ * Flag and optionally remove stale learnings.
+ */
+export async function runLearnPrune(opts: LearnPruneOptions): Promise<void> {
+  const dir = opts.global ? getGlobalDir() : getProjectDir(opts.projectRoot);
+  const learnings = listLearnings(dir);
+
+  if (learnings.length === 0) {
+    const scope = opts.global ? "global" : "project";
+    console.log(chalk.yellow(`No learnings found in ${scope} directory (${dir})`));
+    return;
+  }
+
+  // Build filename lookup
+  const allFiles = readdirSync(dir)
+    .filter((f) => f.startsWith("LEARN-") && f.endsWith(".md"))
+    .sort();
+
+  // Analyze each learning
+  const candidates: PruneCandidate[] = [];
+
+  for (const learning of learnings) {
+    const reasons = analyzeStaleness(learning, opts.days, opts.projectRoot);
+    if (reasons.length > 0) {
+      const filename = allFiles.find((f) => f.startsWith(learning.id)) || "";
+      candidates.push({ learning, filename, reasons });
+    }
+  }
+
+  if (candidates.length === 0) {
+    console.log(chalk.green(`All ${learnings.length} learning(s) look healthy. Nothing to prune.`));
+    return;
+  }
+
+  // Display candidates
+  console.log();
+  console.log(chalk.bold(`Found ${candidates.length} stale learning(s):`));
+  console.log();
+
+  for (const c of candidates) {
+    const statusBadge = c.learning.status !== "active"
+      ? chalk.gray(` [${c.learning.status}]`)
+      : "";
+    console.log(`  ${chalk.bold(c.learning.id)}${statusBadge}  ${c.learning.title}`);
+    for (const reason of c.reasons) {
+      console.log(chalk.yellow(`    - ${reason}`));
+    }
+  }
+
+  console.log();
+
+  if (opts.dryRun) {
+    console.log(chalk.gray(`Dry run — no files changed. Run with --apply to remove.`));
+    return;
+  }
+
+  // Apply: delete the stale files
+  let removed = 0;
+  for (const c of candidates) {
+    if (!c.filename) continue;
+    try {
+      unlinkSync(join(dir, c.filename));
+      removed++;
+    } catch { /* skip files that vanished */ }
+  }
+
+  console.log(chalk.green(`Pruned ${removed} learning(s).`));
+  if (learnings.length - removed > 0) {
+    console.log(chalk.gray(`${learnings.length - removed} learning(s) remaining.`));
   }
 }
 

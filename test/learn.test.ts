@@ -11,6 +11,7 @@ import {
   parseLearningContent,
 } from "../src/learn/store.js";
 import { detectProjectTags } from "../src/learn/detect.js";
+import { analyzeStaleness } from "../src/commands/learn.js";
 import type { LearningFile } from "../src/learn/types.js";
 
 function makeTempDir(): string {
@@ -292,5 +293,103 @@ describe("tag matching", () => {
     const projectTags = ["general", "workflow", "typescript", "node"];
     const hasOverlap = learningTags.some((t) => projectTags.includes(t));
     expect(hasOverlap).toBe(false);
+  });
+});
+
+describe("analyzeStaleness", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = makeTempDir();
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true });
+  });
+
+  it("flags superseded learnings", () => {
+    const learning: LearningFile = {
+      ...sampleLearning,
+      status: "superseded",
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons).toContain("status is superseded");
+  });
+
+  it("flags retired learnings", () => {
+    const learning: LearningFile = {
+      ...sampleLearning,
+      status: "retired",
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons).toContain("status is retired");
+  });
+
+  it("flags old learnings beyond threshold", () => {
+    const oldDate = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
+    const learning: LearningFile = {
+      ...sampleLearning,
+      date: oldDate,
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons.some((r) => r.includes("days old"))).toBe(true);
+  });
+
+  it("does not flag learnings within age threshold", () => {
+    const recentDate = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const learning: LearningFile = {
+      ...sampleLearning,
+      date: recentDate,
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons.some((r) => r.includes("days old"))).toBe(false);
+  });
+
+  it("flags dead file references", () => {
+    const learning: LearningFile = {
+      ...sampleLearning,
+      date: new Date().toISOString().slice(0, 10),
+      body: "Always check src/nonexistent/file.ts before deploying.",
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons.some((r) => r.includes("missing file"))).toBe(true);
+  });
+
+  it("does not flag file references that exist", () => {
+    // Create the referenced file in the temp dir
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "real.ts"), "export const x = 1;");
+
+    const learning: LearningFile = {
+      ...sampleLearning,
+      date: new Date().toISOString().slice(0, 10),
+      body: "Always check src/real.ts before deploying.",
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons.some((r) => r.includes("missing file"))).toBe(false);
+  });
+
+  it("returns empty array for healthy active learning", () => {
+    const learning: LearningFile = {
+      ...sampleLearning,
+      date: new Date().toISOString().slice(0, 10),
+      body: "Always inspect real data before writing parsers.",
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons).toEqual([]);
+  });
+
+  it("accumulates multiple reasons", () => {
+    const oldDate = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
+    const learning: LearningFile = {
+      ...sampleLearning,
+      status: "superseded",
+      date: oldDate,
+      body: "Check src/deleted/thing.ts carefully.",
+    };
+    const reasons = analyzeStaleness(learning, 90, dir);
+    expect(reasons.length).toBeGreaterThanOrEqual(2);
+    expect(reasons.some((r) => r.includes("superseded"))).toBe(true);
+    expect(reasons.some((r) => r.includes("days old"))).toBe(true);
   });
 });

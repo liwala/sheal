@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
@@ -88,6 +88,8 @@ Learnings (human-in-the-loop)
   sheal learn review              Review & curate project learnings
   sheal learn promote             Promote project learnings to global
   sheal learn sync                Pull global learnings into project
+  sheal learn prune               Flag stale learnings (dry-run by default)
+  sheal learn prune --apply       Actually remove stale learnings
   sheal rules                     Inject learnings as rules into agent config
   sheal rules --dry-run           Preview without writing
 
@@ -498,6 +500,22 @@ learn
   .option("-p, --project <path>", "Project root path", process.cwd())
   .action(async (opts) => {
     await runLearnPromote({
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("prune")
+  .description("Flag and remove stale learnings (dead references, old age, retired status)")
+  .option("--global", "Prune global learnings instead of project", false)
+  .option("--days <n>", "Age threshold in days", "90")
+  .option("--apply", "Actually delete stale files (default is dry-run)", false)
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnPrune({
+      global: opts.global,
+      days: parsePositiveInt(opts.days, "--days"),
+      dryRun: !opts.apply,
       projectRoot: opts.project,
     });
   });
