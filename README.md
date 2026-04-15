@@ -291,14 +291,28 @@ sheal learn push
 sheal learn pull
 ```
 
+#### Human-in-the-loop curation
+
+Learnings are never auto-accepted. Every learning goes through human review before it can influence agent behavior:
+
+1. **`sheal retro --enrich`** — the LLM extracts candidate rules from the session
+2. **Saved as drafts** — rules land in `.sheal/learnings/` with `status: draft`
+3. **Interactive review** — you accept, edit, or reject each draft on the spot
+4. **Active learnings** — accepted rules become `status: active` and show up in `sheal learn list`
+5. **`sheal learn promote`** — lift project learnings to your global store (`~/.sheal/learnings/`)
+6. **`sheal learn sync`** — pull relevant global learnings back into other projects
+7. **`sheal rules`** — inject active learnings into agent config files (AGENTS.md, .cursorrules)
+
+You can also add learnings manually (`sheal learn add "..."`) or review remaining drafts later (`sheal learn review`).
+
 The full lifecycle:
 
 ```
 retro → project drafts → review → active → promote → global ─┐
-                                                    digests ──┤
-                                                    config  ──┼─ backup push → remote
-                                                    retros  ──┘  backup pull ← remote
-                                                    global ──── sync → project
+             ▲               │                       digests ──┤
+             │          human accepts                 config  ──┼─ backup push → remote
+        learn add       edits, or rejects             retros  ──┘  backup pull ← remote
+                                                      global ──── sync → project
 ```
 
 **Learning format** (`~/.sheal/learnings/LEARN-001-inspect-real-data.md`):
@@ -336,9 +350,8 @@ For `--enrich` and `ask` commands, `sheal` can invoke these agent CLIs:
 | Codex | `codex` | `codex exec -` (stdin) |
 | Amp | `amp` | `amp -x` (stdin) |
 | Gemini CLI | `gemini` | stdin pipe |
-| Cursor | `claude` | Same as Claude Code |
 
-Auto-detection tries the session's own agent first, then falls back to any available CLI.
+Use `--agent claude`, `--agent codex`, `--agent amp`, or `--agent gemini` to pick one. Auto-detection tries the session's own agent first, then falls back to any available CLI.
 
 ## How It Works
 

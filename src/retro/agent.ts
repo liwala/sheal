@@ -34,11 +34,6 @@ const AGENT_CLIS: Record<string, AgentCli> = {
     args: ["-p", "--output-format", "text"],
     stdinPrompt: true,
   },
-  "Cursor": {
-    command: "claude",
-    args: ["-p", "--output-format", "text"],
-    stdinPrompt: true,
-  },
   "Gemini CLI": {
     command: "gemini",
     args: [],

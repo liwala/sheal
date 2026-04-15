@@ -73,8 +73,12 @@ Digest & Cost
   sheal weekly                    Full weekly report (digest + cost)
   sheal weekly --slack            Post to Slack
 
-Learnings
-─────────
+Learnings (human-in-the-loop)
+─────────────────────────────
+  Learnings are never auto-accepted — you review every rule before it
+  takes effect. The flow: retro extracts candidate rules as drafts →
+  you accept, edit, or reject each one → accepted rules become active.
+
   sheal learn add "Always check real data first" --tags=parsing
                                   Save a learning (project-local)
   sheal learn add --global "..."  Save directly to global store
