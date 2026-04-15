@@ -1,0 +1,188 @@
+import chalk from "chalk";
+import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
+import { getGlobalDir, getProjectDir, listLearnings } from "../learn/index.js";
+import { detectProjectTags } from "../learn/detect.js";
+import type { LearningFile } from "../learn/types.js";
+
+export interface RulesOptions {
+  projectRoot: string;
+  dryRun: boolean;
+}
+
+const RULES_BEGIN = "<!-- BEGIN SHEAL RULES -->";
+const RULES_END = "<!-- END SHEAL RULES -->";
+
+/** Agent instruction files we know how to inject into, in priority order. */
+const AGENT_FILES = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  ".cursorrules",
+  "CODEX.md",
+  ".github/copilot-instructions.md",
+];
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Find the actual filename for a learning in a directory.
+ */
+function findLearningFilename(dir: string, learningId: string): string | undefined {
+  if (!existsSync(dir)) return undefined;
+  return readdirSync(dir).find((f) => f.startsWith(learningId) && f.endsWith(".md"));
+}
+
+interface ResolvedLearning {
+  learning: LearningFile;
+  refPath: string;
+  sourceDir: string;
+}
+
+/**
+ * Load and deduplicate active learnings from project + global sources.
+ * Project learnings take precedence over global ones with the same ID.
+ */
+function loadActiveLearnings(projectRoot: string): ResolvedLearning[] {
+  const projectDir = getProjectDir(projectRoot);
+  const globalDir = getGlobalDir();
+  const projectTags = detectProjectTags(projectRoot);
+
+  const projectLearnings = existsSync(projectDir) ? listLearnings(projectDir) : [];
+  const globalLearnings = listLearnings(globalDir);
+
+  const resolved: ResolvedLearning[] = [];
+  const seenIds = new Set<string>();
+
+  // Project learnings first (take precedence)
+  for (const l of projectLearnings) {
+    if (l.status !== "active") continue;
+    seenIds.add(l.id);
+    const filename = findLearningFilename(projectDir, l.id);
+    const refPath = filename
+      ? `.sheal/learnings/${filename}`
+      : `.sheal/learnings/${l.id}.md`;
+    resolved.push({ learning: l, refPath, sourceDir: projectDir });
+  }
+
+  // Global learnings — only if tag-relevant and not already present
+  for (const l of globalLearnings) {
+    if (l.status !== "active") continue;
+    if (seenIds.has(l.id)) continue;
+    if (!l.tags.some((t) => projectTags.includes(t))) continue;
+    const filename = findLearningFilename(globalDir, l.id);
+    const refPath = filename
+      ? `~/.sheal/learnings/${filename}`
+      : `~/.sheal/learnings/${l.id}.md`;
+    resolved.push({ learning: l, refPath, sourceDir: globalDir });
+  }
+
+  return resolved;
+}
+
+/**
+ * Generate the rules block from resolved learnings.
+ */
+function generateRulesBlock(learnings: ResolvedLearning[]): string {
+  const lines = learnings.map(({ learning, refPath }) =>
+    `- ${learning.title} <!-- ${refPath} -->`
+  );
+  return `${RULES_BEGIN}\n## Session Learnings\n\n${lines.join("\n")}\n${RULES_END}`;
+}
+
+/**
+ * Inject or update the rules block in a file.
+ * Returns true if the file was modified.
+ */
+function injectRulesBlock(filepath: string, block: string, dryRun: boolean): boolean {
+  const content = readFileSync(filepath, "utf-8");
+
+  if (content.includes(RULES_BEGIN)) {
+    const re = new RegExp(
+      `${escapeRegExp(RULES_BEGIN)}[\\s\\S]*?${escapeRegExp(RULES_END)}`,
+    );
+    const updated = content.replace(re, block);
+    if (updated === content) return false;
+    if (!dryRun) writeFileSync(filepath, updated);
+    return true;
+  }
+
+  // Append to end of file
+  const separator = content.endsWith("\n") ? "\n" : "\n\n";
+  const updated = content + separator + block + "\n";
+  if (!dryRun) writeFileSync(filepath, updated);
+  return true;
+}
+
+/**
+ * Remove the rules block from a file.
+ * Returns true if the file was modified.
+ */
+function removeRulesBlock(filepath: string, dryRun: boolean): boolean {
+  const content = readFileSync(filepath, "utf-8");
+  if (!content.includes(RULES_BEGIN)) return false;
+
+  const re = new RegExp(
+    `\\n?${escapeRegExp(RULES_BEGIN)}[\\s\\S]*?${escapeRegExp(RULES_END)}\\n?`,
+  );
+  const updated = content.replace(re, "\n");
+  if (updated === content) return false;
+  if (!dryRun) writeFileSync(filepath, updated);
+  return true;
+}
+
+export async function runRules(options: RulesOptions): Promise<void> {
+  const { projectRoot, dryRun } = options;
+  const prefix = dryRun ? "[dry-run] " : "";
+
+  const learnings = loadActiveLearnings(projectRoot);
+
+  // Find existing agent config files
+  const existing = AGENT_FILES.filter((f) =>
+    existsSync(join(projectRoot, f)),
+  );
+
+  if (learnings.length === 0) {
+    console.log(chalk.yellow("No active learnings to inject."));
+
+    // Clean up any existing rules blocks
+    for (const file of existing) {
+      const filepath = join(projectRoot, file);
+      if (removeRulesBlock(filepath, dryRun)) {
+        console.log(`${prefix}Removed stale rules block from ${file}`);
+      }
+    }
+    return;
+  }
+
+  const block = generateRulesBlock(learnings);
+
+  console.log(chalk.gray(`${prefix}Injecting ${learnings.length} active learning(s) as rules...`));
+
+  if (existing.length === 0) {
+    console.log(chalk.yellow("No agent config files found. Run 'sheal init' first."));
+    return;
+  }
+
+  for (const file of existing) {
+    const filepath = join(projectRoot, file);
+    const content = readFileSync(filepath, "utf-8");
+    const alreadyHas = content.includes(RULES_BEGIN);
+
+    const modified = injectRulesBlock(filepath, block, dryRun);
+    if (modified) {
+      const action = alreadyHas ? "Updated" : "Injected";
+      console.log(`${prefix}${action} rules in ${file}`);
+    } else {
+      console.log(`  ${file} — already up to date`);
+    }
+  }
+
+  if (dryRun) {
+    console.log(chalk.gray("\nGenerated block:"));
+    console.log(block);
+  }
+
+  console.log(chalk.green(`\n${prefix}Done. ${learnings.length} rule(s) in ${existing.length} file(s).`));
+}
