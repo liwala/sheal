@@ -165,17 +165,27 @@ export async function runRules(options: RulesOptions): Promise<void> {
     return;
   }
 
-  for (const file of existing) {
-    const filepath = join(projectRoot, file);
-    const content = readFileSync(filepath, "utf-8");
-    const alreadyHas = content.includes(RULES_BEGIN);
+  // Inject into AGENTS.md if it exists (universal across CLIs), otherwise
+  // fall back to the first available file. Only one file gets rules to
+  // avoid duplication (e.g. CLAUDE.md references @AGENTS.md).
+  const target = existing.includes("AGENTS.md") ? "AGENTS.md" : existing[0];
+  const targetPath = join(projectRoot, target);
+  const content = readFileSync(targetPath, "utf-8");
+  const alreadyHas = content.includes(RULES_BEGIN);
 
-    const modified = injectRulesBlock(filepath, block, dryRun);
-    if (modified) {
-      const action = alreadyHas ? "Updated" : "Injected";
-      console.log(`${prefix}${action} rules in ${file}`);
-    } else {
-      console.log(`  ${file} — already up to date`);
+  const modified = injectRulesBlock(targetPath, block, dryRun);
+  if (modified) {
+    const action = alreadyHas ? "Updated" : "Injected";
+    console.log(`${prefix}${action} rules in ${target}`);
+  } else {
+    console.log(`  ${target} — already up to date`);
+  }
+
+  // Clean up rules blocks from other agent files to avoid duplication
+  for (const file of existing.filter((f) => f !== target)) {
+    const filepath = join(projectRoot, file);
+    if (removeRulesBlock(filepath, dryRun)) {
+      console.log(`${prefix}Removed duplicate rules block from ${file}`);
     }
   }
 
@@ -184,5 +194,5 @@ export async function runRules(options: RulesOptions): Promise<void> {
     console.log(block);
   }
 
-  console.log(chalk.green(`\n${prefix}Done. ${learnings.length} rule(s) in ${existing.length} file(s).`));
+  console.log(chalk.green(`\n${prefix}Done. ${learnings.length} rule(s) in ${target}.`));
 }
