@@ -90,6 +90,47 @@ export async function runLearnList(opts: LearnListOptions): Promise<void> {
   console.log(`\n${filtered.length} learning(s)${drafts.length > 0 ? chalk.yellow(` (${drafts.length} draft)`) : ""}`);
 }
 
+interface LearnShowOptions {
+  id: string;
+  global: boolean;
+  projectRoot: string;
+}
+
+/**
+ * `sheal learn show <id>`
+ * Show full details of a learning by ID. Searches project then global.
+ */
+export async function runLearnShow(opts: LearnShowOptions): Promise<void> {
+  const normalizedId = opts.id.toUpperCase().startsWith("LEARN-") ? opts.id.toUpperCase() : `LEARN-${opts.id.replace(/^0+/, "").padStart(3, "0")}`;
+
+  // Search project first, then global (unless --global forces global only)
+  const dirs: Array<{ label: string; dir: string }> = [];
+  if (opts.global) {
+    dirs.push({ label: "global", dir: getGlobalDir() });
+  } else {
+    dirs.push({ label: "project", dir: getProjectDir(opts.projectRoot) });
+    dirs.push({ label: "global", dir: getGlobalDir() });
+  }
+
+  for (const { label, dir } of dirs) {
+    const learnings = listLearnings(dir);
+    const match = learnings.find((l) => l.id.toUpperCase() === normalizedId);
+    if (!match) continue;
+
+    console.log(chalk.bold(`${match.id}: ${match.title}`));
+    console.log(chalk.gray(`Source: ${label} (${dir})`));
+    console.log(chalk.gray(`Date: ${match.date}  Status: ${match.status}  Severity: ${match.severity}`));
+    console.log(chalk.gray(`Tags: ${match.tags.join(", ")}  Category: ${match.category}`));
+    if (match.sessionId) console.log(chalk.gray(`Session: ${match.sessionId}`));
+    console.log();
+    console.log(match.body);
+    return;
+  }
+
+  console.log(chalk.yellow(`Learning ${normalizedId} not found.`));
+  console.log(chalk.gray("Run 'sheal learn list' to see available learnings."));
+}
+
 interface LearnSyncOptions {
   projectRoot: string;
 }

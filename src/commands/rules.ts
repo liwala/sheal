@@ -1,6 +1,6 @@
 import chalk from "chalk";
-import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { getGlobalDir, getProjectDir, listLearnings } from "../learn/index.js";
 import { detectProjectTags } from "../learn/detect.js";
 import type { LearningFile } from "../learn/types.js";
@@ -27,24 +27,10 @@ function escapeRegExp(s: string): string {
 }
 
 /**
- * Find the actual filename for a learning in a directory.
- */
-function findLearningFilename(dir: string, learningId: string): string | undefined {
-  if (!existsSync(dir)) return undefined;
-  return readdirSync(dir).find((f) => f.startsWith(learningId) && f.endsWith(".md"));
-}
-
-interface ResolvedLearning {
-  learning: LearningFile;
-  refPath: string;
-  sourceDir: string;
-}
-
-/**
  * Load and deduplicate active learnings from project + global sources.
  * Project learnings take precedence over global ones with the same ID.
  */
-function loadActiveLearnings(projectRoot: string): ResolvedLearning[] {
+function loadActiveLearnings(projectRoot: string): LearningFile[] {
   const projectDir = getProjectDir(projectRoot);
   const globalDir = getGlobalDir();
   const projectTags = detectProjectTags(projectRoot);
@@ -52,18 +38,14 @@ function loadActiveLearnings(projectRoot: string): ResolvedLearning[] {
   const projectLearnings = existsSync(projectDir) ? listLearnings(projectDir) : [];
   const globalLearnings = listLearnings(globalDir);
 
-  const resolved: ResolvedLearning[] = [];
+  const result: LearningFile[] = [];
   const seenIds = new Set<string>();
 
   // Project learnings first (take precedence)
   for (const l of projectLearnings) {
     if (l.status !== "active") continue;
     seenIds.add(l.id);
-    const filename = findLearningFilename(projectDir, l.id);
-    const refPath = filename
-      ? `.sheal/learnings/${filename}`
-      : `.sheal/learnings/${l.id}.md`;
-    resolved.push({ learning: l, refPath, sourceDir: projectDir });
+    result.push(l);
   }
 
   // Global learnings — only if tag-relevant and not already present
@@ -71,24 +53,68 @@ function loadActiveLearnings(projectRoot: string): ResolvedLearning[] {
     if (l.status !== "active") continue;
     if (seenIds.has(l.id)) continue;
     if (!l.tags.some((t) => projectTags.includes(t))) continue;
-    const filename = findLearningFilename(globalDir, l.id);
-    const refPath = filename
-      ? `~/.sheal/learnings/${filename}`
-      : `~/.sheal/learnings/${l.id}.md`;
-    resolved.push({ learning: l, refPath, sourceDir: globalDir });
+    result.push(l);
   }
 
-  return resolved;
+  return result;
+}
+
+/** Tags to skip when choosing a grouping key (platform/language tags, not topics). */
+const GENERIC_TAGS = new Set([
+  "general", "workflow", "environment",
+  "claude", "cursor", "codex", "copilot", "amp", "gemini",
+  "javascript", "typescript", "node", "react", "go", "python", "rust",
+]);
+
+/**
+ * Pick the best tag to group a learning under.
+ * Prefers the first non-generic tag; falls back to "General".
+ */
+function groupKey(learning: LearningFile): string {
+  const tag = learning.tags.find((t) => !GENERIC_TAGS.has(t));
+  return tag ?? "General";
+}
+
+/** Capitalize first letter of a tag for use as a section header. */
+function titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /**
- * Generate the rules block from resolved learnings.
+ * Get the first sentence of the body as a concise rule line.
+ * Falls back to title if body is empty.
  */
-function generateRulesBlock(learnings: ResolvedLearning[]): string {
-  const lines = learnings.map(({ learning, refPath }) =>
-    `- ${learning.title} <!-- ${refPath} -->`
-  );
-  return `${RULES_BEGIN}\n## Session Learnings\n\n${lines.join("\n")}\n${RULES_END}`;
+function ruleLine(learning: LearningFile): string {
+  const first = learning.body.split(/(?<=\.)\s/)[0];
+  const text = (first ?? learning.title).trim();
+  return `- [${learning.id}] ${text}`;
+}
+
+/**
+ * Generate the rules block grouped by tag with ID references.
+ */
+function generateRulesBlock(learnings: LearningFile[]): string {
+  // Group learnings by their primary tag
+  const groups = new Map<string, LearningFile[]>();
+  for (const l of learnings) {
+    const key = groupKey(l);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(l);
+  }
+
+  const sections: string[] = [];
+  for (const [tag, items] of groups) {
+    sections.push(`### ${titleCase(tag)}\n${items.map(ruleLine).join("\n")}`);
+  }
+
+  return [
+    RULES_BEGIN,
+    "## Session Learnings",
+    "<!-- Run `sheal learn show <id>` for full context on any rule -->",
+    "",
+    sections.join("\n\n"),
+    RULES_END,
+  ].join("\n");
 }
 
 /**

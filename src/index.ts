@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnSync, runLearnReview, runLearnPromote, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
@@ -434,6 +434,19 @@ learn
     await runLearnList({
       global: opts.global,
       tag: opts.tag,
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("show <id>")
+  .description("Show full details of a learning by ID")
+  .option("--global", "Search global store only", false)
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (id: string, opts) => {
+    await runLearnShow({
+      id,
+      global: opts.global,
       projectRoot: opts.project,
     });
   });
