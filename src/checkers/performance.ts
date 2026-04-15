@@ -47,50 +47,6 @@ function measureConfigSize(projectRoot: string): { totalBytes: number; files: { 
   return { totalBytes, files };
 }
 
-/**
- * Read Claude Code settings across all scopes to check MCP servers and env config.
- */
-function checkClaudeCodeSettings(projectRoot: string): {
-  mcpServers: string[];
-  lspEnabled: boolean;
-} {
-  const mcpServers: string[] = [];
-  let lspEnabled = false;
-
-  // Check all settings scopes
-  const settingsPaths = [
-    join(homedir(), ".claude", "settings.json"),
-    join(projectRoot, ".claude", "settings.json"),
-    join(projectRoot, ".claude", "settings.local.json"),
-  ];
-
-  for (const settingsPath of settingsPaths) {
-    if (!existsSync(settingsPath)) continue;
-    try {
-      const raw = JSON.parse(readFileSync(settingsPath, "utf-8"));
-
-      // MCP servers
-      for (const name of Object.keys(raw.mcpServers ?? {})) {
-        if (!mcpServers.includes(name)) mcpServers.push(name);
-      }
-
-      // LSP enabled via env block in settings
-      const env = raw.env ?? {};
-      if (env.ENABLE_LSP_TOOLS === "1" || env.ENABLE_LSP_TOOLS === "true") {
-        lspEnabled = true;
-      }
-    } catch {
-      // ignore parse errors
-    }
-  }
-
-  // Also check current process env (set when launching claude)
-  if (process.env.ENABLE_LSP_TOOLS === "1" || process.env.ENABLE_LSP_TOOLS === "true") {
-    lspEnabled = true;
-  }
-
-  return { mcpServers, lspEnabled };
-}
 
 // 10KB warn, 20KB fail for total agent config size
 const CONFIG_WARN_BYTES = 10_000;
@@ -137,30 +93,6 @@ export const performanceChecker: Checker = {
         severity: "warn",
         data: { url: "https://github.com/rtk-ai/rtk" },
       });
-    }
-
-    // MCP and LSP checks (Claude Code only)
-    if (agent === "claude") {
-      const { mcpServers, lspEnabled } = checkClaudeCodeSettings(ctx.projectRoot);
-
-      if (mcpServers.length > 0) {
-        details.push({
-          message: `MCP servers: ${mcpServers.join(", ")}`,
-          severity: "pass",
-        });
-      }
-
-      if (lspEnabled) {
-        details.push({
-          message: "LSP tools enabled (ENABLE_LSP_TOOLS=1)",
-          severity: "pass",
-        });
-      } else {
-        details.push({
-          message: "LSP tools not enabled — set ENABLE_LSP_TOOLS=1 in Claude Code settings env for diagnostics",
-          severity: "warn",
-        });
-      }
     }
 
     // Agent config size check

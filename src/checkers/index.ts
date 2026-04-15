@@ -4,6 +4,7 @@ import { testsChecker } from "./tests.js";
 import { environmentChecker } from "./environment.js";
 import { sessionLearningsChecker } from "./session-learnings.js";
 import { performanceChecker } from "./performance.js";
+import { claudeSettingsChecker } from "./claude-settings.js";
 import type { Checker } from "./types.js";
 
 export const allCheckers: Checker[] = [
@@ -13,4 +14,5 @@ export const allCheckers: Checker[] = [
   environmentChecker,
   sessionLearningsChecker,
   performanceChecker,
+  claudeSettingsChecker,
 ];

@@ -16,6 +16,7 @@ import { runExport } from "./commands/export.js";
 import { runGraph } from "./commands/graph.js";
 import { runDrift } from "./commands/drift.js";
 import { runRules } from "./commands/rules.js";
+import { runAudit } from "./commands/audit.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -41,6 +42,7 @@ patterns, and improve agent behavior over time.
 Getting Started
 ───────────────
   sheal check                     Health-check your project setup
+  sheal audit                     Audit Claude Code settings (permissions, hooks, MCPs)
   sheal init                      Bootstrap sheal into your agent config files
 
 Retrospectives
@@ -148,6 +150,18 @@ program
       format: opts.format,
       projectRoot: opts.project,
       skip: opts.skip,
+    });
+  });
+
+program
+  .command("audit")
+  .description("Audit Claude Code settings across all scopes (permissions, hooks, MCPs, env)")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runAudit({
+      format: opts.format,
+      projectRoot: opts.project,
     });
   });
 

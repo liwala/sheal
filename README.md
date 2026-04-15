@@ -50,6 +50,9 @@ npm link
 # Health check your project setup
 sheal check
 
+# Audit your Claude Code settings (permissions, hooks, MCPs)
+sheal audit
+
 # Run a retrospective on your latest session
 sheal retro
 
@@ -78,9 +81,21 @@ sheal check --format json      # JSON output
 sheal check --skip performance # Skip specific checkers
 ```
 
-**Checkers:** git status, dependencies, tests, environment, session learnings, performance & efficiency.
+**Checkers:** git status, dependencies, tests, environment, session learnings, performance & efficiency, Claude Code settings.
 
-The performance checker detects your AI agent (Claude Code, Cursor, Gemini, Copilot, Amp), checks for RTK token compression, MCP servers, LSP tools, and config file sizes.
+The performance checker detects your AI agent (Claude Code, Cursor, Gemini, Copilot, Amp), checks for RTK token compression, and config file sizes. The claude-settings checker audits permissions, hooks, MCP servers, env vars, and plugins across all settings scopes.
+
+### `sheal audit`
+
+Audit Claude Code settings across all scopes — permissions, hooks, MCP servers, environment variables, and plugins.
+
+```bash
+sheal audit                    # Pretty output
+sheal audit --format json      # JSON output
+sheal audit -p /path/to/project  # Different project root
+```
+
+Reads from all four settings files (global, global-local, project, project-local) and shows a merged view of what's configured where.
 
 ### `sheal retro`
 
@@ -308,8 +323,8 @@ Categories: `missing-context`, `failure-loop`, `wasted-effort`, `environment`, `
 
 `sheal` supports two session data sources with automatic fallback:
 
-1. **Entire.io** — reads from the `entire/checkpoints/v1` git branch (rich metadata, AI summaries, attribution)
-2. **Native Claude Code** — reads JSONL transcripts directly from `~/.claude/projects/` (works without Entire.io)
+1. **Native Claude Code** — reads JSONL transcripts directly from `~/.claude/projects/` (default)
+2. **Entire.io** — reads from the `entire/checkpoints/v1` git branch (rich metadata, AI summaries, attribution)
 
 ## Supported Agents
 
