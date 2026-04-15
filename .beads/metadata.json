@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "server",
-  "dolt_database": "beads_self-healing-ai-coding",
-  "project_id": "38fbb932-79bb-4a9e-b4ef-e502ef6edabf"
-}
