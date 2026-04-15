@@ -78,9 +78,12 @@ Learnings
   sheal learn add --global "..."  Save directly to global store
   sheal learn list                List project learnings
   sheal learn list --global       List global learnings
+  sheal learn show <id>           Show full details of a learning
   sheal learn review              Review & curate project learnings
   sheal learn promote             Promote project learnings to global
   sheal learn sync                Pull global learnings into project
+  sheal rules                     Inject learnings as rules into agent config
+  sheal rules --dry-run           Preview without writing
 
 Backup & Sync (git-based)
 ─────────────────────────
@@ -101,8 +104,6 @@ Browsing
   sheal export                    Export session data as JSON (for piping)
   sheal graph                     Cross-session knowledge graph
   sheal drift                     Detect when learnings aren't being applied
-  sheal rules                     Inject learnings as rules into agent config
-  sheal rules --dry-run           Preview without writing
 
 Agents
 ──────
