@@ -1,6 +1,6 @@
 {
   "name": "@liwala/sheal",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Self-healing AI coding toolkit — analyzes AI coding sessions to extract learnings, detect failure patterns, and improve agent behavior",
   "type": "module",
   "license": "MIT",
