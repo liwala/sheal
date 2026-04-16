@@ -115,8 +115,12 @@ Browsing
 
 Agents
 ──────
-  Supported: claude, codex, amp, gemini
-  Auto-detected from PATH. Override with --agent <name>.
+  sheal retro --agent codex         Use codex for enriched retro
+  sheal ask --agent gemini "..."    Use gemini for analysis
+  sheal browse sessions --agent amp Browse sessions from a specific agent
+  sheal graph --agent claude        Graph for a specific agent
+
+  Supported: claude, codex, amp, gemini (auto-detected from PATH)
 
 Tips
 ────
