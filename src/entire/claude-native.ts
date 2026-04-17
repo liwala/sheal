@@ -31,11 +31,16 @@ import type {
  */
 export function getClaudeProjectDir(projectRoot: string): string | null {
   const absPath = resolve(projectRoot);
-  // Claude Code slug: absolute path with / replaced by -
-  // e.g., /Users/lu/code/foo → -Users-lu-code-foo
-  const slug = absPath.replace(/\//g, "-");
+  // Claude Code slug: absolute path with path separators, colons, and spaces replaced by -
+  // On Windows, resolve() returns backslash paths with drive colons
+  // e.g., c:\Users\David\Desktop\Claude Code Workspace → c--Users-David-Desktop-Claude-Code-Workspace
+  const slug = absPath.replace(/[\\/: ]/g, "-");
   const dir = join(homedir(), ".claude", "projects", slug);
-  return existsSync(dir) ? dir : null;
+  if (existsSync(dir)) return dir;
+  // Fallback: lowercase first character (Windows drive letter may vary in case)
+  const lowerSlug = slug.charAt(0).toLowerCase() + slug.slice(1);
+  const lowerDir = join(homedir(), ".claude", "projects", lowerSlug);
+  return existsSync(lowerDir) ? lowerDir : null;
 }
 
 /**
