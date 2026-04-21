@@ -245,6 +245,25 @@ sheal weekly --plan "Max 20x"          # Include plan savings
 
 Reports are saved to `~/.sheal/weekly-digests/` for historical tracking.
 
+### `sheal drift`
+
+Detect when learnings aren't being applied in recent sessions. Compares your active learnings (both global and project-scoped) against session data to find patterns that should have been prevented but weren't.
+
+```bash
+sheal drift                        # Check learnings against last 10 sessions
+sheal drift -n 20                  # Check against more sessions
+sheal drift -p /path/to/project    # Different project root
+sheal drift --json                 # JSON output
+```
+
+Each drifted learning is labeled `[global]` or `[project]` so you can see where the violation originated. Severity dots indicate how often the learning was violated (● once, ●● twice, ●●● three or more times).
+
+**Detection methods:**
+- **Keyword matching** — compares session retro learnings against your active learnings
+- **Failure loop detection** — flags retry-related learnings when retries recur
+- **File churn detection** — flags planning-related learnings when wasted edits recur
+- **Enrichment parsing** — reads `Recurring` sections from LLM-enriched retros
+
 ### `sheal learn`
 
 Manage ADR-style session learnings. Learnings are stored as individual markdown files with frontmatter metadata.

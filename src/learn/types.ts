@@ -34,4 +34,6 @@ export interface LearningFile {
   body: string;
   /** Session ID that produced this learning (optional, for traceability) */
   sessionId?: string;
+  /** Where this learning was loaded from (set at runtime, not persisted) */
+  source?: "global" | "project";
 }

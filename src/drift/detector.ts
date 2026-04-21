@@ -139,16 +139,20 @@ export function detectDrift(
   const driftMap = new Map<string, DriftMatch>();
   const activeLearnings = learnings.filter((l) => l.status === "active");
 
+  // Use composite key (source:id) so global/project learnings with the same ID don't collide
+  const driftKey = (l: LearningFile) => `${l.source ?? "unknown"}:${l.id}`;
+
   // Phase 1: Static analysis matching
   for (const retro of retros) {
     for (const learning of activeLearnings) {
       const violations = matchLearningToRetro(learning, retro);
       if (violations.length > 0) {
-        const existing = driftMap.get(learning.id);
+        const key = driftKey(learning);
+        const existing = driftMap.get(key);
         if (existing) {
           existing.violations.push(...violations);
         } else {
-          driftMap.set(learning.id, { learning, violations });
+          driftMap.set(key, { learning, violations });
         }
       }
     }
@@ -169,11 +173,12 @@ export function detectDrift(
           category: "workflow",
         };
 
-        const existing = driftMap.get(learning.id);
+        const key = driftKey(learning);
+        const existing = driftMap.get(key);
         if (existing) {
           existing.violations.push(violation);
         } else {
-          driftMap.set(learning.id, { learning, violations: [violation] });
+          driftMap.set(key, { learning, violations: [violation] });
         }
       }
     }
@@ -181,8 +186,8 @@ export function detectDrift(
 
   const drifted = Array.from(driftMap.values())
     .sort((a, b) => b.violations.length - a.violations.length);
-  const driftedIds = new Set(drifted.map((d) => d.learning.id));
-  const healthy = activeLearnings.filter((l) => !driftedIds.has(l.id));
+  const driftedKeys = new Set(drifted.map((d) => driftKey(d.learning)));
+  const healthy = activeLearnings.filter((l) => !driftedKeys.has(driftKey(l)));
 
   return {
     drifted,
