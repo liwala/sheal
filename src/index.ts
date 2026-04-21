@@ -9,6 +9,7 @@ import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, 
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
+import { runAgents } from "./commands/agents.js";
 import { runInit } from "./commands/init.js";
 import { runDigest } from "./commands/digest.js";
 import { runCost } from "./commands/cost.js";
@@ -380,6 +381,22 @@ browse
   .action(async () => {
     await runBrowse({
       startView: "digests-list",
+    });
+  });
+
+program
+  .command("agents")
+  .description("Analyze how agents are used together across stitched task timelines")
+  .option("-p, --project <name>", "Scope to projects matching this name or path")
+  .option("--json", "Output as JSON", false)
+  .option("--gap <hours>", "Stitching gap in hours (default 2)", "2")
+  .option("--top <n>", "Show top N multi-agent tasks (default 10)", "10")
+  .action(async (opts) => {
+    await runAgents({
+      project: opts.project,
+      json: opts.json,
+      gapHours: parsePositiveInt(opts.gap, "--gap"),
+      top: parsePositiveInt(opts.top, "--top"),
     });
   });
 
