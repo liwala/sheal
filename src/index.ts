@@ -340,6 +340,19 @@ browse
   });
 
 browse
+  .command("timeline")
+  .description("Browse sessions as a multi-agent stitched timeline")
+  .option("-p, --project <name>", "Pre-filter by project name")
+  .option("--agent <name>", "Pre-filter by agent")
+  .action(async (opts) => {
+    await runBrowse({
+      project: opts.project,
+      agent: opts.agent,
+      startView: "timeline",
+    });
+  });
+
+browse
   .command("retros")
   .description("Browse retrospectives interactively")
   .option("-p, --project <name>", "Pre-filter by project name")

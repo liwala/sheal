@@ -22,6 +22,10 @@ export function StatusBar({ view, searchActive, info }: StatusBarProps) {
     keys.push("^/v Navigate", "enter Select", "/ Filter", "a Agent filter", "s Search transcripts");
   }
 
+  if (view === "timeline") {
+    keys.push("^/v Navigate", "enter Select/Toggle", "/ Filter", "a Agent filter");
+  }
+
   if (view === "projects" || view === "sessions") {
     keys.push("r Retros", "l Learnings");
   }

@@ -15,6 +15,7 @@ const AGENT_COLORS: Record<string, string> = {
 interface ProjectOverviewProps {
   project: NativeProject;
   onViewSessions: () => void;
+  onViewTimeline: () => void;
   onViewRetros: () => void;
   onViewLearnings: () => void;
   onViewAsks: () => void;
@@ -33,6 +34,7 @@ interface MenuItem {
 export function ProjectOverview({
   project,
   onViewSessions,
+  onViewTimeline,
   onViewRetros,
   onViewLearnings,
   onViewAsks,
@@ -51,8 +53,15 @@ export function ProjectOverview({
 
   const agents = project.agents || [];
 
+  const hasMultipleAgents = agents.length > 1;
   const items: MenuItem[] = [
     { label: "Sessions", count: project.sessionCount, action: onViewSessions },
+    {
+      label: hasMultipleAgents ? "Timeline (stitched)" : "Timeline",
+      count: project.sessionCount,
+      color: hasMultipleAgents ? "cyanBright" : undefined,
+      action: onViewTimeline,
+    },
     { label: "Retros", count: retroCount, color: "magenta", action: onViewRetros },
     { label: "Learnings", count: learningCount.local, color: "green", action: onViewLearnings },
     { label: "Asks", count: askCount, color: "blueBright", action: onViewAsks },

@@ -6,6 +6,7 @@ import type { View } from "./types.js";
 import { ProjectList } from "./views/ProjectList.js";
 import { ProjectOverview } from "./views/ProjectOverview.js";
 import { SessionList } from "./views/SessionList.js";
+import { Timeline } from "./views/Timeline.js";
 import { SessionDetail } from "./views/SessionDetail.js";
 import { AmpSessionDetail } from "./views/AmpSessionDetail.js";
 import { CodexSessionDetail } from "./views/CodexSessionDetail.js";
@@ -31,7 +32,7 @@ interface AppProps {
 
 export function App({ initialProject, initialQuery, initialAgent, initialView }: AppProps) {
   const { exit } = useApp();
-  const needsProject = initialView && ["retro-list", "learnings", "sessions", "asks-list"].includes(initialView);
+  const needsProject = initialView && ["retro-list", "learnings", "sessions", "timeline", "asks-list"].includes(initialView);
   const isGlobalView = initialView && ["digests-list"].includes(initialView);
   const [view, setView] = useState<View>(
     needsProject ? "projects" : (initialView || (initialQuery ? "search-results" : "projects")),
@@ -46,7 +47,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
   const pendingViewRef = useRef<View | null>(
-    initialView && ["retro-list", "learnings", "asks-list"].includes(initialView) ? initialView : null,
+    initialView && ["retro-list", "learnings", "asks-list", "timeline"].includes(initialView) ? initialView : null,
   );
 
   const handleQuit = useCallback(() => exit(), [exit]);
@@ -95,6 +96,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   }, []);
 
   const handleViewSessions = useCallback(() => { setView("sessions"); }, []);
+  const handleViewTimeline = useCallback(() => { setView("timeline"); }, []);
   const handleViewRetros = useCallback(() => { setView("retro-list"); }, []);
   const handleViewLearnings = useCallback(() => { setView("learnings"); }, []);
   const handleViewAsks = useCallback(() => { setView("asks-list"); }, []);
@@ -125,7 +127,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   const handleBack = useCallback(() => {
     if (view === "detail") {
       setView(selectedProject ? "sessions" : "search-results");
-    } else if (view === "sessions" || view === "retro-list" || view === "learnings" || view === "asks-list") {
+    } else if (view === "sessions" || view === "timeline" || view === "retro-list" || view === "learnings" || view === "asks-list") {
       setView("project-overview");
     } else if (view === "project-overview") {
       setView("projects");
@@ -162,6 +164,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
         <ProjectOverview
           project={selectedProject}
           onViewSessions={handleViewSessions}
+          onViewTimeline={handleViewTimeline}
           onViewRetros={handleViewRetros}
           onViewLearnings={handleViewLearnings}
           onViewAsks={handleViewAsks}
@@ -179,6 +182,19 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
           onSelect={handleSelectSession}
           onBack={handleBack}
           onSearch={handleSearch}
+          onQuit={handleQuit}
+          agentFilter={agentFilter}
+          onAgentFilterToggle={handleAgentToggle}
+        />
+      );
+
+    case "timeline":
+      if (!selectedProject) return null;
+      return (
+        <Timeline
+          project={selectedProject}
+          onSelect={handleSelectSession}
+          onBack={handleBack}
           onQuit={handleQuit}
           agentFilter={agentFilter}
           onAgentFilterToggle={handleAgentToggle}
