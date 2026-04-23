@@ -11,9 +11,9 @@
  */
 
 import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { homedir } from "node:os";
-import type { CheckpointInfo } from "./types.js";
+import type { Checkpoint, CheckpointInfo, CheckpointRoot, Session, SessionEntry } from "./types.js";
 
 export interface CodexProject {
   slug: string;
@@ -154,6 +154,61 @@ export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; e
 }
 
 /**
+ * Load a Codex session as a normalized Checkpoint for retro analysis.
+ */
+export function loadCodexSessionCheckpoint(
+  sessionId: string,
+  projectRoot?: string,
+): Checkpoint | null {
+  const files = collectSessionFiles();
+  const file = files.find((f) => f.id === sessionId);
+  if (!file) return null;
+
+  if (projectRoot && resolve(file.cwd) !== resolve(projectRoot)) {
+    return null;
+  }
+
+  const content = readFileSync(file.path, "utf-8");
+  return codexSessionToCheckpoint(file, content);
+}
+
+/**
+ * Convert raw Codex session content into the normalized Checkpoint shape.
+ */
+export function codexSessionToCheckpoint(meta: CodexSessionFile, content: string): Checkpoint {
+  const transcript = parseCodexTranscript(content);
+  const filesTouched = extractFilesTouched(transcript);
+
+  const session: Session = {
+    metadata: {
+      checkpointId: meta.id,
+      sessionId: meta.id,
+      strategy: "codex-native",
+      createdAt: meta.timestamp,
+      checkpointsCount: 0,
+      filesTouched,
+      agent: "Codex",
+      model: meta.model,
+      cliVersion: meta.cliVersion,
+    },
+    transcript,
+    prompts: transcript
+      .filter((entry) => entry.type === "user")
+      .map((entry) => entry.content),
+  };
+
+  const root: CheckpointRoot = {
+    checkpointId: meta.id,
+    strategy: "codex-native",
+    checkpointsCount: 0,
+    filesTouched,
+    sessions: [],
+  };
+
+  return { root, sessions: [session] };
+}
+
+/**
  * Collect all session files from the dated directory structure.
  */
 function collectSessionFiles(): CodexSessionFile[] {
@@ -188,6 +243,247 @@ function collectSessionFiles(): CodexSessionFile[] {
   }
 
   return sessions;
+}
+
+function parseCodexTranscript(content: string): SessionEntry[] {
+  const entries: SessionEntry[] = [];
+  const toolCalls = new Map<string, {
+    originalName: string;
+    mappedName: string;
+    input: unknown;
+    filesAffected: string[];
+  }>();
+
+  for (const line of content.split("\n")) {
+    if (!line) continue;
+
+    try {
+      const obj = JSON.parse(line);
+      const timestamp = obj.timestamp as string | undefined;
+      if (obj.type === "custom_tool_call") {
+        const entry = normalizeCodexCustomToolCall(obj, timestamp);
+        if (entry) entries.push(entry);
+        continue;
+      }
+
+      if (obj.type !== "response_item") continue;
+
+      const payload = obj.payload;
+      if (!payload || typeof payload !== "object") continue;
+
+      if (payload.type === "custom_tool_call") {
+        const entry = normalizeCodexCustomToolCall(payload, timestamp);
+        if (entry) entries.push(entry);
+        continue;
+      }
+
+      if (payload.type === "message") {
+        const entry = normalizeCodexMessage(payload, timestamp);
+        if (entry) entries.push(entry);
+        continue;
+      }
+
+      if (payload.type === "function_call") {
+        const toolCall = normalizeCodexToolCall(payload, timestamp);
+        if (!toolCall) continue;
+
+        toolCalls.set(payload.call_id, toolCall.pending);
+        if (toolCall.entry) {
+          entries.push(toolCall.entry);
+        }
+        continue;
+      }
+
+      if (payload.type === "function_call_output") {
+        const pending = toolCalls.get(payload.call_id);
+        const output = typeof payload.output === "string"
+          ? payload.output
+          : JSON.stringify(payload.output);
+        entries.push({
+          uuid: payload.call_id ?? "",
+          type: "tool",
+          timestamp,
+          content: output.slice(0, 1000),
+          toolOutput: output.slice(0, 4000),
+        });
+        if (pending?.originalName !== "write_stdin") {
+          toolCalls.delete(payload.call_id);
+        }
+      }
+    } catch {
+      // skip malformed lines
+    }
+  }
+
+  return entries;
+}
+
+function normalizeCodexCustomToolCall(
+  raw: Record<string, unknown>,
+  timestamp?: string,
+): SessionEntry | null {
+  const originalName = typeof raw.name === "string" ? raw.name : "";
+  const mappedName = mapCodexToolName(originalName);
+  const input = normalizeCodexToolInput(originalName, { code: raw.input });
+  const filesAffected = extractCodexFilesAffected(originalName, input);
+
+  if (!mappedName) return null;
+  return {
+    uuid: typeof raw.call_id === "string" ? raw.call_id : "",
+    type: "tool",
+    timestamp,
+    content: `Tool: ${mappedName}`,
+    toolName: mappedName,
+    toolInput: input,
+    filesAffected,
+  };
+}
+
+function normalizeCodexMessage(
+  payload: Record<string, unknown>,
+  timestamp?: string,
+): SessionEntry | null {
+  const role = payload.role;
+  const content = payload.content;
+  if ((role !== "user" && role !== "assistant") || !Array.isArray(content)) return null;
+
+  const texts = content
+    .filter((block): block is Record<string, unknown> =>
+      !!block && typeof block === "object" &&
+      (block.type === "input_text" || block.type === "output_text" || block.type === "text") &&
+      typeof block.text === "string",
+    )
+    .map((block) => (block.text as string).trim())
+    .filter(Boolean);
+
+  if (role === "user") {
+    const prompts = texts.filter((text) => !isInjectedContext(text));
+    if (prompts.length === 0) return null;
+    return {
+      uuid: "",
+      type: "user",
+      timestamp,
+      content: prompts.join("\n"),
+    };
+  }
+
+  if (texts.length === 0) return null;
+  return {
+    uuid: "",
+    type: "assistant",
+    timestamp,
+    content: texts.join("\n"),
+  };
+}
+
+function normalizeCodexToolCall(
+  payload: Record<string, unknown>,
+  timestamp?: string,
+): {
+  entry: SessionEntry | null;
+  pending: { originalName: string; mappedName: string; input: unknown; filesAffected: string[] };
+} | null {
+  const originalName = typeof payload.name === "string" ? payload.name : "";
+  const rawInput = parseCodexArguments(payload.arguments);
+  const mappedName = mapCodexToolName(originalName);
+  const input = normalizeCodexToolInput(originalName, rawInput);
+  const filesAffected = extractCodexFilesAffected(originalName, input);
+
+  const pending = { originalName, mappedName, input, filesAffected };
+  if (originalName === "write_stdin") {
+    return { entry: null, pending };
+  }
+
+  return {
+    pending,
+    entry: {
+      uuid: typeof payload.call_id === "string" ? payload.call_id : "",
+      type: "tool",
+      timestamp,
+      content: `Tool: ${mappedName}`,
+      toolName: mappedName,
+      toolInput: input,
+      filesAffected,
+    },
+  };
+}
+
+function parseCodexArguments(argumentsValue: unknown): unknown {
+  if (typeof argumentsValue !== "string") return argumentsValue;
+  try {
+    return JSON.parse(argumentsValue);
+  } catch {
+    return argumentsValue;
+  }
+}
+
+function mapCodexToolName(toolName: string): string {
+  switch (toolName) {
+    case "exec_command":
+      return "Bash";
+    case "apply_patch":
+      return "Edit";
+    case "view_image":
+      return "Read";
+    default:
+      return toolName;
+  }
+}
+
+function normalizeCodexToolInput(toolName: string, input: unknown): unknown {
+  if (!input || typeof input !== "object") return input;
+  const record = input as Record<string, unknown>;
+
+  switch (toolName) {
+    case "exec_command":
+      return {
+        command: typeof record.cmd === "string" ? record.cmd : "",
+        workdir: record.workdir,
+      };
+    case "write_stdin":
+      return {
+        sessionId: record.session_id,
+        chars: record.chars,
+      };
+    case "apply_patch":
+      return {
+        patch: typeof record.code === "string" ? record.code : "",
+      };
+    default:
+      return input;
+  }
+}
+
+function extractCodexFilesAffected(toolName: string, input: unknown): string[] {
+  if (!input || typeof input !== "object") return [];
+  const record = input as Record<string, unknown>;
+
+  if (toolName === "apply_patch" && typeof record.patch === "string") {
+    return extractFilesFromPatch(record.patch);
+  }
+
+  const path = record.path ?? record.filePath ?? record.file_path;
+  return typeof path === "string" ? [path] : [];
+}
+
+function extractFilesFromPatch(patch: string): string[] {
+  const files = new Set<string>();
+  const matches = patch.matchAll(/^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm);
+  for (const match of matches) {
+    const file = match[1]?.trim();
+    if (file) files.add(file);
+  }
+  return [...files];
+}
+
+function extractFilesTouched(entries: SessionEntry[]): string[] {
+  const files = new Set<string>();
+  for (const entry of entries) {
+    for (const file of entry.filesAffected ?? []) {
+      files.add(file);
+    }
+  }
+  return [...files];
 }
 
 /** Check if text looks like injected system context rather than a real user prompt. */

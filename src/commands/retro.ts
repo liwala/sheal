@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "../entire/claude-native.js";
+import { hasCodexSessions, listCodexSessionsForProject, loadCodexSessionCheckpoint } from "../entire/codex-native.js";
 import { hasAmpSessions, listAmpProjects, listAmpSessionsForProject, listAmpThreadFiles, getAmpThreadProjectPath } from "../entire/amp-native.js";
 import { runRetrospective } from "../retro/index.js";
 import { runAmpRetrospective } from "../retro/amp-retro.js";
@@ -33,6 +34,15 @@ export interface RetroOptions {
 
 const MIN_USER_PROMPTS = 3;
 const RETRO_PATTERNS = [/sheal\s+retro/i, /\/retro/i, /sheal\s+check/i];
+
+type RetroSessionSource = "claude-native" | "codex-native" | "entire";
+
+interface RetroSessionCandidate {
+  source: RetroSessionSource;
+  id: string;
+  createdAt: string;
+  title?: string;
+}
 
 /**
  * Check if a session is too trivial to analyze.
@@ -71,32 +81,16 @@ async function findNextViableSession(
   repoPath: string,
   skipId: string,
 ): Promise<{ id: string; title?: string } | null> {
-  // Try native sessions first (most common)
-  if (hasNativeTranscripts(repoPath)) {
-    const sessions = listNativeSessions(repoPath);
-    for (const info of sessions.slice(0, 10)) {
-      if (info.sessionId === skipId || info.checkpointId === skipId) continue;
-      try {
-        const cp = loadNativeSession(repoPath, info.sessionId);
-        if (cp && !shouldSkipSession(cp)) {
-          return { id: info.sessionId, title: info.title?.slice(0, 50) };
-        }
-      } catch { /* skip */ }
-    }
-  }
-
-  // Try Entire.io
-  const hasBranch = await hasEntireBranch(repoPath);
-  if (hasBranch) {
-    const checkpoints = await listCheckpoints(repoPath);
-    for (const info of checkpoints.slice(0, 10)) {
-      if (info.checkpointId === skipId) continue;
-      try {
-        const cp = await loadCheckpoint(repoPath, info.checkpointId);
-        if (cp && !shouldSkipSession(cp)) {
-          return { id: info.checkpointId, title: info.title?.slice(0, 50) };
-        }
-      } catch { /* skip */ }
+  const sessions = await listRetroCandidates(repoPath);
+  for (const candidate of sessions.slice(0, 10)) {
+    if (candidate.id === skipId) continue;
+    try {
+      const cp = await loadSessionCandidate(repoPath, candidate);
+      if (cp && !shouldSkipSession(cp)) {
+        return { id: candidate.id, title: candidate.title?.slice(0, 50) };
+      }
+    } catch {
+      // skip
     }
   }
 
@@ -175,7 +169,7 @@ export async function runRetro(options: RetroOptions): Promise<void> {
  */
 async function runBatchRetro(options: RetroOptions): Promise<void> {
   const repoPath = options.projectRoot;
-  const sessions = listNativeSessions(repoPath);
+  const sessions = await listRetroCandidates(repoPath);
 
   if (sessions.length === 0) {
     console.log(chalk.yellow("No sessions found."));
@@ -202,10 +196,10 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
   const retros: Retrospective[] = [];
 
   for (const info of selected) {
-    const checkpoint = loadNativeSession(repoPath, info.sessionId);
+    const checkpoint = await loadSessionCandidate(repoPath, info);
     if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
       if (options.format !== "json") {
-        console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (no transcript)`));
+        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (no transcript)`));
       }
       continue;
     }
@@ -213,7 +207,7 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     const skipReason = shouldSkipSession(checkpoint);
     if (skipReason) {
       if (options.format !== "json") {
-        console.log(chalk.gray(`Skipping ${info.sessionId.slice(0, 12)} (${skipReason})`));
+        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (${skipReason})`));
       }
       continue;
     }
@@ -226,7 +220,7 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     } else {
       // Print each retro with a separator
       console.log(chalk.gray("─".repeat(60)));
-      console.log(chalk.bold(`Session: ${info.sessionId.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
+      console.log(chalk.bold(`Session: ${info.id.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
       if (info.title) console.log(chalk.gray(`  ${info.title.slice(0, 70)}`));
       console.log();
 
@@ -422,37 +416,29 @@ async function loadSession(
   repoPath: string,
   requestedId?: string,
 ): Promise<import("../entire/types.js").Checkpoint | null> {
-  // Try native Claude Code transcripts first
-  if (hasNativeTranscripts(repoPath)) {
-    let sessionId = requestedId;
-    if (!sessionId) {
-      const sessions = listNativeSessions(repoPath);
-      if (sessions.length > 0) {
-        sessionId = sessions[0].sessionId;
-      }
+  if (requestedId) {
+    const directNative = hasNativeTranscripts(repoPath) ? loadNativeSession(repoPath, requestedId) : null;
+    if (directNative && directNative.sessions.length > 0 && directNative.sessions[0].transcript.length > 0) {
+      return directNative;
     }
 
-    if (sessionId) {
-      const checkpoint = loadNativeSession(repoPath, sessionId);
+    const directCodex = hasCodexSessions() ? loadCodexSessionCheckpoint(requestedId, repoPath) : null;
+    if (directCodex && directCodex.sessions.length > 0 && directCodex.sessions[0].transcript.length > 0) {
+      return directCodex;
+    }
+
+    const hasBranch = await hasEntireBranch(repoPath);
+    if (hasBranch) {
+      const checkpoint = await loadCheckpoint(repoPath, requestedId);
       if (checkpoint && checkpoint.sessions.length > 0 && checkpoint.sessions[0].transcript.length > 0) {
         return checkpoint;
       }
     }
-  }
-
-  // Try Entire.io
-  const hasBranch = await hasEntireBranch(repoPath);
-  if (hasBranch) {
-    let checkpointId = requestedId;
-    if (!checkpointId) {
-      const checkpoints = await listCheckpoints(repoPath);
-      if (checkpoints.length > 0) {
-        checkpointId = checkpoints[0].checkpointId;
-      }
-    }
-
-    if (checkpointId) {
-      const checkpoint = await loadCheckpoint(repoPath, checkpointId);
+  } else {
+    const candidates = await listRetroCandidates(repoPath);
+    const latest = pickLatestRetroCandidate(candidates);
+    if (latest) {
+      const checkpoint = await loadSessionCandidate(repoPath, latest);
       if (checkpoint && checkpoint.sessions.length > 0 && checkpoint.sessions[0].transcript.length > 0) {
         return checkpoint;
       }
@@ -460,8 +446,73 @@ async function loadSession(
   }
 
   console.log(chalk.yellow("No session data found."));
-  console.log(chalk.gray("Supported sources: native Claude Code (~/.claude/projects/), Entire.io, Amp (~/.amp/file-changes/)."));
+  console.log(chalk.gray("Supported sources: native Claude Code (~/.claude/projects/), Codex (~/.codex/sessions/), Entire.io, Amp (~/.amp/file-changes/)."));
   return null;
+}
+
+async function listRetroCandidates(repoPath: string): Promise<RetroSessionCandidate[]> {
+  const candidates: RetroSessionCandidate[] = [];
+
+  if (hasNativeTranscripts(repoPath)) {
+    candidates.push(
+      ...listNativeSessions(repoPath).map((session) => ({
+        source: "claude-native" as const,
+        id: session.sessionId,
+        createdAt: session.createdAt,
+        title: session.title,
+      })),
+    );
+  }
+
+  if (hasCodexSessions()) {
+    candidates.push(
+      ...listCodexSessionsForProject(repoPath).map((session) => ({
+        source: "codex-native" as const,
+        id: session.sessionId,
+        createdAt: session.createdAt,
+        title: session.title,
+      })),
+    );
+  }
+
+  const hasBranch = await hasEntireBranch(repoPath);
+  if (hasBranch) {
+    const checkpoints = await listCheckpoints(repoPath);
+    candidates.push(
+      ...checkpoints.map((checkpoint) => ({
+        source: "entire" as const,
+        id: checkpoint.checkpointId,
+        createdAt: checkpoint.createdAt,
+        title: checkpoint.title,
+      })),
+    );
+  }
+
+  candidates.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return candidates;
+}
+
+export function pickLatestRetroCandidate(
+  candidates: RetroSessionCandidate[],
+): RetroSessionCandidate | null {
+  if (candidates.length === 0) return null;
+  return candidates.reduce((latest, candidate) =>
+    candidate.createdAt > latest.createdAt ? candidate : latest,
+  );
+}
+
+async function loadSessionCandidate(
+  repoPath: string,
+  candidate: RetroSessionCandidate,
+): Promise<import("../entire/types.js").Checkpoint | null> {
+  switch (candidate.source) {
+    case "claude-native":
+      return loadNativeSession(repoPath, candidate.id);
+    case "codex-native":
+      return loadCodexSessionCheckpoint(candidate.id, repoPath);
+    case "entire":
+      return await loadCheckpoint(repoPath, candidate.id);
+  }
 }
 
 function enrichmentCachePath(projectRoot: string, checkpointId: string, agent?: string): string {
