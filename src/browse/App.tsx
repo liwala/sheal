@@ -155,6 +155,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
           agentFilter={agentFilter}
           onAgentFilterToggle={handleAgentToggle}
           initialFilter={initialProject}
+          contentFilter={pendingViewRef.current === "retro-list" ? "retros" : "all"}
         />
       );
 

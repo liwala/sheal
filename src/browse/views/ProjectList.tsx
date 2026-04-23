@@ -78,6 +78,16 @@ interface ProjectListProps {
   agentFilter: string | null;
   onAgentFilterToggle: () => void;
   initialFilter?: string;
+  contentFilter?: "all" | "retros";
+}
+
+export function filterProjectsForContent(
+  projects: NativeProject[],
+  contentFilter: "all" | "retros",
+  stats: Map<string, { retros: number; learnings: number; asks: number }>,
+): NativeProject[] {
+  if (contentFilter === "all") return projects;
+  return projects.filter((project) => (stats.get(project.projectPath)?.retros || 0) > 0);
 }
 
 export function ProjectList({
@@ -87,6 +97,7 @@ export function ProjectList({
   agentFilter,
   onAgentFilterToggle,
   initialFilter,
+  contentFilter = "all",
 }: ProjectListProps) {
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -120,7 +131,7 @@ export function ProjectList({
   }, [allProjects]);
 
   const filtered = useMemo(() => {
-    let result = allProjects;
+    let result = filterProjectsForContent(allProjects, contentFilter, projectStats);
     if (filterText) {
       const q = filterText.toLowerCase();
       result = result.filter(
@@ -133,7 +144,7 @@ export function ProjectList({
       );
     }
     return result;
-  }, [allProjects, filterText, agentFilter]);
+  }, [allProjects, contentFilter, filterText, agentFilter, projectStats]);
 
   useInput((input, key) => {
     if (filterActive) {
