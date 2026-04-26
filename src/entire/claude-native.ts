@@ -32,8 +32,13 @@ import type {
 export function getClaudeProjectDir(projectRoot: string): string | null {
   const absPath = resolve(projectRoot);
   // Claude Code slug: absolute path with / replaced by -
-  // e.g., /Users/lu/code/foo → -Users-lu-code-foo
-  const slug = absPath.replace(/\//g, "-");
+  // On Windows, resolve() returns backslashes + uppercase drive letter (C:\...)
+  // Normalize before slugifying so the slug matches the directory on disk
+  const slug = absPath
+    .replace(/\/g, "/")
+    .replace(/^([A-Z]):/, (_, d) => d.toLowerCase() + ":")
+    .replace(/:/g, "-")
+    .replace(/\//g, "-");
   const dir = join(homedir(), ".claude", "projects", slug);
   return existsSync(dir) ? dir : null;
 }
@@ -506,7 +511,7 @@ function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
         if (!line) continue;
         try {
           const obj = JSON.parse(line);
-          if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
+          if (typeof obj.cwd === "string" && (obj.cwd.startsWith("/") || /^[a-zA-Z]:/.test(obj.cwd))) {
             return obj.cwd;
           }
         } catch {
@@ -537,7 +542,20 @@ function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
  * then validates the result exists on disk.
  */
 function slug2path(slug: string): string | null {
-  if (!slug.startsWith("-")) return null;
+  // Windows slugs start with lowercase drive letter: "c--Users-..."
+  // Unix slugs start with "-": "-Users-..."
+  const isWindows = /^[a-z]--/.test(slug);
+  if (!slug.startsWith("-") && !isWindows) return null;
+
+  if (isWindows) {
+    // Reconstruct: c--Users-foo -> C:\Users\foo
+    const restored = slug
+      .replace(/^([a-z])--/, (_, d) => d.toUpperCase() + ":\\")
+      .replace(/-/g, "\\");
+    if (existsSync(restored)) return restored;
+    return null;
+  }
+
   // Simple reconstruction: replace all - with /
   const candidate = slug.replace(/-/g, "/");
   if (existsSync(candidate)) return candidate;
