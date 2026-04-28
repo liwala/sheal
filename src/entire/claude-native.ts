@@ -31,11 +31,19 @@ import type {
  */
 export function getClaudeProjectDir(projectRoot: string): string | null {
   const absPath = resolve(projectRoot);
-  // Claude Code slug: absolute path with / replaced by -
-  // e.g., /Users/lu/code/foo → -Users-lu-code-foo
-  const slug = absPath.replace(/\//g, "-");
+  // Claude Code slug: replace path separators, drive colons, and spaces with -.
+  // Unix: /Users/lu/code/foo → -Users-lu-code-foo
+  // Windows: C:\Users\me\Claude Code → c--Users-me-Claude-Code (lowercased drive)
+  const slug = absPath.replace(/[\\/: ]/g, "-");
   const dir = join(homedir(), ".claude", "projects", slug);
-  return existsSync(dir) ? dir : null;
+  if (existsSync(dir)) return dir;
+  // Fallback: drive letter case may vary on Windows
+  const lowerSlug = slug.charAt(0).toLowerCase() + slug.slice(1);
+  if (lowerSlug !== slug) {
+    const lowerDir = join(homedir(), ".claude", "projects", lowerSlug);
+    if (existsSync(lowerDir)) return lowerDir;
+  }
+  return null;
 }
 
 /**
@@ -506,7 +514,7 @@ function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
         if (!line) continue;
         try {
           const obj = JSON.parse(line);
-          if (typeof obj.cwd === "string" && obj.cwd.startsWith("/")) {
+          if (typeof obj.cwd === "string" && /^([a-zA-Z]:|\/)/.test(obj.cwd)) {
             return obj.cwd;
           }
         } catch {
@@ -537,6 +545,16 @@ function extractProjectPath(dir: string, jsonlFiles: string[]): string | null {
  * then validates the result exists on disk.
  */
 function slug2path(slug: string): string | null {
+  // Windows slug starts with a lowercase drive letter followed by `--`
+  // (drive `:` becomes `-`, separator `\` becomes `-`): "c--Users-..."
+  const winMatch = /^([a-z])--/.exec(slug);
+  if (winMatch) {
+    const drive = winMatch[1].toUpperCase();
+    const rest = slug.slice(3).replace(/-/g, "\\");
+    const candidate = `${drive}:\\${rest}`;
+    if (existsSync(candidate)) return candidate;
+    return null;
+  }
   if (!slug.startsWith("-")) return null;
   // Simple reconstruction: replace all - with /
   const candidate = slug.replace(/-/g, "/");
