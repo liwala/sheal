@@ -1,4 +1,4 @@
-import type { SessionEntry, TokenUsage, CheckpointSummary } from "../entire/types.js";
+import type { SessionEntry, TokenUsage, CheckpointSummary } from "@liwala/agent-sessions";
 
 /**
  * A detected pattern where the agent retried the same approach multiple times.

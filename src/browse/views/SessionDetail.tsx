@@ -1,6 +1,6 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
-import { loadNativeSessionBySlug } from "../../entire/claude-native.js";
+import { loadNativeSessionBySlug } from "@liwala/agent-sessions";
 import { hasRetro } from "../utils/retro-status.js";
 import { buildBlocks, PREVIEW_LINES, TYPE_COLORS, TYPE_LABELS } from "../utils/blocks.js";
 import type { DisplayBlock } from "../utils/blocks.js";

@@ -12,11 +12,11 @@ import {
   listAllNativeProjects,
   listNativeSessionsBySlug,
   loadNativeSessionBySlug,
-} from "../entire/claude-native.js";
-import { listCodexProjects, listCodexSessionsForProject, loadCodexSession } from "../entire/codex-native.js";
-import { listAmpProjects } from "../entire/amp-native.js";
-import type { NativeProject } from "../entire/claude-native.js";
-import type { TokenUsage } from "../entire/types.js";
+} from "@liwala/agent-sessions";
+import { listCodexProjects, listCodexSessionsForProject, loadCodexSession } from "@liwala/agent-sessions";
+import { listAmpProjects } from "@liwala/agent-sessions";
+import type { NativeProject } from "@liwala/agent-sessions";
+import type { TokenUsage } from "@liwala/agent-sessions";
 import type { RawPrompt, TokenSummary, AgentScanStatus } from "./types.js";
 
 export interface LoadResult {

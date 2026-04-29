@@ -2,7 +2,7 @@ import chalk from "chalk";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
+import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "@liwala/agent-sessions";
 import {
   hasNativeTranscripts,
   listNativeSessions,
@@ -10,9 +10,9 @@ import {
   listAllNativeProjects,
   listNativeSessionsBySlug,
   loadNativeSessionBySlug,
-} from "../entire/claude-native.js";
+} from "@liwala/agent-sessions";
 import { detectAgentCli, invokeAgent } from "../retro/agent.js";
-import type { Checkpoint, SessionEntry } from "../entire/types.js";
+import type { Checkpoint, SessionEntry } from "@liwala/agent-sessions";
 
 export interface AskOptions {
   question: string;

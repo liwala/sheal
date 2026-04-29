@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
-import { loadGeminiSession } from "../../entire/gemini-native.js";
-import type { GeminiTranscriptEntry } from "../../entire/gemini-native.js";
+import { loadGeminiSession } from "@liwala/agent-sessions";
+import type { GeminiTranscriptEntry } from "@liwala/agent-sessions";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
 

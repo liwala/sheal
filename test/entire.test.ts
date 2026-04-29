@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseTranscript } from "../src/entire/transcript.js";
+import { parseTranscript } from "@liwala/agent-sessions";
 
 const FIXTURES = join(import.meta.dirname, "fixtures");
 

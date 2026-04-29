@@ -2,7 +2,7 @@
  * Session analysis functions that detect patterns in transcript data.
  */
 
-import type { Session, SessionEntry, Checkpoint } from "../entire/types.js";
+import type { Session, SessionEntry, Checkpoint } from "@liwala/agent-sessions";
 import type { EffortBreakdown, FailureLoop, RevertedWork, Learning, HumanPatterns, CoordinationIssue } from "./types.js";
 
 /**

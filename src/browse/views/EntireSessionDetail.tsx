@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useEffect } from "react";
-import { loadCheckpoint } from "../../entire/reader.js";
-import type { Checkpoint } from "../../entire/types.js";
+import { loadCheckpoint } from "@liwala/agent-sessions";
+import type { Checkpoint } from "@liwala/agent-sessions";
 import { hasRetro } from "../utils/retro-status.js";
 import { buildBlocks, PREVIEW_LINES, TYPE_COLORS, TYPE_LABELS } from "../utils/blocks.js";
 import type { DisplayBlock } from "../utils/blocks.js";

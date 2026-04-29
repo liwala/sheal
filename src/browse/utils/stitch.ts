@@ -7,7 +7,7 @@
  * merges consecutive sessions whose start times fall within a configurable gap
  * window into a single TaskGroup.
  */
-import type { CheckpointInfo } from "../../entire/types.js";
+import type { CheckpointInfo } from "@liwala/agent-sessions";
 
 /** Default gap threshold: sessions starting within 2 hours of each other are stitched. */
 export const DEFAULT_GAP_MS = 2 * 60 * 60 * 1000;

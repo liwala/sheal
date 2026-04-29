@@ -12,7 +12,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { NativeProject } from "./claude-native.js";
+import type { NativeProject } from "./claude.js";
 import type { CheckpointInfo } from "./types.js";
 
 const AMP_DIR = join(homedir(), ".amp", "file-changes");

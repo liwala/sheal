@@ -1,15 +1,9 @@
 /**
- * Native Claude Code transcript reader.
+ * Claude Code session reader.
  *
- * Reads session transcripts directly from ~/.claude/projects/<project-slug>/
- * when Entire.io is not available. This provides a fallback so sheal retro
- * works without Entire.io installed.
- *
- * Claude Code stores sessions as:
- *   ~/.claude/projects/<project-slug>/<session-id>.jsonl
- *
- * The project slug is the absolute path with / replaced by -.
- * Each JSONL line is a Claude Code envelope entry with:
+ * Reads session transcripts from ~/.claude/projects/<project-slug>/<session-id>.jsonl.
+ * The project slug is the absolute path with separators, drive colons, and spaces
+ * replaced by `-`. Each JSONL line is a Claude Code envelope entry:
  *   { type, message, uuid, timestamp, sessionId, version, cwd, ... }
  */
 

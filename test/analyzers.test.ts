@@ -8,7 +8,7 @@ import {
   analyzeHumanPatterns,
   calculateHealthScore,
 } from "../src/retro/analyzers.js";
-import type { Session, SessionEntry } from "../src/entire/types.js";
+import type { Session, SessionEntry } from "@liwala/agent-sessions";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useApp } from "ink";
-import type { NativeProject } from "../entire/claude-native.js";
-import type { CheckpointInfo } from "../entire/types.js";
+import type { NativeProject } from "@liwala/agent-sessions";
+import type { CheckpointInfo } from "@liwala/agent-sessions";
 import type { View } from "./types.js";
 import { ProjectList } from "./views/ProjectList.js";
 import { ProjectOverview } from "./views/ProjectOverview.js";

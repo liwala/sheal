@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
-import { loadCodexSession } from "../../entire/codex-native.js";
-import type { CodexTranscriptEntry } from "../../entire/codex-native.js";
+import { loadCodexSession } from "@liwala/agent-sessions";
+import type { CodexTranscriptEntry } from "@liwala/agent-sessions";
 import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";

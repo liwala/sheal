@@ -12,7 +12,7 @@
  *   └── ...
  */
 
-import { exec } from "../utils/exec.js";
+import { exec } from "./exec.js";
 import type {
   Checkpoint,
   CheckpointInfo,

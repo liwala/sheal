@@ -1,0 +1,45 @@
+{
+  "name": "@liwala/agent-sessions",
+  "version": "0.0.1",
+  "description": "Read AI coding agent session transcripts (Claude Code, Codex, Amp, Gemini CLI) and Entire.io checkpoints from disk",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liwala/sheal.git",
+    "directory": "packages/agent-sessions"
+  },
+  "keywords": [
+    "claude",
+    "codex",
+    "amp",
+    "gemini",
+    "entire",
+    "transcript",
+    "session",
+    "ai-agents"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.15",
+    "typescript": "5.9.3"
+  }
+}
