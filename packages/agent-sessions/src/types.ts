@@ -161,3 +161,23 @@ export interface CheckpointInfo {
   /** First user prompt, used as a de facto session title */
   title?: string;
 }
+
+/**
+ * Cross-agent project listing info. Used by readers that group sessions by
+ * project path (Claude Code, Amp). Each agent populates `slug` in its own
+ * convention (Claude: encoded path, Amp: `amp:<path>`).
+ */
+export interface NativeProject {
+  /** Agent-specific slug used as a stable identifier */
+  slug: string;
+  /** Reconstructed absolute path (e.g. /Users/lu/code/foo) */
+  projectPath: string;
+  /** Short display name (last path component) */
+  name: string;
+  /** Number of sessions/threads contributing to this project */
+  sessionCount: number;
+  /** Most recent session modification time */
+  lastModified: string;
+  /** Agent sources contributing to this project (set when merged) */
+  agents?: Array<{ agent: string; slug: string; sessionCount: number }>;
+}

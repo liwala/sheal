@@ -2,17 +2,19 @@ import chalk from "chalk";
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "@liwala/agent-sessions";
 import {
+  hasEntireBranch,
   hasNativeTranscripts,
-  listNativeSessions,
-  loadNativeSession,
   listAllNativeProjects,
+  listCheckpoints,
+  listNativeSessions,
   listNativeSessionsBySlug,
+  loadCheckpoint,
+  loadNativeSession,
   loadNativeSessionBySlug,
 } from "@liwala/agent-sessions";
-import { detectAgentCli, invokeAgent } from "../retro/agent.js";
 import type { Checkpoint, SessionEntry } from "@liwala/agent-sessions";
+import { detectAgentCli, invokeAgent } from "../retro/agent.js";
 
 export interface AskOptions {
   question: string;

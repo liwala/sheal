@@ -15,6 +15,7 @@ import type {
   Checkpoint,
   CheckpointInfo,
   CheckpointRoot,
+  NativeProject,
   Session,
   TokenUsage,
 } from "./types.js";
@@ -276,24 +277,6 @@ function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
   };
 
   return { root, sessions: [session] };
-}
-
-/**
- * Info about a discovered Claude Code project.
- */
-export interface NativeProject {
-  /** The slug used as directory name (e.g. -Users-lu-code-foo) */
-  slug: string;
-  /** Reconstructed absolute path (e.g. /Users/lu/code/foo) */
-  projectPath: string;
-  /** Short display name (last path component) */
-  name: string;
-  /** Number of .jsonl session files */
-  sessionCount: number;
-  /** Most recent session modification time */
-  lastModified: string;
-  /** Agent sources contributing to this project (set when merged) */
-  agents?: Array<{ agent: string; slug: string; sessionCount: number }>;
 }
 
 /**

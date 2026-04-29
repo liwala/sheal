@@ -1,10 +1,23 @@
 import chalk from "chalk";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "@liwala/agent-sessions";
-import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "@liwala/agent-sessions";
-import { hasCodexSessions, listCodexSessionsForProject, loadCodexSessionCheckpoint } from "@liwala/agent-sessions";
-import { hasAmpSessions, listAmpProjects, listAmpSessionsForProject, listAmpThreadFiles, getAmpThreadProjectPath } from "@liwala/agent-sessions";
+import {
+  getAmpThreadProjectPath,
+  hasAmpSessions,
+  hasCodexSessions,
+  hasEntireBranch,
+  hasNativeTranscripts,
+  listAmpProjects,
+  listAmpSessionsForProject,
+  listAmpThreadFiles,
+  listCheckpoints,
+  listCodexSessionsForProject,
+  listNativeSessions,
+  loadCheckpoint,
+  loadCodexSessionCheckpoint,
+  loadNativeSession,
+} from "@liwala/agent-sessions";
+import type { AmpFileChange, Checkpoint } from "@liwala/agent-sessions";
 import { runRetrospective } from "../retro/index.js";
 import { runAmpRetrospective } from "../retro/amp-retro.js";
 import { generateRetroPrompt, generateConsolidationPrompt } from "../retro/prompt.js";
@@ -48,7 +61,7 @@ interface RetroSessionCandidate {
  * Check if a session is too trivial to analyze.
  * Returns a reason string if it should be skipped, or null if it's worth analyzing.
  */
-function shouldSkipSession(checkpoint: import("@liwala/agent-sessions").Checkpoint): string | null {
+function shouldSkipSession(checkpoint: Checkpoint): string | null {
   const session = checkpoint.sessions[0];
   if (!session) return "no session data";
 
@@ -308,7 +321,7 @@ async function runAmpRetro(options: RetroOptions): Promise<void> {
  */
 function generateAmpRetroPrompt(
   retro: Retrospective,
-  files: import("@liwala/agent-sessions").AmpFileChange[],
+  files: AmpFileChange[],
   existingLearnings?: LearningFile[],
 ): string {
   const diffSummaries = files
@@ -381,7 +394,7 @@ Format each as a bullet starting with "- ".`;
  */
 async function enrichAmpRetro(
   retro: Retrospective,
-  files: import("@liwala/agent-sessions").AmpFileChange[],
+  files: AmpFileChange[],
   projectRoot: string,
   existingLearnings: LearningFile[],
   agentOverride?: string,
@@ -415,7 +428,7 @@ async function enrichAmpRetro(
 async function loadSession(
   repoPath: string,
   requestedId?: string,
-): Promise<import("@liwala/agent-sessions").Checkpoint | null> {
+): Promise<Checkpoint | null> {
   if (requestedId) {
     const directNative = hasNativeTranscripts(repoPath) ? loadNativeSession(repoPath, requestedId) : null;
     if (directNative && directNative.sessions.length > 0 && directNative.sessions[0].transcript.length > 0) {
@@ -504,7 +517,7 @@ export function pickLatestRetroCandidate(
 async function loadSessionCandidate(
   repoPath: string,
   candidate: RetroSessionCandidate,
-): Promise<import("@liwala/agent-sessions").Checkpoint | null> {
+): Promise<Checkpoint | null> {
   switch (candidate.source) {
     case "claude-native":
       return loadNativeSession(repoPath, candidate.id);
@@ -698,7 +711,7 @@ function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): voi
   console.log();
 }
 
-async function enrichRetro(retro: Retrospective, checkpoint: import("@liwala/agent-sessions").Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
+async function enrichRetro(retro: Retrospective, checkpoint: Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
   const session = checkpoint.sessions[0];
   const defaultAgent = session?.metadata.agent ?? "claude";
   const agentNames = agentOverride ? agentOverride.split(",").map((a) => a.trim()) : [defaultAgent];

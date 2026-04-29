@@ -1,8 +1,14 @@
 import chalk from "chalk";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "@liwala/agent-sessions";
-import { hasNativeTranscripts, listNativeSessions, loadNativeSession } from "@liwala/agent-sessions";
+import {
+  hasEntireBranch,
+  hasNativeTranscripts,
+  listCheckpoints,
+  listNativeSessions,
+  loadCheckpoint,
+  loadNativeSession,
+} from "@liwala/agent-sessions";
 import { runRetrospective } from "../retro/index.js";
 import { getGlobalDir, getProjectDir, listLearnings } from "../learn/index.js";
 import { detectDrift } from "../drift/index.js";

@@ -1,12 +1,14 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo, useEffect } from "react";
-import { listNativeSessionsBySlug } from "@liwala/agent-sessions";
-import type { NativeProject } from "@liwala/agent-sessions";
-import type { CheckpointInfo } from "@liwala/agent-sessions";
-import { listCodexSessionsForProject } from "@liwala/agent-sessions";
-import { listAmpSessionsForProject } from "@liwala/agent-sessions";
-import { listGeminiSessionsForProject } from "@liwala/agent-sessions";
-import { hasEntireBranch, listCheckpoints } from "@liwala/agent-sessions";
+import {
+  hasEntireBranch,
+  listAmpSessionsForProject,
+  listCheckpoints,
+  listCodexSessionsForProject,
+  listGeminiSessionsForProject,
+  listNativeSessionsBySlug,
+} from "@liwala/agent-sessions";
+import type { CheckpointInfo, NativeProject } from "@liwala/agent-sessions";
 import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";

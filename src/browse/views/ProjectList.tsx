@@ -1,10 +1,12 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
-import { listAllNativeProjects } from "@liwala/agent-sessions";
+import {
+  listAllNativeProjects,
+  listAmpProjects,
+  listCodexProjects,
+  listGeminiProjects,
+} from "@liwala/agent-sessions";
 import type { NativeProject } from "@liwala/agent-sessions";
-import { listCodexProjects } from "@liwala/agent-sessions";
-import { listAmpProjects } from "@liwala/agent-sessions";
-import { listGeminiProjects } from "@liwala/agent-sessions";
 import { countRetros, countLearnings, countAsks } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";

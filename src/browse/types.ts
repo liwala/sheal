@@ -1,5 +1,4 @@
-import type { NativeProject } from "@liwala/agent-sessions";
-import type { CheckpointInfo, Checkpoint } from "@liwala/agent-sessions";
+import type { Checkpoint, CheckpointInfo, NativeProject } from "@liwala/agent-sessions";
 
 export type View = "projects" | "project-overview" | "sessions" | "timeline" | "detail" | "search-results" | "retro-list" | "retro-detail" | "learnings" | "asks-list" | "ask-detail" | "digests-list" | "digest-detail";
 
