@@ -16,5 +16,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx tsc
+      - run: npm run build
       - run: npx vitest run
