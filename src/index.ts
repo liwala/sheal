@@ -298,20 +298,14 @@ program
   .option("--slack", "Send summary to Slack", false)
   .option("--agent", "Run deep analysis with Claude after digest", false)
   .action(async (opts) => {
-    const { execFileSync } = await import("node:child_process");
-    const { join } = await import("node:path");
-    const { fileURLToPath } = await import("node:url");
-    const __dirname = join(fileURLToPath(import.meta.url), "..");
-    const script = join(__dirname, "..", "bin", "sheal-weekly-digest.sh");
-    const args: string[] = ["--since", opts.since, "--plan", opts.plan];
-    if (opts.project) args.push("--project", opts.project);
-    if (opts.slack) args.push("--slack");
-    if (opts.agent) args.push("--agent");
-    try {
-      execFileSync(script, args, { stdio: "inherit", env: process.env });
-    } catch {
-      process.exit(1);
-    }
+    const { runWeekly } = await import("./commands/weekly.js");
+    await runWeekly({
+      since: opts.since,
+      project: opts.project,
+      plan: opts.plan,
+      slack: opts.slack,
+      agent: opts.agent,
+    });
   });
 
 const browse = program
