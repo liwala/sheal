@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { openSync, readSync, closeSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { listAllNativeProjects } from "../../entire/claude-native.js";
+import { listAllNativeProjects } from "@liwala/agent-sessions";
 import type { SearchResult } from "../types.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";

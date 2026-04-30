@@ -4,7 +4,7 @@
  * Takes a loaded checkpoint/session and produces a full retrospective report.
  */
 
-import type { Checkpoint } from "../entire/types.js";
+import type { Checkpoint } from "@liwala/agent-sessions";
 import type { Retrospective } from "./types.js";
 import {
   analyzeEffort,

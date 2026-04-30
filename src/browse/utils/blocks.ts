@@ -1,4 +1,4 @@
-import type { SessionEntry } from "../../entire/types.js";
+import type { SessionEntry } from "@liwala/agent-sessions";
 
 export interface DisplayBlock {
   type: "user" | "assistant" | "tool-group" | "system";

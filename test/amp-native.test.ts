@@ -17,7 +17,7 @@ const {
   listAmpProjects,
   listAmpSessionsForProject,
   listAmpThreadFiles,
-} = await import("../src/entire/amp-native.js");
+} = await import("@liwala/agent-sessions");
 
 function makeFileChange(opts: {
   id: string;

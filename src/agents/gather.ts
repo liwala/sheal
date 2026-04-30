@@ -5,11 +5,17 @@
  * data (e.g., `sheal agents`, and a future refactor target for Timeline and
  * SessionList).
  */
-import { listAllNativeProjects, listNativeSessionsBySlug } from "../entire/claude-native.js";
-import { listCodexProjects, listCodexSessionsForProject } from "../entire/codex-native.js";
-import { listAmpProjects, listAmpSessionsForProject } from "../entire/amp-native.js";
-import { listGeminiProjects, listGeminiSessionsForProject } from "../entire/gemini-native.js";
-import type { CheckpointInfo } from "../entire/types.js";
+import {
+  listAllNativeProjects,
+  listAmpProjects,
+  listAmpSessionsForProject,
+  listCodexProjects,
+  listCodexSessionsForProject,
+  listGeminiProjects,
+  listGeminiSessionsForProject,
+  listNativeSessionsBySlug,
+} from "@liwala/agent-sessions";
+import type { CheckpointInfo } from "@liwala/agent-sessions";
 
 export interface ProjectSummary {
   projectPath: string;

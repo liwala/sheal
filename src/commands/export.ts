@@ -1,11 +1,13 @@
-import { hasEntireBranch, listCheckpoints, loadCheckpoint } from "../entire/index.js";
 import {
+  hasEntireBranch,
   hasNativeTranscripts,
-  listNativeSessions,
-  loadNativeSession,
   listAllNativeProjects,
+  listCheckpoints,
+  listNativeSessions,
   listNativeSessionsBySlug,
-} from "../entire/claude-native.js";
+  loadCheckpoint,
+  loadNativeSession,
+} from "@liwala/agent-sessions";
 
 export interface ExportOptions {
   projectRoot: string;

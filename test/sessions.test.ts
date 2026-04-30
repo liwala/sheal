@@ -2,13 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { runExport } from "../src/commands/export.js";
 
 // Mock dependencies
-vi.mock("../src/entire/index.js", () => ({
+vi.mock("@liwala/agent-sessions", () => ({
   hasEntireBranch: vi.fn().mockResolvedValue(false),
   listCheckpoints: vi.fn().mockResolvedValue([]),
   loadCheckpoint: vi.fn().mockResolvedValue(null),
-}));
-
-vi.mock("../src/entire/claude-native.js", () => ({
   hasNativeTranscripts: vi.fn().mockReturnValue(false),
   listNativeSessions: vi.fn().mockReturnValue([]),
   loadNativeSession: vi.fn().mockReturnValue(null),
@@ -16,13 +13,13 @@ vi.mock("../src/entire/claude-native.js", () => ({
   listNativeSessionsBySlug: vi.fn().mockReturnValue([]),
 }));
 
-import { hasEntireBranch } from "../src/entire/index.js";
 import {
+  hasEntireBranch,
   hasNativeTranscripts,
   listNativeSessions,
   listAllNativeProjects,
   listNativeSessionsBySlug,
-} from "../src/entire/claude-native.js";
+} from "@liwala/agent-sessions";
 
 describe("runExport", () => {
   let logSpy: ReturnType<typeof vi.spyOn>;

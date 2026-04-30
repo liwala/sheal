@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { codexSessionToCheckpoint } from "../src/entire/codex-native.js";
+import { codexSessionToCheckpoint } from "@liwala/agent-sessions";
 
 describe("codexSessionToCheckpoint", () => {
   it("normalizes Codex messages and tool calls for retro analysis", () => {

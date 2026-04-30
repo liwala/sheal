@@ -6,7 +6,7 @@
  */
 
 import type { Retrospective } from "./types.js";
-import type { Checkpoint } from "../entire/types.js";
+import type { Checkpoint } from "@liwala/agent-sessions";
 import type { LearningFile } from "../learn/types.js";
 
 /**

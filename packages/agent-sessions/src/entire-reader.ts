@@ -12,7 +12,7 @@
  *   └── ...
  */
 
-import { exec } from "../utils/exec.js";
+import { execFile } from "node:child_process";
 import type {
   Checkpoint,
   CheckpointInfo,
@@ -26,53 +26,59 @@ import { parseTranscript } from "./transcript.js";
 const CHECKPOINT_BRANCH = "entire/checkpoints/v1";
 
 /**
+ * Run git with arguments and return stdout, or null if the command failed.
+ * Uses execFile (no shell) so refs and paths are passed as plain argv.
+ * Forces NO_COLOR so plumbing output isn't ANSI-coloured by user config.
+ */
+function runGit(repoPath: string, args: string[], timeoutMs = 10_000): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(
+      "git",
+      args,
+      {
+        cwd: repoPath,
+        timeout: timeoutMs,
+        maxBuffer: 50 * 1024 * 1024,
+        env: { ...process.env, NO_COLOR: "1" },
+      },
+      (error, stdout) => {
+        if (error) {
+          resolve(null);
+          return;
+        }
+        resolve(stdout.toString());
+      },
+    );
+  });
+}
+
+/**
  * Read a file from the checkpoints branch using git show.
  */
 async function readBranchFile(
   repoPath: string,
   filePath: string,
 ): Promise<string | null> {
-  const result = await exec(
-    "git",
-    ["show", `${CHECKPOINT_BRANCH}:${filePath}`],
-    { cwd: repoPath, timeoutMs: 10_000 },
-  );
-  if (result.exitCode !== 0) return null;
-  return result.stdout;
+  return runGit(repoPath, ["show", `${CHECKPOINT_BRANCH}:${filePath}`]);
 }
 
 /**
  * List all files on the checkpoints branch.
  */
 async function listBranchFiles(repoPath: string): Promise<string[]> {
-  const result = await exec(
-    "git",
-    ["ls-tree", "-r", "--name-only", CHECKPOINT_BRANCH],
-    { cwd: repoPath, timeoutMs: 10_000 },
-  );
-  if (result.exitCode !== 0) return [];
-  return result.stdout.trim().split("\n").filter(Boolean);
+  const out = await runGit(repoPath, ["ls-tree", "-r", "--name-only", CHECKPOINT_BRANCH]);
+  if (out === null) return [];
+  return out.trim().split("\n").filter(Boolean);
 }
 
 /**
- * Check if the entire/checkpoints/v1 branch exists.
+ * Check if the entire/checkpoints/v1 branch exists locally or as origin remote.
  */
 export async function hasEntireBranch(repoPath: string): Promise<boolean> {
-  const result = await exec(
-    "git",
-    ["rev-parse", "--verify", `refs/heads/${CHECKPOINT_BRANCH}`],
-    { cwd: repoPath, timeoutMs: 5_000 },
-  );
-  // Also check remotes
-  if (result.exitCode !== 0) {
-    const remoteResult = await exec(
-      "git",
-      ["rev-parse", "--verify", `refs/remotes/origin/${CHECKPOINT_BRANCH}`],
-      { cwd: repoPath, timeoutMs: 5_000 },
-    );
-    return remoteResult.exitCode === 0;
-  }
-  return true;
+  const local = await runGit(repoPath, ["rev-parse", "--verify", `refs/heads/${CHECKPOINT_BRANCH}`], 5_000);
+  if (local !== null) return true;
+  const remote = await runGit(repoPath, ["rev-parse", "--verify", `refs/remotes/origin/${CHECKPOINT_BRANCH}`], 5_000);
+  return remote !== null;
 }
 
 /**

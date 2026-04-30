@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { stitchSessions, DEFAULT_GAP_MS, formatDuration, shortAgent } from "../src/browse/utils/stitch.js";
-import type { CheckpointInfo } from "../src/entire/types.js";
+import type { CheckpointInfo } from "@liwala/agent-sessions";
 
 function makeSession(overrides: Partial<CheckpointInfo> & { createdAt: string }): CheckpointInfo {
   return {

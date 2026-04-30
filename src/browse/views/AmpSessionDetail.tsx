@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo } from "react";
-import { listAmpThreadFiles } from "../../entire/amp-native.js";
-import type { AmpFileChange } from "../../entire/amp-native.js";
+import { listAmpThreadFiles } from "@liwala/agent-sessions";
+import type { AmpFileChange } from "@liwala/agent-sessions";
 import { StatusBar } from "../components/StatusBar.js";
 
 interface AmpSessionDetailProps {

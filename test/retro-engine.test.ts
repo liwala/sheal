@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runRetrospective } from "../src/retro/engine.js";
-import type { Checkpoint, Session, SessionEntry } from "../src/entire/types.js";
+import type { Checkpoint, Session, SessionEntry } from "@liwala/agent-sessions";
 import type { Retrospective } from "../src/retro/types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────

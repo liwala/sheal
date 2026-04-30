@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { analyzeAgents } from "../src/agents/analyze.js";
 import type { ProjectTasks } from "../src/agents/analyze.js";
 import type { TaskGroup } from "../src/browse/utils/stitch.js";
-import type { CheckpointInfo } from "../src/entire/types.js";
+import type { CheckpointInfo } from "@liwala/agent-sessions";
 
 function session(agent: string, createdAt: string, overrides: Partial<CheckpointInfo> = {}): CheckpointInfo {
   return {

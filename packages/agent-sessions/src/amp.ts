@@ -12,8 +12,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { NativeProject } from "./claude-native.js";
-import type { CheckpointInfo } from "./types.js";
+import type { CheckpointInfo, NativeProject } from "./types.js";
 
 const AMP_DIR = join(homedir(), ".amp", "file-changes");
 
@@ -198,7 +197,6 @@ export function listAmpProjects(): NativeProject[] {
   for (const [projectPath, projectThreads] of byProject) {
     const name = projectPath.split("/").filter(Boolean).pop() || projectPath;
     const latest = projectThreads[0]; // already sorted by timestamp desc
-    const totalFiles = projectThreads.reduce((sum, t) => sum + t.fileCount, 0);
 
     projects.push({
       slug: `amp:${projectPath}`,

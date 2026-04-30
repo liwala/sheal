@@ -22,6 +22,9 @@
   "engines": {
     "node": ">=22"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "files": [
     "dist/",
     "README.md",
@@ -32,10 +35,11 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc",
+    "build": "npm run build --workspaces --if-present && tsc",
     "test": "vitest run"
   },
   "dependencies": {
+    "@liwala/agent-sessions": "^0.0.1",
     "chalk": "5.6.2",
     "commander": "13.1.0",
     "ink": "6.8.0",

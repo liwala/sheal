@@ -1,12 +1,14 @@
 import { Box, Text, useInput, useStdout } from "ink";
 import { useState, useMemo, useEffect } from "react";
-import { listNativeSessionsBySlug } from "../../entire/claude-native.js";
-import type { NativeProject } from "../../entire/claude-native.js";
-import type { CheckpointInfo } from "../../entire/types.js";
-import { listCodexSessionsForProject } from "../../entire/codex-native.js";
-import { listAmpSessionsForProject } from "../../entire/amp-native.js";
-import { listGeminiSessionsForProject } from "../../entire/gemini-native.js";
-import { hasEntireBranch, listCheckpoints } from "../../entire/reader.js";
+import {
+  hasEntireBranch,
+  listAmpSessionsForProject,
+  listCheckpoints,
+  listCodexSessionsForProject,
+  listGeminiSessionsForProject,
+  listNativeSessionsBySlug,
+} from "@liwala/agent-sessions";
+import type { CheckpointInfo, NativeProject } from "@liwala/agent-sessions";
 import { stitchSessions, formatDuration, shortAgent, DEFAULT_GAP_MS } from "../utils/stitch.js";
 import type { TaskGroup } from "../utils/stitch.js";
 import { SearchBar } from "../components/SearchBar.js";

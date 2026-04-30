@@ -4,7 +4,7 @@ import chalk from "chalk";
 import { getShealHomeDir } from "../learn/index.js";
 import { readGlobalConfig, writeGlobalConfig } from "../learn/remote-config.js";
 import { isGitRepo, initRepo, addRemote, removeRemote, getRemoteUrl, commitAll, push, pull, lastCommitInfo } from "../learn/git.js";
-import { listAllNativeProjects } from "../entire/claude-native.js";
+import { listAllNativeProjects } from "@liwala/agent-sessions";
 
 // ── Remote management ───────────────────────────────────────────────
 

@@ -1,12 +1,11 @@
 /**
- * Types for the Entire.io integration layer.
+ * Shared types for AI coding agent session data.
  *
- * These mirror Entire.io's data model (from their Go source) but in TypeScript,
- * providing a normalized interface for reading session data from the
- * entire/checkpoints/v1 git branch.
+ * Used as the normalized shape across native readers (Claude Code, Codex,
+ * Amp, Gemini) and the Entire.io checkpoint reader. The model originates
+ * from Entire.io's Go data model and stays compatible with it.
  */
 
-// Agent types supported by Entire.io
 export type AgentType = "Claude Code" | "Cursor" | "Gemini CLI" | "OpenCode" | "Copilot CLI" | string;
 
 export type EntryType = "user" | "assistant" | "tool" | "system";
@@ -161,4 +160,24 @@ export interface CheckpointInfo {
   sessionIds: string[];
   /** First user prompt, used as a de facto session title */
   title?: string;
+}
+
+/**
+ * Cross-agent project listing info. Used by readers that group sessions by
+ * project path (Claude Code, Amp). Each agent populates `slug` in its own
+ * convention (Claude: encoded path, Amp: `amp:<path>`).
+ */
+export interface NativeProject {
+  /** Agent-specific slug used as a stable identifier */
+  slug: string;
+  /** Reconstructed absolute path (e.g. /Users/lu/code/foo) */
+  projectPath: string;
+  /** Short display name (last path component) */
+  name: string;
+  /** Number of sessions/threads contributing to this project */
+  sessionCount: number;
+  /** Most recent session modification time */
+  lastModified: string;
+  /** Agent sources contributing to this project (set when merged) */
+  agents?: Array<{ agent: string; slug: string; sessionCount: number }>;
 }

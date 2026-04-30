@@ -5,7 +5,7 @@
  * Leverages Amp's native `reverted` tracking for better revert detection.
  */
 
-import type { AmpFileChange } from "../entire/amp-native.js";
+import type { AmpFileChange } from "@liwala/agent-sessions";
 import type { Retrospective, EffortBreakdown, RevertedWork, Learning } from "./types.js";
 
 /**

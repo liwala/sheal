@@ -11,7 +11,7 @@ import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
-import type { AgentType } from "../entire/types.js";
+import type { AgentType } from "@liwala/agent-sessions";
 
 const execFileAsync = promisify(execFile);
 

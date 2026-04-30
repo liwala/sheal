@@ -1,6 +1,6 @@
 import { Box, Text, useInput } from "ink";
 import { useMemo } from "react";
-import type { NativeProject } from "../../entire/claude-native.js";
+import type { NativeProject } from "@liwala/agent-sessions";
 import { countRetros, countLearnings, countAsks } from "../utils/retro-status.js";
 import { listDigests } from "../../commands/digest.js";
 import { useState } from "react";
