@@ -150,7 +150,11 @@ export async function runDigest(options: DigestOptions): Promise<void> {
   log(chalk.gray(`Report saved: ${savedPath}`));
 }
 
-function saveDigestReport(dir: string, report: DigestReport): string {
+/**
+ * Persist a digest report as JSON. Used by `runDigest` and `runWeekly` so
+ * weekly runs are visible to `sheal browse digests`.
+ */
+export function saveDigestReport(dir: string, report: DigestReport): string {
   mkdirSync(dir, { recursive: true });
 
   // Include time in filename to avoid overwriting same-day digests.

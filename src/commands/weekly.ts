@@ -11,7 +11,7 @@ import chalk from "chalk";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { buildDigestReport } from "./digest.js";
+import { buildDigestReport, saveDigestReport } from "./digest.js";
 import { formatPretty as formatDigestPretty, formatMarkdown as formatDigestMarkdown } from "../digest/formatter.js";
 import { buildCostData, formatCostPretty } from "./cost.js";
 import type { CostData } from "./cost.js";
@@ -107,6 +107,9 @@ export async function runWeekly(opts: WeeklyOptions): Promise<void> {
   const digestPath = join(outDir, `${ts}-${scope}-digest.md`);
   writeFileSync(digestPath, digestMd, "utf-8");
   console.log(chalk.gray(`  Saved: ${digestPath}`));
+
+  // Also save the JSON snapshot so `sheal browse digests` can find this run.
+  saveDigestReport(join(homedir(), ".sheal", "digests"), digestReport);
 
   // 2. Cost — work once, render twice.
   console.log();
