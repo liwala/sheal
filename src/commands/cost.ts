@@ -9,13 +9,52 @@ import chalk from "chalk";
 import { loadSessionsInWindow, parseSince } from "../digest/loader.js";
 import { estimateCost } from "../digest/cost.js";
 import type { ModelCostBreakdown } from "../digest/cost.js";
-import type { TokenSummary } from "../digest/types.js";
+import type { AgentScanStatus, CostEstimate, TokenSummary } from "../digest/types.js";
 
 export interface CostOptions {
   since: string;
   project?: string;
   format: string;
   plan?: string;
+}
+
+export interface CostData {
+  tokens: TokenSummary;
+  cost: CostEstimate & { byModelBreakdown: ModelCostBreakdown[] };
+  sessionCount: number;
+  agentScans: AgentScanStatus[];
+}
+
+export interface BuildCostOptions {
+  since: string;
+  project?: string;
+  plan?: string;
+  /** Where to write progress output (default: console.error). */
+  log?: (msg: string) => void;
+}
+
+/**
+ * Load sessions in a window and compute the per-model/per-project cost breakdown.
+ * Returns null when no sessions are found (caller decides what to print).
+ */
+export function buildCostData(opts: BuildCostOptions): CostData | null {
+  const log = opts.log ?? ((s: string) => console.error(s));
+  const sinceDate = parseSince(opts.since);
+
+  log(chalk.gray(`Scanning sessions since ${sinceDate.toISOString().slice(0, 10)}...`));
+
+  const { tokens, sessionCount, agentScans } = loadSessionsInWindow({
+    since: sinceDate,
+    projectFilter: opts.project,
+  });
+
+  if (sessionCount === 0) {
+    log(chalk.yellow("No sessions found."));
+    return null;
+  }
+
+  const cost = estimateCost(tokens, opts.plan);
+  return { tokens, cost, sessionCount, agentScans };
 }
 
 // ── Formatting helpers ──────────────────────────────────────────────────
@@ -60,28 +99,12 @@ function sparkCostType(m: ModelCostBreakdown): string {
 
 // ── Main ────────────────────────────────────────────────────────────────
 
-export async function runCost(options: CostOptions): Promise<void> {
-  const sinceDate = parseSince(options.since);
-  const log = options.format === "json" ? console.error : console.log;
-
-  log(chalk.gray(`Scanning sessions since ${sinceDate.toISOString().slice(0, 10)}...`));
-
-  const { tokens, sessionCount, agentScans } = loadSessionsInWindow({
-    since: sinceDate,
-    projectFilter: options.project,
-  });
-
-  if (sessionCount === 0) {
-    log(chalk.yellow("No sessions found."));
-    return;
-  }
-
-  const cost = estimateCost(tokens, options.plan);
-
-  if (options.format === "json") {
-    console.log(JSON.stringify({ tokens, cost, sessionCount, agentScans }, null, 2));
-    return;
-  }
+/**
+ * Render a CostData object as the ANSI-formatted dashboard string.
+ */
+export function formatCostPretty(data: CostData, opts: { since: string }): string {
+  const { tokens, cost, sessionCount, agentScans } = data;
+  const sinceDate = parseSince(opts.since);
 
   const L: string[] = [];
   const W = 72;
@@ -268,5 +291,23 @@ export async function runCost(options: CostOptions): Promise<void> {
   }
 
   L.push("");
-  console.log(L.join("\n"));
+  return L.join("\n");
+}
+
+export async function runCost(options: CostOptions): Promise<void> {
+  const log = options.format === "json" ? console.error : console.log;
+  const data = buildCostData({
+    since: options.since,
+    project: options.project,
+    plan: options.plan,
+    log,
+  });
+  if (!data) return;
+
+  if (options.format === "json") {
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+
+  console.log(formatCostPretty(data, { since: options.since }));
 }
