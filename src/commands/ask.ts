@@ -29,6 +29,13 @@ const EXCERPT_BUDGET = 4_000;
 /** Max total chars for all excerpts combined */
 const TOTAL_BUDGET = 20_000;
 
+export function createKeywordPattern(keyword: string): RegExp {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const leftBoundary = /^\w/.test(keyword) ? "\\b" : "(?<!\\w)";
+  const rightBoundary = /\w$/.test(keyword) ? "\\b" : "(?!\\w)";
+  return new RegExp(`${leftBoundary}${escaped}${rightBoundary}`, "gi");
+}
+
 export async function runAsk(options: AskOptions): Promise<void> {
   const { question, projectRoot } = options;
   const limit = options.limit ?? 10;
@@ -276,12 +283,7 @@ function loadAllGlobal(limit: number): Checkpoint[] {
 function searchSessions(checkpoints: Checkpoint[], keywords: string[]): SessionMatch[] {
   const matches: SessionMatch[] = [];
 
-  // Build word-boundary regexes for each keyword
-  const patterns = keywords.map((kw) => {
-    // Escape regex special chars, then wrap in word boundaries
-    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`\\b${escaped}\\b`, "gi");
-  });
+  const patterns = keywords.map(createKeywordPattern);
 
   for (const cp of checkpoints) {
     for (const session of cp.sessions) {

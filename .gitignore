@@ -8,6 +8,7 @@ dist/
 coverage/
 .nyc_output/
 tmp/
+.beads/
 .dolt/
 .doltcfg/
 
