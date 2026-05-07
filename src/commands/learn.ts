@@ -1,4 +1,5 @@
 import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync, unlinkSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import chalk from "chalk";
 import {
@@ -409,9 +410,8 @@ function fileRefExists(ref: string, projectRoot: string): boolean {
 /**
  * Check if a CLI tool is available on PATH.
  */
-function toolExists(name: string): boolean {
+export function toolExists(name: string): boolean {
   try {
-    const { execFileSync } = require("node:child_process");
     execFileSync("which", [name], { stdio: "pipe" });
     return true;
   } catch {

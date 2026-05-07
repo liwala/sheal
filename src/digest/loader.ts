@@ -85,6 +85,11 @@ export function loadSessionsInWindow(opts: {
   };
   let sessionCount = 0;
   const agentScans: AgentScanStatus[] = [];
+  const sessionsByAgent: Record<string, number> = {
+    claude: 0,
+    codex: 0,
+    amp: 0,
+  };
 
   // --- Claude Code sessions ---
   const claudeProjects = listAllNativeProjects();
@@ -102,6 +107,7 @@ export function loadSessionsInWindow(opts: {
       if (!cp || cp.sessions.length === 0) continue;
 
       sessionCount++;
+      sessionsByAgent.claude++;
 
       // Extract per-model tokens from raw JSONL
       const jsonlPath = join(homedir(), ".claude", "projects", project.slug, `${info.sessionId}.jsonl`);
@@ -134,7 +140,7 @@ export function loadSessionsInWindow(opts: {
     agent: "claude",
     available: true,
     projectCount: filteredClaude.length,
-    sessionCount: tokens.byAgent["claude"]?.sessionCount || 0,
+    sessionCount: sessionsByAgent.claude,
   });
 
   // --- Codex sessions ---
@@ -154,6 +160,7 @@ export function loadSessionsInWindow(opts: {
         if (!result || result.entries.length === 0) continue;
 
         sessionCount++;
+        sessionsByAgent.codex++;
 
         // Extract user prompts from Codex
         for (const entry of result.entries) {
@@ -173,7 +180,7 @@ export function loadSessionsInWindow(opts: {
       agent: "codex",
       available: true,
       projectCount: filteredCodex.length,
-      sessionCount: tokens.byAgent["codex"]?.sessionCount || 0,
+      sessionCount: sessionsByAgent.codex,
     });
   } catch (e) {
     agentScans.push({
@@ -201,13 +208,14 @@ export function loadSessionsInWindow(opts: {
           tokens.byAgent["amp"] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0, sessionCount: 0 };
         }
         tokens.byAgent["amp"].sessionCount += project.sessionCount;
+        sessionsByAgent.amp += project.sessionCount;
       }
     }
     agentScans.push({
       agent: "amp",
       available: true,
       projectCount: filteredAmp.length,
-      sessionCount: tokens.byAgent["amp"]?.sessionCount || 0,
+      sessionCount: sessionsByAgent.amp,
     });
   } catch (e) {
     agentScans.push({
