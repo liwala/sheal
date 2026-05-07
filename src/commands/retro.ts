@@ -206,7 +206,15 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     console.log(chalk.bold(`Running retro on ${selected.length} session(s)...\n`));
   }
 
+  const globalDir = getGlobalDir();
+  const existingLearnings = options.enrich ? listLearnings(globalDir) : [];
+  if (options.enrich && existingLearnings.length > 0 && options.format !== "json") {
+    console.log(chalk.gray(`Including ${existingLearnings.length} existing learnings for context.\n`));
+  }
+
   const retros: Retrospective[] = [];
+  const collectedRules: string[] = [];
+  let lastEnrichedSessionId: string | undefined;
 
   for (const info of selected) {
     const checkpoint = await loadSessionCandidate(repoPath, info);
@@ -230,13 +238,21 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
 
     if (options.format === "json") {
       // JSON mode: collect and output at end
-    } else {
-      // Print each retro with a separator
-      console.log(chalk.gray("─".repeat(60)));
-      console.log(chalk.bold(`Session: ${info.id.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
-      if (info.title) console.log(chalk.gray(`  ${info.title.slice(0, 70)}`));
-      console.log();
+      continue;
+    }
 
+    // Print each retro with a separator
+    console.log(chalk.gray("─".repeat(60)));
+    console.log(chalk.bold(`Session: ${info.id.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
+    if (info.title) console.log(chalk.gray(`  ${info.title.slice(0, 70)}`));
+    console.log();
+
+    if (options.enrich) {
+      const { enrichments, rules } = await enrichSession(retro, checkpoint, repoPath, existingLearnings, options.agent);
+      printRetro(retro, enrichments.length > 0 ? enrichments : undefined);
+      collectedRules.push(...rules);
+      lastEnrichedSessionId = retro.sessionId;
+    } else {
       const cached = loadCachedEnrichments(repoPath, retro.checkpointId);
       printRetro(retro, cached);
     }
@@ -263,6 +279,13 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     console.log(`  Total reverted work: ${totalReverts}`);
     console.log(`  Total learnings: ${totalLearnings}`);
     console.log();
+  }
+
+  // Single bundled rule-review across all enriched sessions
+  if (options.enrich && options.format !== "json" && collectedRules.length > 0) {
+    const deduped = Array.from(new Set(collectedRules));
+    console.log(chalk.bold.cyan(`Reviewing ${deduped.length} candidate rule(s) from ${retros.length} session(s):\n`));
+    await promptToSaveRules(deduped, repoPath, lastEnrichedSessionId);
   }
 }
 
@@ -711,34 +734,54 @@ function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): voi
   console.log();
 }
 
-async function enrichRetro(retro: Retrospective, checkpoint: Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
+/**
+ * Run enrichment for one session and return the resulting enrichments and
+ * extracted rules. Does not print the retro or prompt for rule review —
+ * callers handle those so single-session and batch flows can compose differently.
+ */
+async function enrichSession(
+  retro: Retrospective,
+  checkpoint: Checkpoint,
+  projectRoot: string,
+  existingLearnings: LearningFile[],
+  agentOverride?: string,
+): Promise<{ enrichments: CachedEnrichment[]; rules: string[] }> {
   const session = checkpoint.sessions[0];
   const defaultAgent = session?.metadata.agent ?? "claude";
   const agentNames = agentOverride ? agentOverride.split(",").map((a) => a.trim()) : [defaultAgent];
 
+  const prompt = generateRetroPrompt(retro, checkpoint, existingLearnings);
+  const enrichments = await runMultiAgentEnrichment(agentNames, prompt, projectRoot, retro.checkpointId);
+
+  if (enrichments.length === 0) {
+    return { enrichments: [], rules: [] };
+  }
+
+  const consolidated = await maybeConsolidate(enrichments, projectRoot, retro.checkpointId);
+  const allEnrichments = consolidated ? [...enrichments, consolidated] : enrichments;
+
+  const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
+  const rules = parseRulesFromOutput(ruleSource.content);
+
+  return { enrichments: allEnrichments, rules };
+}
+
+async function enrichRetro(retro: Retrospective, checkpoint: Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
   if (existingLearnings.length > 0) {
     console.log(chalk.gray(`Including ${existingLearnings.length} existing learnings for context.`));
   }
 
-  const prompt = generateRetroPrompt(retro, checkpoint, existingLearnings);
-  const enrichments = await runMultiAgentEnrichment(agentNames, prompt, projectRoot, retro.checkpointId);
+  const { enrichments, rules } = await enrichSession(retro, checkpoint, projectRoot, existingLearnings, agentOverride);
 
   if (enrichments.length === 0) {
     printRetro(retro);
     return;
   }
 
-  // Consolidate if multiple agents produced results
-  const consolidated = await maybeConsolidate(enrichments, projectRoot, retro.checkpointId);
-  const allEnrichments = consolidated ? [...enrichments, consolidated] : enrichments;
+  printRetro(retro, enrichments);
 
-  printRetro(retro, allEnrichments);
-
-  // Parse rules from consolidated output if available, otherwise flatMap individuals
-  const ruleSource = consolidated ?? { content: enrichments.map((e) => e.content).join("\n") };
-  const allRules = parseRulesFromOutput(ruleSource.content);
-  if (allRules.length > 0) {
-    await promptToSaveRules(allRules, projectRoot, retro.sessionId);
+  if (rules.length > 0) {
+    await promptToSaveRules(rules, projectRoot, retro.sessionId);
   }
 }
 

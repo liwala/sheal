@@ -50,6 +50,8 @@ Retrospectives
 ──────────────
   sheal retro                     Static retro on your latest session
   sheal retro --enrich            Deep LLM-enriched retro (uses agent CLI)
+  sheal retro --enrich --last 5   Enrich the 5 most recent sessions
+  sheal retro --enrich --today    Enrich every session from today
   sheal retro --agent codex       Use a specific agent for enrichment
 
 Asking Questions
