@@ -1,4 +1,4 @@
-import { createInterface, emitKeypressEvents } from "node:readline";
+import { createInterface } from "node:readline";
 import { unlinkSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import chalk from "chalk";
@@ -21,6 +21,7 @@ function askWithEsc(prompt: string, rl: ReturnType<typeof createInterface>): Pro
     };
 
     if (process.stdin.isTTY) {
+      const { emitKeypressEvents } = require("node:readline");
       emitKeypressEvents(process.stdin);
       process.stdin.on("keypress", onKeypress);
     }

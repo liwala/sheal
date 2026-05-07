@@ -31,15 +31,17 @@ export const gitChecker: Checker = {
 
     // Uncommitted changes
     const status = await exec("git", ["status", "--porcelain"], { cwd });
-    const counts = parseGitStatusCounts(status.stdout);
-    if (counts.totalChanged > 0) {
-      const { staged, unstaged, untracked, totalChanged } = counts;
+    const lines = status.stdout.trim().split("\n").filter(Boolean);
+    if (lines.length > 0) {
+      const staged = lines.filter((l) => l[0] !== " " && l[0] !== "?").length;
+      const unstaged = lines.filter((l) => l[1] === "M" || l[1] === "D").length;
+      const untracked = lines.filter((l) => l.startsWith("??")).length;
 
-      const severity = ctx.config.checkers.git.allowDirty ? "pass" : "warn";
+      const severity = ctx.config.checkers.git.allowDirty ? "warn" : "warn";
       details.push({
         message: `Uncommitted changes: ${staged} staged, ${unstaged} unstaged, ${untracked} untracked`,
         severity,
-        data: { staged, unstaged, untracked, totalChanged },
+        data: { staged, unstaged, untracked, totalChanged: lines.length },
       });
     } else {
       details.push({ message: "Working tree clean", severity: "pass" });
@@ -59,21 +61,6 @@ export const gitChecker: Checker = {
     return { name: this.name, label: this.label, severity: worst, details, durationMs: elapsed() };
   },
 };
-
-export function parseGitStatusCounts(output: string): {
-  staged: number;
-  unstaged: number;
-  untracked: number;
-  totalChanged: number;
-} {
-  const lines = output.split("\n").filter(Boolean);
-  return {
-    staged: lines.filter((l) => l[0] !== " " && l[0] !== "?").length,
-    unstaged: lines.filter((l) => l[1] === "M" || l[1] === "D").length,
-    untracked: lines.filter((l) => l.startsWith("??")).length,
-    totalChanged: lines.length,
-  };
-}
 
 function worstSeverity(details: CheckDetail[]): CheckResult["severity"] {
   if (details.some((d) => d.severity === "fail")) return "fail";

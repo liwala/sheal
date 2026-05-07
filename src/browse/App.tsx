@@ -21,12 +21,6 @@ import { DigestsList } from "./views/DigestsList.js";
 import { DigestDetail } from "./views/DigestDetail.js";
 
 const AGENTS = [null, "claude", "codex", "amp", "gemini"];
-const PROJECT_SCOPED_INITIAL_VIEWS: View[] = ["retro-list", "learnings", "sessions", "timeline", "asks-list"];
-const GLOBAL_INITIAL_VIEWS: View[] = ["digests-list"];
-
-export function getPendingProjectView(initialView?: View): View | null {
-  return initialView && PROJECT_SCOPED_INITIAL_VIEWS.includes(initialView) ? initialView : null;
-}
 
 interface AppProps {
   initialProject?: string;
@@ -37,9 +31,8 @@ interface AppProps {
 
 export function App({ initialProject, initialQuery, initialAgent, initialView }: AppProps) {
   const { exit } = useApp();
-  const pendingInitialView = getPendingProjectView(initialView);
-  const needsProject = pendingInitialView !== null;
-  const isGlobalView = initialView && GLOBAL_INITIAL_VIEWS.includes(initialView);
+  const needsProject = initialView && ["retro-list", "learnings", "sessions", "timeline", "asks-list"].includes(initialView);
+  const isGlobalView = initialView && ["digests-list"].includes(initialView);
   const [view, setView] = useState<View>(
     needsProject ? "projects" : (initialView || (initialQuery ? "search-results" : "projects")),
   );
@@ -52,7 +45,9 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   const [agentFilter, setAgentFilter] = useState<string | null>(initialAgent || null);
   const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [retroFrom, setRetroFrom] = useState<"session" | "retro-list">("retro-list");
-  const pendingViewRef = useRef<View | null>(pendingInitialView);
+  const pendingViewRef = useRef<View | null>(
+    initialView && ["retro-list", "learnings", "asks-list", "timeline"].includes(initialView) ? initialView : null,
+  );
 
   const handleQuit = useCallback(() => exit(), [exit]);
 

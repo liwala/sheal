@@ -15,29 +15,8 @@ interface SearchResultsProps {
   onQuit: () => void;
 }
 
-export function moveSearchCursor(
-  cursor: number,
-  scrollOffset: number,
-  direction: -1 | 1,
-  itemCount: number,
-  maxRows: number,
-): { cursor: number; scrollOffset: number } {
-  if (itemCount <= 0) return { cursor: 0, scrollOffset: 0 };
-
-  const nextCursor = Math.max(0, Math.min(itemCount - 1, cursor + direction));
-  let nextOffset = scrollOffset;
-  if (nextCursor < nextOffset) {
-    nextOffset = nextCursor;
-  } else if (nextCursor >= nextOffset + maxRows) {
-    nextOffset = Math.max(0, nextCursor - maxRows + 1);
-  }
-
-  return { cursor: nextCursor, scrollOffset: nextOffset };
-}
-
 export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }: SearchResultsProps) {
   const [cursor, setCursor] = useState(0);
-  const [scrollOffset, setScrollOffset] = useState(0);
   const [query, setQuery] = useState(initialQuery || "");
   const [inputActive, setInputActive] = useState(!initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -63,7 +42,6 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
       setSearching(false);
       setSearchDone(true);
       setCursor(0);
-      setScrollOffset(0);
     }, 10);
 
     return () => clearTimeout(timer);
@@ -89,20 +67,14 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
     if (input === "/") { setInputActive(true); return; }
 
     if (key.upArrow) {
-      const next = moveSearchCursor(cursor, scrollOffset, -1, results.length, maxRows);
-      setCursor(next.cursor);
-      setScrollOffset(next.scrollOffset);
+      setCursor((c) => Math.max(0, c - 1));
     } else if (key.downArrow) {
-      const next = moveSearchCursor(cursor, scrollOffset, 1, results.length, maxRows);
-      setCursor(next.cursor);
-      setScrollOffset(next.scrollOffset);
+      setCursor((c) => Math.min(results.length - 1, c + 1));
     } else if (key.return && results[cursor]) {
       const r = results[cursor];
       onSelectSession(r.slug, r.sessionId);
     }
   });
-
-  const windowItems = results.slice(scrollOffset, scrollOffset + maxRows);
 
   return (
     <Box flexDirection="column">
@@ -120,13 +92,11 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
       {searching && <Text color="yellow">Searching {projects.reduce((s, p) => s + p.sessionCount, 0)} sessions...</Text>}
 
       <Box flexDirection="column" height={maxRows}>
-        {windowItems.map((r, i) => {
-          const globalIdx = scrollOffset + i;
-          return (
+        {results.slice(0, maxRows).map((r, i) => (
           <Box key={`${r.slug}-${r.sessionId}`} flexDirection="column">
             <Box>
-              <Text color={globalIdx === cursor ? "cyan" : undefined} bold={globalIdx === cursor}>
-                {globalIdx === cursor ? "> " : "  "}
+              <Text color={i === cursor ? "cyan" : undefined} bold={i === cursor}>
+                {i === cursor ? "> " : "  "}
                 {r.projectName}
               </Text>
               <Text dimColor> {r.sessionId.slice(0, 12)} {r.createdAt?.slice(0, 16)}</Text>
@@ -136,13 +106,9 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
               <Text dimColor wrap="truncate">    {r.snippet.slice(0, 100)}</Text>
             )}
           </Box>
-          );
-        })}
+        ))}
         {searchDone && results.length === 0 && (
           <Text dimColor>  No matches found</Text>
-        )}
-        {results.length > maxRows && scrollOffset + maxRows < results.length && (
-          <Text dimColor>  ↓ {results.length - scrollOffset - maxRows} more</Text>
         )}
       </Box>
 

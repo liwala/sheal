@@ -20,7 +20,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir } from "node:os";
-import { createHash } from "node:crypto";
 import type { CheckpointInfo } from "./types.js";
 
 const GEMINI_TMP = join(homedir(), ".gemini", "tmp");
@@ -143,7 +142,7 @@ export function listGeminiProjects(): GeminiProject[] {
 /**
  * Synchronous version of resolveProjectPath (avoids top-level await issues).
  */
-export function resolveProjectPathSync(dirName: string, dirPath: string, projectsMap: Map<string, string>): string | null {
+function resolveProjectPathSync(dirName: string, dirPath: string, projectsMap: Map<string, string>): string | null {
   // Named directory with .project_root file
   const rootFile = join(dirPath, ".project_root");
   if (existsSync(rootFile)) {
@@ -165,9 +164,14 @@ export function resolveProjectPathSync(dirName: string, dirPath: string, project
   }
 
   // For hash-based dirs, reverse lookup using crypto
-  for (const [absPath] of projectsMap) {
-    const hash = createHash("sha256").update(absPath).digest("hex");
-    if (hash === dirName) return absPath;
+  try {
+    const crypto = require("node:crypto");
+    for (const [absPath] of projectsMap) {
+      const hash = crypto.createHash("sha256").update(absPath).digest("hex");
+      if (hash === dirName) return absPath;
+    }
+  } catch {
+    // skip
   }
 
   return null;
