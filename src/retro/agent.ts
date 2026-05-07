@@ -121,10 +121,20 @@ export async function detectAgentCli(
  * (vs. piping prompt directly to child.stdin) sidesteps observed cases where
  * `claude -p` ignores Node-piped stdin.
  */
+const DEFAULT_AGENT_TIMEOUT_MS = 600_000;
+
+export function defaultAgentTimeoutMs(): number {
+  const raw = process.env.SHEAL_AGENT_TIMEOUT_MS;
+  if (!raw) return DEFAULT_AGENT_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_AGENT_TIMEOUT_MS;
+  return parsed;
+}
+
 export async function invokeAgent(
   cli: AgentCli,
   prompt: string,
-  timeoutMs = 120_000,
+  timeoutMs = defaultAgentTimeoutMs(),
 ): Promise<AgentInvocationResult> {
   const label = `${cli.command} ${cli.args.join(" ")}`;
 

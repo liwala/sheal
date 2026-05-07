@@ -959,6 +959,12 @@ async function promptToSaveRules(rules: string[], projectRoot: string, sessionId
     drafts.push(learning);
   }
 
+  if (!process.stdin.isTTY) {
+    console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s) to .sheal/learnings/.`));
+    console.log(chalk.gray(`Run 'sheal learn review' in an interactive shell to triage them.`));
+    return;
+  }
+
   console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s) to .sheal/learnings/. Starting review...`));
 
   // Review drafts — accepted ones get promoted to active, removed ones get deleted
