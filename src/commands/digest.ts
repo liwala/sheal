@@ -26,45 +26,53 @@ export interface DigestOptions {
   enrich?: boolean;
 }
 
-export async function runDigest(options: DigestOptions): Promise<void> {
-  const sinceDate = parseSince(options.since);
-  const untilDate = options.until ? new Date(options.until) : new Date();
+export interface BuildDigestOptions {
+  since: string;
+  until?: string;
+  project?: string;
+  enrich?: boolean;
+  /** Where to write progress output (default: console.error). */
+  log?: (msg: string) => void;
+}
 
-  const log = options.format === "json" ? console.error : console.log;
+/**
+ * Load sessions in a time window, categorize prompts, and assemble a DigestReport.
+ * Returns null when no sessions are found (caller decides what to print).
+ */
+export async function buildDigestReport(opts: BuildDigestOptions): Promise<DigestReport | null> {
+  const log = opts.log ?? ((s: string) => console.error(s));
+  const sinceDate = parseSince(opts.since);
+  const untilDate = opts.until ? new Date(opts.until) : new Date();
 
   log(chalk.gray(`Loading sessions since ${sinceDate.toISOString().slice(0, 10)}...`));
 
   const { prompts, tokens, sessionCount, agentScans } = loadSessionsInWindow({
     since: sinceDate,
     until: untilDate,
-    projectFilter: options.project,
+    projectFilter: opts.project,
   });
 
   if (sessionCount === 0) {
     log(chalk.yellow("No sessions found in the specified time window."));
-    // Still show agent scan status so user knows what was checked
     for (const scan of agentScans) {
       if (!scan.available) {
         log(chalk.gray(`  ${scan.agent}: ${scan.error || "not available"}`));
       }
     }
-    return;
+    return null;
   }
 
   log(chalk.gray(`Found ${sessionCount} sessions, ${prompts.length} prompts. Categorizing...`));
 
-  // Show agent scan status
-  const unavailable = agentScans.filter((s) => !s.available);
-  if (unavailable.length > 0) {
-    for (const scan of unavailable) {
+  for (const scan of agentScans) {
+    if (!scan.available) {
       log(chalk.gray(`  Skipped ${scan.agent}: ${scan.error || "not available"}`));
     }
   }
 
   let { categories, uncategorized } = categorizePrompts(prompts);
 
-  // LLM enrichment with Haiku for smarter categorization
-  if (options.enrich) {
+  if (opts.enrich) {
     log(chalk.gray("Enriching categorization with Haiku..."));
     const enriched = await enrichWithLLM({ categories, uncategorized });
     categories = enriched.categories;
@@ -74,14 +82,11 @@ export async function runDigest(options: DigestOptions): Promise<void> {
 
   const cost = estimateCost(tokens);
 
-  const report: DigestReport = {
+  return {
     generatedAt: new Date().toISOString(),
-    window: {
-      since: sinceDate.toISOString(),
-      until: untilDate.toISOString(),
-    },
-    scope: options.project ? "project" : "global",
-    projectFilter: options.project,
+    window: { since: sinceDate.toISOString(), until: untilDate.toISOString() },
+    scope: opts.project ? "project" : "global",
+    projectFilter: opts.project,
     totalSessions: sessionCount,
     totalPrompts: prompts.length,
     categories,
@@ -90,8 +95,21 @@ export async function runDigest(options: DigestOptions): Promise<void> {
     agentScans,
     cost,
   };
+}
 
-  // Format output
+export async function runDigest(options: DigestOptions): Promise<void> {
+  const log = options.format === "json" ? console.error : console.log;
+
+  const report = await buildDigestReport({
+    since: options.since,
+    until: options.until,
+    project: options.project,
+    enrich: options.enrich,
+    log,
+  });
+
+  if (!report) return;
+
   let output: string;
 
   // If --compare, find previous digest and show diff
@@ -132,7 +150,11 @@ export async function runDigest(options: DigestOptions): Promise<void> {
   log(chalk.gray(`Report saved: ${savedPath}`));
 }
 
-function saveDigestReport(dir: string, report: DigestReport): string {
+/**
+ * Persist a digest report as JSON. Used by `runDigest` and `runWeekly` so
+ * weekly runs are visible to `sheal browse digests`.
+ */
+export function saveDigestReport(dir: string, report: DigestReport): string {
   mkdirSync(dir, { recursive: true });
 
   // Include time in filename to avoid overwriting same-day digests.

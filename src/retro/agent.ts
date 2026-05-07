@@ -7,7 +7,7 @@
 
 import { spawn } from "node:child_process";
 import { execFile } from "node:child_process";
-import { mkdirSync, writeFileSync, unlinkSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
@@ -114,8 +114,12 @@ export async function detectAgentCli(
 
 /**
  * Invoke an agent CLI with a prompt.
- * Writes the prompt to a temp file and passes it via shell redirection
- * to avoid stdin piping issues (e.g. claude -p ignoring piped stdin).
+ *
+ * Writes the prompt to a temp file and inherits its file descriptor as the
+ * child's stdin. This is equivalent to shell redirection (`cmd < file`) but
+ * doesn't go through `sh -c`, so it works on Windows. The temp-file dance
+ * (vs. piping prompt directly to child.stdin) sidesteps observed cases where
+ * `claude -p` ignores Node-piped stdin.
  */
 export async function invokeAgent(
   cli: AgentCli,
@@ -124,26 +128,43 @@ export async function invokeAgent(
 ): Promise<AgentInvocationResult> {
   const label = `${cli.command} ${cli.args.join(" ")}`;
 
-  // Write prompt to a temp file to avoid stdin/arg-length issues
   const tmpDir = join(tmpdir(), "sheal-agent");
   mkdirSync(tmpDir, { recursive: true });
   const tmpFile = join(tmpDir, `prompt-${Date.now()}.txt`);
   writeFileSync(tmpFile, prompt, "utf-8");
 
   return new Promise((resolve) => {
-    // Use shell redirection: `claude -p --output-format text < /tmp/prompt.txt`
-    const shellCmd = `${cli.command} ${cli.args.map((a) => `'${a}'`).join(" ")} < '${tmpFile}'`;
-    const child = spawn("sh", ["-c", shellCmd], {
+    let stdinFd: number;
+    try {
+      stdinFd = openSync(tmpFile, "r");
+    } catch (err) {
+      try { unlinkSync(tmpFile); } catch { /* ignore */ }
+      resolve({
+        agent: cli.command,
+        command: label,
+        output: "",
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
+    const child = spawn(cli.command, cli.args, {
       timeout: timeoutMs,
       env: { ...process.env, NO_COLOR: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: [stdinFd, "pipe", "pipe"],
     });
+
+    // The child has dup'd stdinFd by now; close our copy.
+    closeSync(stdinFd);
 
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
 
-    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    // stdio is [fd, "pipe", "pipe"] so child.stdout/stderr are non-null pipes,
+    // but TS loses the narrowing once stdio mixes a number with strings.
+    child.stdout!.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr!.on("data", (chunk: Buffer) => stderr.push(chunk));
 
     child.on("error", (err) => {
       cleanup();
@@ -162,7 +183,7 @@ export async function invokeAgent(
       const err = Buffer.concat(stderr).toString().trim();
 
       if (process.env.SHEAL_DEBUG) {
-        console.error(`[invokeAgent] command: ${shellCmd}`);
+        console.error(`[invokeAgent] command: ${label} < ${tmpFile}`);
         console.error(`[invokeAgent] exit code: ${code}`);
         console.error(`[invokeAgent] stdout (${out.length} chars): ${out.slice(0, 200)}`);
         console.error(`[invokeAgent] stderr (${err.length} chars): ${err.slice(0, 200)}`);
