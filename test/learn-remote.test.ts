@@ -1,10 +1,28 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import { mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { readGlobalConfig, writeGlobalConfig } from "../src/learn/remote-config.js";
 import { isGitRepo, initRepo, addRemote, removeRemote, getRemoteUrl, commitAll, push, pull, lastCommitInfo } from "../src/learn/git.js";
+
+const GIT_IDENTITY_ENV = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"] as const;
+const savedGitEnv: Record<string, string | undefined> = {};
+
+beforeAll(() => {
+  for (const key of GIT_IDENTITY_ENV) savedGitEnv[key] = process.env[key];
+  process.env.GIT_AUTHOR_NAME = "Test";
+  process.env.GIT_AUTHOR_EMAIL = "test@test.com";
+  process.env.GIT_COMMITTER_NAME = "Test";
+  process.env.GIT_COMMITTER_EMAIL = "test@test.com";
+});
+
+afterAll(() => {
+  for (const key of GIT_IDENTITY_ENV) {
+    if (savedGitEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = savedGitEnv[key];
+  }
+});
 
 function tmpDir(name: string): string {
   const dir = join(tmpdir(), `sheal-test-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
@@ -13,7 +31,7 @@ function tmpDir(name: string): string {
 }
 
 function gitInDir(dir: string, ...args: string[]): string {
-  return execFileSync("git", args, { cwd: dir, env: { ...process.env, GIT_AUTHOR_NAME: "Test", GIT_AUTHOR_EMAIL: "test@test.com", GIT_COMMITTER_NAME: "Test", GIT_COMMITTER_EMAIL: "test@test.com" } }).toString().trim();
+  return execFileSync("git", args, { cwd: dir }).toString().trim();
 }
 
 // ── remote-config ──────────────────────────────────────────────────
