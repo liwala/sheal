@@ -19,18 +19,23 @@ const ecosystems: Ecosystem[] = [
       if (!existsSync(nmPath)) {
         return { message: "node_modules missing — run npm install", severity: "fail" };
       }
-      // Compare mtime of package.json vs node_modules
-      const pkgMtime = statSync(join(root, "package.json")).mtimeMs;
-      const nmMtime = statSync(nmPath).mtimeMs;
-      if (pkgMtime > nmMtime) {
+      const lockfiles = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb"]
+        .filter((f) => existsSync(join(root, f)));
+
+      // npm updates node_modules/.package-lock.json during install; the
+      // node_modules directory mtime itself can remain old.
+      const installMarker = join(nmPath, ".package-lock.json");
+      const installMtime = statSync(existsSync(installMarker) ? installMarker : nmPath).mtimeMs;
+      const manifestMtime = Math.max(
+        statSync(join(root, "package.json")).mtimeMs,
+        ...lockfiles.map((f) => statSync(join(root, f)).mtimeMs),
+      );
+      if (manifestMtime > installMtime) {
         return {
-          message: "package.json is newer than node_modules — dependencies may be stale",
+          message: "package manifest is newer than installed dependencies — run npm install",
           severity: "warn",
         };
       }
-      // Check which lockfile exists
-      const lockfiles = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb"]
-        .filter((f) => existsSync(join(root, f)));
       return {
         message: `Node dependencies OK (lockfile: ${lockfiles[0] ?? "none"})`,
         severity: "pass",
