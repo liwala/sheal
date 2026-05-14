@@ -10,7 +10,7 @@ export interface ExecResult {
 export function exec(
   command: string,
   args: string[],
-  options: { timeoutMs?: number; cwd?: string; maxBuffer?: number } = {},
+  options: { timeoutMs?: number; cwd?: string; maxBuffer?: number } = {}
 ): Promise<ExecResult> {
   return new Promise((resolve) => {
     const child = execFile(
@@ -24,14 +24,18 @@ export function exec(
       },
       (error, stdout, stderr) => {
         const timedOut = error?.killed === true;
-        const exitCode = timedOut ? -1 : (error as NodeJS.ErrnoException)?.code === "ENOENT" ? -2 : (child.exitCode ?? 1);
+        const exitCode = timedOut
+          ? -1
+          : (error as NodeJS.ErrnoException)?.code === "ENOENT"
+            ? -2
+            : (child.exitCode ?? 1);
         resolve({
           stdout: stdout?.toString() ?? "",
           stderr: stderr?.toString() ?? "",
           exitCode,
           timedOut,
         });
-      },
+      }
     );
     // Close stdin so child processes don't wait for input
     child.stdin?.end();

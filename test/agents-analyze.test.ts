@@ -4,7 +4,11 @@ import type { ProjectTasks } from "../src/agents/analyze.js";
 import type { TaskGroup } from "../src/browse/utils/stitch.js";
 import type { CheckpointInfo } from "@liwala/agent-sessions";
 
-function session(agent: string, createdAt: string, overrides: Partial<CheckpointInfo> = {}): CheckpointInfo {
+function session(
+  agent: string,
+  createdAt: string,
+  overrides: Partial<CheckpointInfo> = {}
+): CheckpointInfo {
   return {
     checkpointId: overrides.sessionId || createdAt,
     sessionId: overrides.sessionId || createdAt,
@@ -44,7 +48,10 @@ describe("analyzeAgents", () => {
       {
         project: "alpha",
         tasks: [
-          task([session("Claude Code", "2026-04-20T10:00:00Z"), session("Codex", "2026-04-20T10:30:00Z")]),
+          task([
+            session("Claude Code", "2026-04-20T10:00:00Z"),
+            session("Codex", "2026-04-20T10:30:00Z"),
+          ]),
         ],
       },
     ];
@@ -88,7 +95,7 @@ describe("analyzeAgents", () => {
           task([
             session("Claude Code", "2026-04-20T10:00:00Z"),
             session("Claude Code", "2026-04-20T10:15:00Z"), // self-transition, not counted
-            session("Codex", "2026-04-20T10:30:00Z"),       // claude→codex
+            session("Codex", "2026-04-20T10:30:00Z"), // claude→codex
             session("Claude Code", "2026-04-20T10:45:00Z"), // codex→claude
           ]),
         ],
@@ -104,8 +111,14 @@ describe("analyzeAgents", () => {
       {
         project: "alpha",
         tasks: [
-          task([session("Claude Code", "2026-04-20T10:00:00Z"), session("Codex", "2026-04-20T10:30:00Z")]),
-          task([session("Codex", "2026-04-20T11:00:00Z"), session("Claude Code", "2026-04-20T11:30:00Z")]),
+          task([
+            session("Claude Code", "2026-04-20T10:00:00Z"),
+            session("Codex", "2026-04-20T10:30:00Z"),
+          ]),
+          task([
+            session("Codex", "2026-04-20T11:00:00Z"),
+            session("Claude Code", "2026-04-20T11:30:00Z"),
+          ]),
           task([session("Claude Code", "2026-04-20T12:00:00Z")]),
         ],
       },
@@ -121,7 +134,12 @@ describe("analyzeAgents", () => {
     const input: ProjectTasks[] = [
       {
         project: "alpha",
-        tasks: [task([session("Claude Code", "2026-04-20T10:00:00Z"), session("Codex", "2026-04-20T10:30:00Z")])],
+        tasks: [
+          task([
+            session("Claude Code", "2026-04-20T10:00:00Z"),
+            session("Codex", "2026-04-20T10:30:00Z"),
+          ]),
+        ],
       },
       {
         project: "beta",
@@ -147,7 +165,7 @@ describe("analyzeAgents", () => {
               session("Claude Code", "2026-04-20T10:00:00Z"),
               session("Codex", "2026-04-20T10:30:00Z"),
             ],
-            "small mixed",
+            "small mixed"
           ),
           task(
             [
@@ -156,7 +174,7 @@ describe("analyzeAgents", () => {
               session("Claude Code", "2026-04-21T11:00:00Z"),
               session("Amp", "2026-04-21T11:30:00Z"),
             ],
-            "big mixed",
+            "big mixed"
           ),
         ],
       },
@@ -175,7 +193,7 @@ describe("analyzeAgents", () => {
         task([
           session("Claude Code", `2026-04-${String(i + 1).padStart(2, "0")}T10:00:00Z`),
           session("Codex", `2026-04-${String(i + 1).padStart(2, "0")}T10:30:00Z`),
-        ]),
+        ])
       );
     }
     const a = analyzeAgents([{ project: "x", tasks }], 5);

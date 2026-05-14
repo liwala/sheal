@@ -20,8 +20,14 @@ export function DigestsList({ onSelect, onBack, onQuit }: DigestsListProps) {
   const digests = useMemo(() => listDigests(), []);
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -43,7 +49,9 @@ export function DigestsList({ onSelect, onBack, onQuit }: DigestsListProps) {
   if (digests.length === 0) {
     return (
       <Box flexDirection="column">
-        <Text bold color="cyan">Digests</Text>
+        <Text bold color="cyan">
+          Digests
+        </Text>
         <Text color="yellow">No digest reports found.</Text>
         <Text dimColor>Run: sheal digest --since "7 days"</Text>
         <StatusBar view="detail" searchActive={false} />
@@ -56,7 +64,9 @@ export function DigestsList({ onSelect, onBack, onQuit }: DigestsListProps) {
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
-        <Text bold color="cyan">Digests</Text>
+        <Text bold color="cyan">
+          Digests
+        </Text>
         <Text dimColor> ({digests.length})</Text>
       </Box>
 
@@ -70,14 +80,17 @@ export function DigestsList({ onSelect, onBack, onQuit }: DigestsListProps) {
                 {d.date}
               </Text>
               <Text dimColor> [{d.scope}]</Text>
-              <Text> {d.totalSessions}s {d.totalPrompts}p</Text>
+              <Text>
+                {" "}
+                {d.totalSessions}s {d.totalPrompts}p
+              </Text>
               <Text color="yellow"> {formatTokens(d.tokenTotal)}tok</Text>
               <Text dimColor> {d.categoryBreakdown}</Text>
             </Box>
           );
         })}
         {digests.length > maxRows && scrollOffset + maxRows < digests.length && (
-          <Text dimColor>  ↓ {digests.length - scrollOffset - maxRows} more</Text>
+          <Text dimColor> ↓ {digests.length - scrollOffset - maxRows} more</Text>
         )}
       </Box>
 

@@ -11,7 +11,7 @@ export function StatusBar({ view, searchActive, info }: StatusBarProps) {
   if (searchActive) {
     return (
       <Box>
-        <Text dimColor>esc Cancel  enter Confirm</Text>
+        <Text dimColor>esc Cancel enter Confirm</Text>
       </Box>
     );
   }

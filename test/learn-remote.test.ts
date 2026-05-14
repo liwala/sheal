@@ -4,9 +4,24 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { readGlobalConfig, writeGlobalConfig } from "../src/learn/remote-config.js";
-import { isGitRepo, initRepo, addRemote, removeRemote, getRemoteUrl, commitAll, push, pull, lastCommitInfo } from "../src/learn/git.js";
+import {
+  isGitRepo,
+  initRepo,
+  addRemote,
+  removeRemote,
+  getRemoteUrl,
+  commitAll,
+  push,
+  pull,
+  lastCommitInfo,
+} from "../src/learn/git.js";
 
-const GIT_IDENTITY_ENV = ["GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL"] as const;
+const GIT_IDENTITY_ENV = [
+  "GIT_AUTHOR_NAME",
+  "GIT_AUTHOR_EMAIL",
+  "GIT_COMMITTER_NAME",
+  "GIT_COMMITTER_EMAIL",
+] as const;
 const savedGitEnv: Record<string, string | undefined> = {};
 
 beforeAll(() => {
@@ -25,7 +40,10 @@ afterAll(() => {
 });
 
 function tmpDir(name: string): string {
-  const dir = join(tmpdir(), `sheal-test-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  const dir = join(
+    tmpdir(),
+    `sheal-test-${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -57,7 +75,10 @@ describe("remote-config", () => {
   });
 
   it("round-trips config via write/read", () => {
-    writeFileSync(configPath, JSON.stringify({ remote: { url: "git@github.com:test/learnings.git" } }));
+    writeFileSync(
+      configPath,
+      JSON.stringify({ remote: { url: "git@github.com:test/learnings.git" } })
+    );
     const parsed = JSON.parse(readFileSync(configPath, "utf-8"));
     expect(parsed.remote.url).toBe("git@github.com:test/learnings.git");
   });
@@ -121,7 +142,10 @@ describe("git operations", () => {
   it("commitAll commits new files", async () => {
     await initRepo(workDir);
     mkdirSync(join(workDir, "learnings"), { recursive: true });
-    writeFileSync(join(workDir, "learnings", "LEARN-001-test.md"), "---\nid: LEARN-001\n---\nTest learning\n");
+    writeFileSync(
+      join(workDir, "learnings", "LEARN-001-test.md"),
+      "---\nid: LEARN-001\n---\nTest learning\n"
+    );
     const result = await commitAll(workDir, "add learning");
     expect(result.committed).toBe(true);
   });

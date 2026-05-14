@@ -43,9 +43,7 @@ function injectIntoFile(filepath: string, dryRun: boolean): boolean {
 
   // Already has the block — replace it (idempotent update)
   if (content.includes(SHEAL_BEGIN)) {
-    const re = new RegExp(
-      `${escapeRegExp(SHEAL_BEGIN)}[\\s\\S]*?${escapeRegExp(SHEAL_END)}`,
-    );
+    const re = new RegExp(`${escapeRegExp(SHEAL_BEGIN)}[\\s\\S]*?${escapeRegExp(SHEAL_END)}`);
     const updated = content.replace(re, SHEAL_BLOCK);
     if (updated === content) return false; // no change needed
     if (!dryRun) writeFileSync(filepath, updated);
@@ -60,7 +58,10 @@ function injectIntoFile(filepath: string, dryRun: boolean): boolean {
 }
 
 function indent(s: string, prefix = "    "): string {
-  return s.split("\n").map((l) => prefix + l).join("\n");
+  return s
+    .split("\n")
+    .map((l) => prefix + l)
+    .join("\n");
 }
 
 function escapeRegExp(s: string): string {
@@ -108,14 +109,14 @@ export async function runInit(options: InitOptions): Promise<void> {
   }
 
   // 2. Find and inject into agent instruction files
-  const existing = AGENT_FILES.filter((f) =>
-    existsSync(join(projectRoot, f)),
-  );
+  const existing = AGENT_FILES.filter((f) => existsSync(join(projectRoot, f)));
 
   if (existing.length === 0) {
     // No agent files found — create AGENTS.md
     const target = join(projectRoot, "AGENTS.md");
-    console.log(`${prefix}No agent instruction files found. Will create AGENTS.md with sheal block.`);
+    console.log(
+      `${prefix}No agent instruction files found. Will create AGENTS.md with sheal block.`
+    );
     if (dryRun) {
       console.log(`  Content to write:\n${indent(SHEAL_BLOCK)}`);
     } else {
@@ -147,7 +148,9 @@ export async function runInit(options: InitOptions): Promise<void> {
   const skillInstalled = installRetroSkill(projectRoot, dryRun);
   if (skillInstalled) {
     const skillExists = existsSync(skillPath);
-    console.log(`${prefix}${skillExists ? "Update" : "Create"} /retro skill at .claude/skills/retro/SKILL.md`);
+    console.log(
+      `${prefix}${skillExists ? "Update" : "Create"} /retro skill at .claude/skills/retro/SKILL.md`
+    );
     if (dryRun) {
       const lines = RETRO_SKILL_CONTENT.split("\n");
       console.log(`  Skill file (${lines.length} lines): ${lines[0]}...`);
@@ -158,11 +161,15 @@ export async function runInit(options: InitOptions): Promise<void> {
 
   // 4. Sync learnings
   if (dryRun) {
-    console.log(`\n${prefix}Would sync global learnings from ~/.sheal/learnings/ to .sheal/learnings/`);
+    console.log(
+      `\n${prefix}Would sync global learnings from ~/.sheal/learnings/ to .sheal/learnings/`
+    );
   } else {
     console.log(`\nSyncing learnings...`);
     await runLearnSync({ projectRoot });
   }
 
-  console.log(`\n${dryRun ? "No files were modified." : "Done! Agents in this project will now discover sheal."}`);
+  console.log(
+    `\n${dryRun ? "No files were modified." : "Done! Agents in this project will now discover sheal."}`
+  );
 }

@@ -20,8 +20,8 @@ export default [
 
       // Style — keep lenient, don't overwhelm beginners
       "no-console": "off",
-      "semi": "off",
-      "quotes": "off",
+      semi: "off",
+      quotes: "off",
     },
   },
   ...tseslint.configs.recommended,

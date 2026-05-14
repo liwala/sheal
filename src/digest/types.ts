@@ -31,36 +31,51 @@ export interface TokenSummary {
   totalCacheCreate: number;
   totalApiCalls: number;
   /** Breakdown per agent */
-  byAgent: Record<string, {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheCreate: number;
-    apiCalls: number;
-    sessionCount: number;
-  }>;
+  byAgent: Record<
+    string,
+    {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheCreate: number;
+      apiCalls: number;
+      sessionCount: number;
+    }
+  >;
   /** Breakdown per project */
-  byProject: Record<string, {
-    input: number;
-    output: number;
-    sessionCount: number;
-  }>;
+  byProject: Record<
+    string,
+    {
+      input: number;
+      output: number;
+      sessionCount: number;
+    }
+  >;
   /** Breakdown per model (claude-opus-4-6, claude-sonnet-4-6, etc.) */
-  byModel: Record<string, {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheCreate: number;
-    apiCalls: number;
-  }>;
+  byModel: Record<
+    string,
+    {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheCreate: number;
+      apiCalls: number;
+    }
+  >;
   /** Breakdown per project per model */
-  byProjectModel: Record<string, Record<string, {
-    input: number;
-    output: number;
-    cacheRead: number;
-    cacheCreate: number;
-    apiCalls: number;
-  }>>;
+  byProjectModel: Record<
+    string,
+    Record<
+      string,
+      {
+        input: number;
+        output: number;
+        cacheRead: number;
+        cacheCreate: number;
+        apiCalls: number;
+      }
+    >
+  >;
 }
 
 export interface DigestReport {

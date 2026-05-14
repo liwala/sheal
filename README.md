@@ -144,6 +144,7 @@ sheal ask "show me all test failures" -n 20
 ```
 
 Options:
+
 - `--agent <name>` — Agent CLI to use: `claude`, `gemini`, `codex`, `amp`
 - `-n, --limit <count>` — Max sessions to search (default: 10)
 - `--global` — Search across ALL projects in `~/.claude/projects/`
@@ -259,6 +260,7 @@ sheal drift --json                 # JSON output
 Each drifted learning is labeled `[global]` or `[project]` so you can see where the violation originated. Severity dots indicate how often the learning was violated (● once, ●● twice, ●●● three or more times).
 
 **Detection methods:**
+
 - **Keyword matching** — compares session retro learnings against your active learnings
 - **Failure loop detection** — flags retry-related learnings when retries recur
 - **File churn detection** — flags planning-related learnings when wasted edits recur
@@ -341,6 +343,7 @@ retro → project drafts → review → active → promote → global ─┐
 ```
 
 **Learning format** (`~/.sheal/learnings/LEARN-001-inspect-real-data.md`):
+
 ```markdown
 ---
 id: LEARN-001
@@ -369,12 +372,12 @@ Categories: `missing-context`, `failure-loop`, `wasted-effort`, `environment`, `
 
 For `--enrich` and `ask` commands, `sheal` can invoke these agent CLIs:
 
-| Agent | CLI Command | Invocation |
-|-------|-------------|------------|
-| Claude Code | `claude` | `claude -p --output-format text` (stdin) |
-| Codex | `codex` | `codex exec -` (stdin) |
-| Amp | `amp` | `amp -x` (stdin) |
-| Gemini CLI | `gemini` | stdin pipe |
+| Agent       | CLI Command | Invocation                               |
+| ----------- | ----------- | ---------------------------------------- |
+| Claude Code | `claude`    | `claude -p --output-format text` (stdin) |
+| Codex       | `codex`     | `codex exec -` (stdin)                   |
+| Amp         | `amp`       | `amp -x` (stdin)                         |
+| Gemini CLI  | `gemini`    | stdin pipe                               |
 
 Use `--agent claude`, `--agent codex`, `--agent amp`, or `--agent gemini` to pick one. Auto-detection tries the session's own agent first, then falls back to any available CLI.
 

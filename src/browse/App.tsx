@@ -21,7 +21,13 @@ import { DigestsList } from "./views/DigestsList.js";
 import { DigestDetail } from "./views/DigestDetail.js";
 
 const AGENTS = [null, "claude", "codex", "amp", "gemini"];
-const PROJECT_SCOPED_INITIAL_VIEWS: View[] = ["retro-list", "learnings", "sessions", "timeline", "asks-list"];
+const PROJECT_SCOPED_INITIAL_VIEWS: View[] = [
+  "retro-list",
+  "learnings",
+  "sessions",
+  "timeline",
+  "asks-list",
+];
 const GLOBAL_INITIAL_VIEWS: View[] = ["digests-list"];
 
 export function getPendingProjectView(initialView?: View): View | null {
@@ -41,7 +47,7 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   const needsProject = pendingInitialView !== null;
   const isGlobalView = initialView && GLOBAL_INITIAL_VIEWS.includes(initialView);
   const [view, setView] = useState<View>(
-    needsProject ? "projects" : (initialView || (initialQuery ? "search-results" : "projects")),
+    needsProject ? "projects" : initialView || (initialQuery ? "search-results" : "projects")
   );
   const [selectedProject, setSelectedProject] = useState<NativeProject | null>(null);
   const [selectedSlug, setSelectedSlug] = useState<string>("");
@@ -73,21 +79,28 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
     }
   }, []);
 
-  const handleSelectSession = useCallback((session: CheckpointInfo) => {
-    if (selectedProject?.agents) {
-      const agentKey = session.agent === "Claude Code" ? "claude"
-        : session.agent === "Codex" ? "codex"
-        : session.agent === "Amp" ? "amp"
-        : "claude";
-      const match = selectedProject.agents.find((a) => a.agent === agentKey);
-      setSelectedSlug(match?.slug || selectedProject.slug);
-    } else if (selectedProject) {
-      setSelectedSlug(selectedProject.slug);
-    }
-    setSelectedSessionId(session.sessionId);
-    setSelectedAgent(session.agent || "");
-    setView("detail");
-  }, [selectedProject]);
+  const handleSelectSession = useCallback(
+    (session: CheckpointInfo) => {
+      if (selectedProject?.agents) {
+        const agentKey =
+          session.agent === "Claude Code"
+            ? "claude"
+            : session.agent === "Codex"
+              ? "codex"
+              : session.agent === "Amp"
+                ? "amp"
+                : "claude";
+        const match = selectedProject.agents.find((a) => a.agent === agentKey);
+        setSelectedSlug(match?.slug || selectedProject.slug);
+      } else if (selectedProject) {
+        setSelectedSlug(selectedProject.slug);
+      }
+      setSelectedSessionId(session.sessionId);
+      setSelectedAgent(session.agent || "");
+      setView("detail");
+    },
+    [selectedProject]
+  );
 
   const handleSelectSearchResult = useCallback((slug: string, sessionId: string) => {
     setSelectedSlug(slug);
@@ -99,11 +112,21 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
     setView("search-results");
   }, []);
 
-  const handleViewSessions = useCallback(() => { setView("sessions"); }, []);
-  const handleViewTimeline = useCallback(() => { setView("timeline"); }, []);
-  const handleViewRetros = useCallback(() => { setView("retro-list"); }, []);
-  const handleViewLearnings = useCallback(() => { setView("learnings"); }, []);
-  const handleViewAsks = useCallback(() => { setView("asks-list"); }, []);
+  const handleViewSessions = useCallback(() => {
+    setView("sessions");
+  }, []);
+  const handleViewTimeline = useCallback(() => {
+    setView("timeline");
+  }, []);
+  const handleViewRetros = useCallback(() => {
+    setView("retro-list");
+  }, []);
+  const handleViewLearnings = useCallback(() => {
+    setView("learnings");
+  }, []);
+  const handleViewAsks = useCallback(() => {
+    setView("asks-list");
+  }, []);
 
   const handleSelectRetro = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -116,7 +139,9 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
     setView("ask-detail");
   }, []);
 
-  const handleViewDigests = useCallback(() => { setView("digests-list"); }, []);
+  const handleViewDigests = useCallback(() => {
+    setView("digests-list");
+  }, []);
 
   const handleSelectDigest = useCallback((filename: string) => {
     setSelectedDigestFile(filename);
@@ -131,7 +156,13 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
   const handleBack = useCallback(() => {
     if (view === "detail") {
       setView(selectedProject ? "sessions" : "search-results");
-    } else if (view === "sessions" || view === "timeline" || view === "retro-list" || view === "learnings" || view === "asks-list") {
+    } else if (
+      view === "sessions" ||
+      view === "timeline" ||
+      view === "retro-list" ||
+      view === "learnings" ||
+      view === "asks-list"
+    ) {
       setView("project-overview");
     } else if (view === "project-overview") {
       setView("projects");
@@ -327,21 +358,9 @@ export function App({ initialProject, initialQuery, initialAgent, initialView }:
       );
 
     case "digests-list":
-      return (
-        <DigestsList
-          onSelect={handleSelectDigest}
-          onBack={handleBack}
-          onQuit={handleQuit}
-        />
-      );
+      return <DigestsList onSelect={handleSelectDigest} onBack={handleBack} onQuit={handleQuit} />;
 
     case "digest-detail":
-      return (
-        <DigestDetail
-          filename={selectedDigestFile}
-          onBack={handleBack}
-          onQuit={handleQuit}
-        />
-      );
+      return <DigestDetail filename={selectedDigestFile} onBack={handleBack} onQuit={handleQuit} />;
   }
 }

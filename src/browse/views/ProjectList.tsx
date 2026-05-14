@@ -54,7 +54,7 @@ function mergeProjects(all: NativeProject[]): NativeProject[] {
         sessionCount: p.sessionCount,
       }));
       const totalSessions = projects.reduce((s, p) => s + p.sessionCount, 0);
-      const latest = projects.reduce((a, b) => a.lastModified > b.lastModified ? a : b);
+      const latest = projects.reduce((a, b) => (a.lastModified > b.lastModified ? a : b));
       // Prefer the project with a real path for the name
       const best = projects.find((p) => p.projectPath.startsWith("/")) || projects[0];
 
@@ -86,7 +86,7 @@ interface ProjectListProps {
 export function filterProjectsForContent(
   projects: NativeProject[],
   contentFilter: "all" | "retros",
-  stats: Map<string, { retros: number; learnings: number; asks: number }>,
+  stats: Map<string, { retros: number; learnings: number; asks: number }>
 ): NativeProject[] {
   if (contentFilter === "all") return projects;
   return projects.filter((project) => (stats.get(project.projectPath)?.retros || 0) > 0);
@@ -137,13 +137,11 @@ export function ProjectList({
     if (filterText) {
       const q = filterText.toLowerCase();
       result = result.filter(
-        (p) => p.name.toLowerCase().includes(q) || p.projectPath.toLowerCase().includes(q),
+        (p) => p.name.toLowerCase().includes(q) || p.projectPath.toLowerCase().includes(q)
       );
     }
     if (agentFilter) {
-      result = result.filter(
-        (p) => p.agents?.some((a) => a.agent === agentFilter),
-      );
+      result = result.filter((p) => p.agents?.some((a) => a.agent === agentFilter));
     }
     return result;
   }, [allProjects, contentFilter, filterText, agentFilter, projectStats]);
@@ -159,10 +157,22 @@ export function ProjectList({
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (input === "/") { setFilterActive(true); return; }
-    if (input === "s") { onSearch(); return; }
-    if (input === "a") { onAgentFilterToggle(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (input === "/") {
+      setFilterActive(true);
+      return;
+    }
+    if (input === "s") {
+      onSearch();
+      return;
+    }
+    if (input === "a") {
+      onAgentFilterToggle();
+      return;
+    }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -190,17 +200,19 @@ export function ProjectList({
         <Text bold>
           {filtered.length} project(s), {totalSessions} sessions
         </Text>
-        {agentFilter && <Text color={(AGENT_COLORS[agentFilter] || "white") as any}> [{agentFilter}]</Text>}
+        {agentFilter && (
+          <Text color={(AGENT_COLORS[agentFilter] || "white") as any}> [{agentFilter}]</Text>
+        )}
       </Box>
 
-      {filterActive && (
-        <SearchBar label="Filter" value={filterText} onChange={setFilterText} />
-      )}
+      {filterActive && <SearchBar label="Filter" value={filterText} onChange={setFilterText} />}
 
       <Box flexDirection="column" height={maxRows}>
         {windowItems.map((p, i) => {
           const globalIdx = scrollOffset + i;
-          const agents = p.agents || [{ agent: agentFromSlug(p.slug), slug: p.slug, sessionCount: p.sessionCount }];
+          const agents = p.agents || [
+            { agent: agentFromSlug(p.slug), slug: p.slug, sessionCount: p.sessionCount },
+          ];
           const stats = projectStats.get(p.projectPath);
           return (
             <Box key={p.projectPath + p.slug}>
@@ -225,7 +237,7 @@ export function ProjectList({
           );
         })}
         {filtered.length > maxRows && scrollOffset + maxRows < filtered.length && (
-          <Text dimColor>  ↓ {filtered.length - scrollOffset - maxRows} more</Text>
+          <Text dimColor> ↓ {filtered.length - scrollOffset - maxRows} more</Text>
         )}
       </Box>
 

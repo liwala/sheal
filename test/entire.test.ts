@@ -71,7 +71,12 @@ describe("parseTranscript", () => {
             { type: "text", text: "I'll read both files." },
             { type: "tool_use", id: "tool-1", name: "Read", input: { file_path: "/src/a.ts" } },
             { type: "tool_use", id: "tool-2", name: "Read", input: { file_path: "/src/b.ts" } },
-            { type: "tool_use", id: "tool-3", name: "Edit", input: { file_path: "/src/c.ts", new_string: "x" } },
+            {
+              type: "tool_use",
+              id: "tool-3",
+              name: "Edit",
+              input: { file_path: "/src/c.ts", new_string: "x" },
+            },
           ],
         },
       });
@@ -115,7 +120,8 @@ describe("parseTranscript", () => {
     });
 
     it("skips malformed JSON lines", () => {
-      const content = '{"role":"user","content":"hello"}\nnot-json\n{"role":"assistant","content":"hi"}';
+      const content =
+        '{"role":"user","content":"hello"}\nnot-json\n{"role":"assistant","content":"hi"}';
       const entries = parseTranscript(content);
       expect(entries.length).toBe(2);
     });

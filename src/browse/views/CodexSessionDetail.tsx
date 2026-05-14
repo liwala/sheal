@@ -22,27 +22,33 @@ interface DisplayBlock {
 }
 
 const PREVIEW_LINES: Record<DisplayBlock["type"], number> = {
-  "user": 3,
-  "assistant": 4,
+  user: 3,
+  assistant: 4,
   "tool-call": 1,
   "tool-output": 0,
 };
 
 const TYPE_COLORS: Record<DisplayBlock["type"], string> = {
-  "user": "green",
-  "assistant": "blue",
+  user: "green",
+  assistant: "blue",
   "tool-call": "yellow",
   "tool-output": "gray",
 };
 
 const TYPE_LABELS: Record<DisplayBlock["type"], string> = {
-  "user": "USER",
-  "assistant": "ASSISTANT",
+  user: "USER",
+  assistant: "ASSISTANT",
   "tool-call": "TOOL",
   "tool-output": "OUTPUT",
 };
 
-export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onViewRetro }: CodexSessionDetailProps) {
+export function CodexSessionDetail({
+  sessionId,
+  projectPath,
+  onBack,
+  onQuit,
+  onViewRetro,
+}: CodexSessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -62,9 +68,8 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
   const filteredBlocks = useMemo(() => {
     if (!searchText) return blocks;
     const q = searchText.toLowerCase();
-    return blocks.filter((b) =>
-      b.summary.toLowerCase().includes(q) ||
-      b.lines.some((l) => l.toLowerCase().includes(q)),
+    return blocks.filter(
+      (b) => b.summary.toLowerCase().includes(q) || b.lines.some((l) => l.toLowerCase().includes(q))
     );
   }, [blocks, searchText]);
 
@@ -79,17 +84,31 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "/") { setSearchActive(true); return; }
-    if (input === "r" && hasRetroFile) { onViewRetro(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (input === "/") {
+      setSearchActive(true);
+      return;
+    }
+    if (input === "r" && hasRetroFile) {
+      onViewRetro();
+      return;
+    }
 
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
     } else if (key.downArrow) {
       setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + 1));
     } else if (key.pageDown) {
-      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3)));
+      setScrollPos((p) =>
+        Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3))
+      );
     } else if (key.pageUp) {
       setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
     } else if (key.return) {
@@ -131,9 +150,12 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
     const contentLines = block.lines.slice(1);
 
     const cursor = isCurrent ? ">" : " ";
-    const expandHint = contentLines.length > previewCount
-      ? (isExpanded ? " [-]" : ` [+${contentLines.length}]`)
-      : "";
+    const expandHint =
+      contentLines.length > previewCount
+        ? isExpanded
+          ? " [-]"
+          : ` [+${contentLines.length}]`
+        : "";
     renderedLines.push({
       text: `${cursor} ${label}:${expandHint} ${block.summary.slice(0, 100)}`,
       color,
@@ -147,7 +169,10 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
         if (renderedLines.length >= maxRows) break;
       }
       if (contentLines.length > maxShow) {
-        renderedLines.push({ text: `    ... (${contentLines.length - maxShow} more lines)`, dim: true });
+        renderedLines.push({
+          text: `    ... (${contentLines.length - maxShow} more lines)`,
+          dim: true,
+        });
       }
     } else if (previewCount > 0 && contentLines.length > 0) {
       for (const line of contentLines.slice(0, previewCount)) {
@@ -155,7 +180,10 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
         if (renderedLines.length >= maxRows) break;
       }
       if (contentLines.length > previewCount) {
-        renderedLines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true });
+        renderedLines.push({
+          text: `    ... (${contentLines.length - previewCount} more, enter to expand)`,
+          dim: true,
+        });
       }
     }
   }
@@ -165,7 +193,9 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
       <Box marginBottom={1} flexDirection="column">
         <Box>
           <Text bold>Codex Session </Text>
-          <Text bold color="cyan">{sessionId.slice(0, 12)}</Text>
+          <Text bold color="cyan">
+            {sessionId.slice(0, 12)}
+          </Text>
           <Text dimColor> | {meta.timestamp?.slice(0, 16)}</Text>
           {meta.model && <Text dimColor> | {meta.model}</Text>}
           <Text dimColor> | Codex</Text>
@@ -175,23 +205,16 @@ export function CodexSessionDetail({ sessionId, projectPath, onBack, onQuit, onV
         {title && <Text>{title}</Text>}
         <Text dimColor>
           {filteredBlocks.length} blocks{searchText ? " (filtered)" : ""}
-          {" | "}{scrollPos + 1}/{filteredBlocks.length}
+          {" | "}
+          {scrollPos + 1}/{filteredBlocks.length}
         </Text>
       </Box>
 
-      {searchActive && (
-        <SearchBar label="Search" value={searchText} onChange={setSearchText} />
-      )}
+      {searchActive && <SearchBar label="Search" value={searchText} onChange={setSearchText} />}
 
       <Box flexDirection="column">
         {renderedLines.map((line, i) => (
-          <Text
-            key={i}
-            color={line.color as any}
-            bold={line.bold}
-            dimColor={line.dim}
-            wrap="wrap"
-          >
+          <Text key={i} color={line.color as any} bold={line.bold} dimColor={line.dim} wrap="wrap">
             {line.text}
           </Text>
         ))}

@@ -32,16 +32,20 @@ export function listAllProjects(): ProjectSummary[] {
 
   for (const p of listAllNativeProjects()) {
     if (!p.projectPath.startsWith("/")) continue;
-    if (!byPath.has(p.projectPath)) byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
+    if (!byPath.has(p.projectPath))
+      byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
   }
   for (const p of listCodexProjects()) {
-    if (!byPath.has(p.projectPath)) byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
+    if (!byPath.has(p.projectPath))
+      byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
   }
   for (const p of listAmpProjects()) {
-    if (!byPath.has(p.projectPath)) byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
+    if (!byPath.has(p.projectPath))
+      byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
   }
   for (const p of listGeminiProjects()) {
-    if (!byPath.has(p.projectPath)) byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
+    if (!byPath.has(p.projectPath))
+      byPath.set(p.projectPath, { projectPath: p.projectPath, name: p.name });
   }
 
   return [...byPath.values()];

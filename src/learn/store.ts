@@ -1,4 +1,12 @@
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, openSync, closeSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  existsSync,
+  openSync,
+  closeSync,
+} from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { LearningFile, LearningCategory, LearningSeverity, LearningStatus } from "./types.js";
@@ -156,7 +164,10 @@ export function parseLearningContent(content: string): LearningFile {
   const tagsRaw = meta["tags"] ?? "[]";
   const tagsMatch = tagsRaw.match(/^\[(.*)]/);
   const tags = tagsMatch
-    ? tagsMatch[1].split(",").map((t) => t.trim()).filter(Boolean)
+    ? tagsMatch[1]
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
     : [];
 
   return {

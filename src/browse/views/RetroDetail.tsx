@@ -70,7 +70,7 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
   const tabs = useMemo(
     () => loadAllEnrichments(projectPath, sessionId),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projectPath, sessionId, tabsVersion],
+    [projectPath, sessionId, tabsVersion]
   );
 
   const lines = tabs[activeTab]?.lines ?? [];
@@ -102,15 +102,17 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
       [
         join(projectPath, "node_modules/.bin/sheal"),
         "retro",
-        "-c", sessionId,
+        "-c",
+        sessionId,
         "--enrich",
-        "-p", projectPath,
+        "-p",
+        projectPath,
       ],
       {
         env: { ...process.env, NO_COLOR: "1" },
         stdio: ["ignore", "pipe", "pipe"],
         cwd: projectPath,
-      },
+      }
     );
     childRef.current = child;
 
@@ -144,7 +146,8 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
           setEnrichProgress("");
           setTabsVersion((v) => v + 1);
         } else {
-          const errMsg = Buffer.concat(errChunks).toString().trim() ||
+          const errMsg =
+            Buffer.concat(errChunks).toString().trim() ||
             Buffer.concat(chunks).toString().trim() ||
             `Process exited with code ${code}`;
           setEnrichStatus("error");
@@ -156,15 +159,31 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
 
   useInput((input, key) => {
     if (searchActive) {
-      if (key.escape) { setSearchActive(false); setSearchText(""); }
-      else if (key.return) { setSearchActive(false); }
+      if (key.escape) {
+        setSearchActive(false);
+        setSearchText("");
+      } else if (key.return) {
+        setSearchActive(false);
+      }
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "/") { setSearchActive(true); return; }
-    if (input === "e" && enrichStatus !== "running") { startEnrich(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (input === "/") {
+      setSearchActive(true);
+      return;
+    }
+    if (input === "e" && enrichStatus !== "running") {
+      startEnrich();
+      return;
+    }
 
     // Tab switching with left/right when multiple enrichments
     if (tabs.length > 1) {
@@ -192,27 +211,31 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
   });
 
   // Enrichment status banner
-  const enrichBanner = enrichStatus === "running" ? (
-    <Box marginBottom={1}>
-      <Text color="cyan">Running enrichment... </Text>
-      <Text dimColor>{enrichProgress}</Text>
-    </Box>
-  ) : enrichStatus === "error" ? (
-    <Box marginBottom={1} flexDirection="column">
-      <Text color="red">Enrichment failed: {enrichError}</Text>
-      <Text dimColor>Press e to retry</Text>
-    </Box>
-  ) : enrichStatus === "done" && tabs.length > 0 ? (
-    <Box marginBottom={1}>
-      <Text color="green">Enrichment complete — results loaded</Text>
-    </Box>
-  ) : null;
+  const enrichBanner =
+    enrichStatus === "running" ? (
+      <Box marginBottom={1}>
+        <Text color="cyan">Running enrichment... </Text>
+        <Text dimColor>{enrichProgress}</Text>
+      </Box>
+    ) : enrichStatus === "error" ? (
+      <Box marginBottom={1} flexDirection="column">
+        <Text color="red">Enrichment failed: {enrichError}</Text>
+        <Text dimColor>Press e to retry</Text>
+      </Box>
+    ) : enrichStatus === "done" && tabs.length > 0 ? (
+      <Box marginBottom={1}>
+        <Text color="green">Enrichment complete — results loaded</Text>
+      </Box>
+    ) : null;
 
   if (tabs.length === 0 && enrichStatus === "idle") {
     return (
       <Box flexDirection="column">
         <Text color="yellow">No retrospective found for session {sessionId.slice(0, 12)}</Text>
-        <Text dimColor>Press <Text bold>e</Text> to run enrichment, or run manually: sheal retro -c {sessionId} --enrich</Text>
+        <Text dimColor>
+          Press <Text bold>e</Text> to run enrichment, or run manually: sheal retro -c {sessionId}{" "}
+          --enrich
+        </Text>
         <StatusBar view="detail" searchActive={false} />
       </Box>
     );
@@ -233,16 +256,24 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold color="magenta">Retro</Text>
-          <Text bold>{" "}{sessionId.slice(0, 12)}</Text>
+          <Text bold color="magenta">
+            Retro
+          </Text>
+          <Text bold> {sessionId.slice(0, 12)}</Text>
           {tabs.length > 1 && (
             <>
-              <Text>{" "}</Text>
+              <Text> </Text>
               {tabs.map((tab, i) => (
                 <Text key={tab.label}>
                   {i > 0 && <Text> </Text>}
                   <Text
-                    color={i === activeTab ? (tab.label === "consolidated" ? "green" : "magenta") : undefined}
+                    color={
+                      i === activeTab
+                        ? tab.label === "consolidated"
+                          ? "green"
+                          : "magenta"
+                        : undefined
+                    }
                     bold={i === activeTab}
                     dimColor={i !== activeTab}
                   >
@@ -255,27 +286,39 @@ export function RetroDetail({ projectPath, sessionId, onBack, onQuit }: RetroDet
           )}
         </Box>
         <Text dimColor>
-          {filteredLines.length} lines | {scrollPos + 1}-{Math.min(scrollPos + maxRows, filteredLines.length)}/{filteredLines.length}
+          {filteredLines.length} lines | {scrollPos + 1}-
+          {Math.min(scrollPos + maxRows, filteredLines.length)}/{filteredLines.length}
         </Text>
       </Box>
 
       {enrichBanner}
 
-      {searchActive && (
-        <SearchBar label="Search" value={searchText} onChange={setSearchText} />
-      )}
+      {searchActive && <SearchBar label="Search" value={searchText} onChange={setSearchText} />}
 
       <Box flexDirection="column">
         {visibleLines.map((line, i) => {
           const isBold = line.startsWith("**");
           const isBullet = line.trimStart().startsWith("- ");
           const isHuman = line.includes("For the Human");
-          const isRule = line.trimStart().startsWith("- When ") || line.trimStart().startsWith("- Before ") || line.trimStart().startsWith("- After ");
+          const isRule =
+            line.trimStart().startsWith("- When ") ||
+            line.trimStart().startsWith("- Before ") ||
+            line.trimStart().startsWith("- After ");
           return (
             <Text
               key={scrollPos + i}
               bold={isBold}
-              color={isHuman ? "cyan" : isBold ? "magenta" : isRule ? "green" : isBullet ? "yellow" : undefined}
+              color={
+                isHuman
+                  ? "cyan"
+                  : isBold
+                    ? "magenta"
+                    : isRule
+                      ? "green"
+                      : isBullet
+                        ? "yellow"
+                        : undefined
+              }
               wrap="wrap"
             >
               {line || " "}

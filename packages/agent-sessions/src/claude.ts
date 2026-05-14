@@ -7,7 +7,15 @@
  *   { type, message, uuid, timestamp, sessionId, version, cwd, ... }
  */
 
-import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  openSync,
+  readSync,
+  closeSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parseTranscript } from "./transcript.js";
@@ -133,7 +141,10 @@ function readHeadBytes(path: string, maxBytes: number): string {
  * When called with content (loading mode), parses the full content —
  * this avoids a redundant re-read since the caller already has the file.
  */
-function extractSessionMeta(path: string, fullContent?: string): {
+function extractSessionMeta(
+  path: string,
+  fullContent?: string
+): {
   createdAt: string;
   model?: string;
   version?: string;
@@ -212,26 +223,33 @@ function extractSessionMeta(path: string, fullContent?: string): {
     }
   }
 
-  const totalTokens: TokenUsage | undefined = apiCalls > 0 ? {
-    inputTokens: totalInput,
-    outputTokens: totalOutput,
-    cacheReadTokens: totalCacheRead,
-    cacheCreationTokens: totalCacheCreate,
-    apiCallCount: apiCalls,
-  } : undefined;
+  const totalTokens: TokenUsage | undefined =
+    apiCalls > 0
+      ? {
+          inputTokens: totalInput,
+          outputTokens: totalOutput,
+          cacheReadTokens: totalCacheRead,
+          cacheCreationTokens: totalCacheCreate,
+          apiCallCount: apiCalls,
+        }
+      : undefined;
 
   const filesTouched = filesSet.size > 0 ? [...filesSet] : undefined;
-  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback, filesTouched };
+  return {
+    createdAt,
+    model,
+    version,
+    totalTokens,
+    firstPrompt: firstPrompt || pipedFallback,
+    filesTouched,
+  };
 }
 
 /**
  * Load a native Claude Code session as a Checkpoint.
  * Maps the native format to our Checkpoint/Session types.
  */
-export function loadNativeSession(
-  projectRoot: string,
-  sessionId: string,
-): Checkpoint | null {
+export function loadNativeSession(projectRoot: string, sessionId: string): Checkpoint | null {
   const dir = getClaudeProjectDir(projectRoot);
   if (!dir) return null;
   return loadSessionFromDir(dir, sessionId);
@@ -262,9 +280,7 @@ function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
       tokenUsage: meta.totalTokens,
     },
     transcript,
-    prompts: transcript
-      .filter((e) => e.type === "user")
-      .map((e) => e.content),
+    prompts: transcript.filter((e) => e.type === "user").map((e) => e.content),
   };
 
   const root: CheckpointRoot = {
@@ -344,10 +360,7 @@ export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
 /**
  * Load a session by slug + sessionId (for global mode where we don't have a project root).
  */
-export function loadNativeSessionBySlug(
-  slug: string,
-  sessionId: string,
-): Checkpoint | null {
+export function loadNativeSessionBySlug(slug: string, sessionId: string): Checkpoint | null {
   const dir = join(homedir(), ".claude", "projects", slug);
   return loadSessionFromDir(dir, sessionId);
 }
@@ -432,9 +445,9 @@ function extractUserText(obj: Record<string, unknown>): string | null {
  */
 function isUsefulPrompt(text: string): boolean {
   if (text.length < 6) return false;
-  if (text.startsWith("-\n")) return false;        // piped stdin prompt
-  if (text.startsWith("<")) return false;           // XML/HTML tags (system)
-  if (text.startsWith("#")) return false;           // markdown headers (injected docs)
+  if (text.startsWith("-\n")) return false; // piped stdin prompt
+  if (text.startsWith("<")) return false; // XML/HTML tags (system)
+  if (text.startsWith("#")) return false; // markdown headers (injected docs)
   if (text.startsWith("[Request interrupted")) return false;
   if (text.startsWith("Implement the following plan:")) return false;
   if (/^resume\b/i.test(text)) return false;
@@ -462,7 +475,18 @@ function slugToName(slug: string): string {
   const parts = slug.split("-").filter(Boolean);
 
   // Known path segments to skip
-  const skipWords = new Set(["Users", "home", "code", "projects", "small", "var", "tmp", "opt", "src", "Dropbox"]);
+  const skipWords = new Set([
+    "Users",
+    "home",
+    "code",
+    "projects",
+    "small",
+    "var",
+    "tmp",
+    "opt",
+    "src",
+    "Dropbox",
+  ]);
 
   // Walk backwards to find the first meaningful segment
   for (let i = parts.length - 1; i >= 0; i--) {

@@ -20,6 +20,7 @@ See also: @CLAUDE.md for Claude Code-specific instructions.
 5. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
+
 - Work is NOT complete until `git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
@@ -34,24 +35,30 @@ Commit and push after every logical change. Do not accumulate uncommitted work a
 Run `sheal check` at the start of every session to catch environment issues early.
 Run `sheal retro` at the end of sessions to extract learnings.
 
-
 <!-- BEGIN SHEAL RULES -->
+
 ## Session Learnings
+
 <!-- Run `sheal learn show <id>` for full context on any rule -->
 
 ### Parsing
+
 - [LEARN-001] Before writing parsers for external data formats (JSON APIs, JSONL transcripts, config files), always inspect 2-3 real samples first using git show, curl, or cat.
 
 ### Cli
+
 - [LEARN-002] When using an unfamiliar CLI tool for the first time, run <tool> --help and <tool> <subcommand> --help before attempting commands.
 
 ### Testing
+
 - [LEARN-003] After creating test fixtures, verify they match the real data format by comparing structure side-by-side.
 
 ### Services
+
 - [LEARN-004] When a background server process (dolt, postgres, redis) is required, add it to .self-heal.json requiredServices so sheal check catches it at session start.
 
 ### General
+
 - [LEARN-005] When bootstrapping a new TypeScript CLI project, define the full directory structure and module interfaces in a plan before writing any implementation files — this prevents the file churn seen in index.ts (6x) and analyzers.ts (5x).
 - [LEARN-006] Before parsing any external data format (Entire.io transcripts, API responses), fetch a real sample first and save it as a test fixture — do not write parsers against assumed schemas.
 - [LEARN-007] When `sheal check` reports warnings (like untracked files or missing services), resolve them before proceeding — treat warnings as blockers, not informational.

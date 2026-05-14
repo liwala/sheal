@@ -25,8 +25,14 @@ export function AsksList({ projectPath, projectName, onSelect, onBack, onQuit }:
   }, [projectPath]);
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -48,7 +54,9 @@ export function AsksList({ projectPath, projectName, onSelect, onBack, onQuit }:
   if (asks.length === 0) {
     return (
       <Box flexDirection="column">
-        <Text bold color="cyan">{projectName}</Text>
+        <Text bold color="cyan">
+          {projectName}
+        </Text>
         <Text color="yellow">No ask results found.</Text>
         <Text dimColor>Run: sheal ask "your question"</Text>
         <StatusBar view="detail" searchActive={false} />
@@ -61,8 +69,12 @@ export function AsksList({ projectPath, projectName, onSelect, onBack, onQuit }:
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
-        <Text bold color="cyan">{projectName}</Text>
-        <Text bold color="blueBright">{" > Asks"}</Text>
+        <Text bold color="cyan">
+          {projectName}
+        </Text>
+        <Text bold color="blueBright">
+          {" > Asks"}
+        </Text>
         <Text dimColor> ({asks.length})</Text>
       </Box>
 
@@ -71,7 +83,10 @@ export function AsksList({ projectPath, projectName, onSelect, onBack, onQuit }:
           const globalIdx = scrollOffset + i;
           return (
             <Box key={a.filename}>
-              <Text color={globalIdx === cursor ? "blueBright" : undefined} bold={globalIdx === cursor}>
+              <Text
+                color={globalIdx === cursor ? "blueBright" : undefined}
+                bold={globalIdx === cursor}
+              >
                 {globalIdx === cursor ? "> " : "  "}
                 {a.date}
               </Text>
@@ -81,7 +96,7 @@ export function AsksList({ projectPath, projectName, onSelect, onBack, onQuit }:
           );
         })}
         {asks.length > maxRows && scrollOffset + maxRows < asks.length && (
-          <Text dimColor>  ↓ {asks.length - scrollOffset - maxRows} more</Text>
+          <Text dimColor> ↓ {asks.length - scrollOffset - maxRows} more</Text>
         )}
       </Box>
 

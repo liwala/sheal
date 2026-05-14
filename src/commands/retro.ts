@@ -22,12 +22,7 @@ import { runRetrospective } from "../retro/index.js";
 import { runAmpRetrospective } from "../retro/amp-retro.js";
 import { generateRetroPrompt, generateConsolidationPrompt } from "../retro/prompt.js";
 import { detectAgentCli, invokeAgent } from "../retro/agent.js";
-import {
-  getGlobalDir,
-  nextId,
-  writeLearning,
-  listLearnings,
-} from "../learn/index.js";
+import { getGlobalDir, nextId, writeLearning, listLearnings } from "../learn/index.js";
 import { detectProjectTags } from "../learn/detect.js";
 import type { LearningFile } from "../learn/types.js";
 import type { Retrospective, Learning } from "../retro/types.js";
@@ -92,7 +87,7 @@ function shouldSkipSession(checkpoint: Checkpoint): string | null {
  */
 async function findNextViableSession(
   repoPath: string,
-  skipId: string,
+  skipId: string
 ): Promise<{ id: string; title?: string } | null> {
   const sessions = await listRetroCandidates(repoPath);
   for (const candidate of sessions.slice(0, 10)) {
@@ -139,8 +134,10 @@ export async function runRetro(options: RetroOptions): Promise<void> {
     if (!options.checkpointId) {
       const suggestion = await findNextViableSession(repoPath, checkpoint.root.checkpointId);
       if (suggestion) {
-        console.log(chalk.gray(`\nTry: sheal retro --checkpoint ${suggestion.id}`) +
-          (suggestion.title ? chalk.gray(` (${suggestion.title})`) : ""));
+        console.log(
+          chalk.gray(`\nTry: sheal retro --checkpoint ${suggestion.id}`) +
+            (suggestion.title ? chalk.gray(` (${suggestion.title})`) : "")
+        );
       }
     }
     return;
@@ -209,7 +206,9 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
   const globalDir = getGlobalDir();
   const existingLearnings = options.enrich ? listLearnings(globalDir) : [];
   if (options.enrich && existingLearnings.length > 0 && options.format !== "json") {
-    console.log(chalk.gray(`Including ${existingLearnings.length} existing learnings for context.\n`));
+    console.log(
+      chalk.gray(`Including ${existingLearnings.length} existing learnings for context.\n`)
+    );
   }
 
   const retros: Retrospective[] = [];
@@ -218,7 +217,11 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
 
   for (const info of selected) {
     const checkpoint = await loadSessionCandidate(repoPath, info);
-    if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
+    if (
+      !checkpoint ||
+      checkpoint.sessions.length === 0 ||
+      checkpoint.sessions[0].transcript.length === 0
+    ) {
       if (options.format !== "json") {
         console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (no transcript)`));
       }
@@ -243,12 +246,20 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
 
     // Print each retro with a separator
     console.log(chalk.gray("─".repeat(60)));
-    console.log(chalk.bold(`Session: ${info.id.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`));
+    console.log(
+      chalk.bold(`Session: ${info.id.slice(0, 12)}`) + chalk.gray(` ${info.createdAt.slice(0, 16)}`)
+    );
     if (info.title) console.log(chalk.gray(`  ${info.title.slice(0, 70)}`));
     console.log();
 
     if (options.enrich) {
-      const { enrichments, rules } = await enrichSession(retro, checkpoint, repoPath, existingLearnings, options.agent);
+      const { enrichments, rules } = await enrichSession(
+        retro,
+        checkpoint,
+        repoPath,
+        existingLearnings,
+        options.agent
+      );
       printRetro(retro, enrichments.length > 0 ? enrichments : undefined);
       collectedRules.push(...rules);
       lastEnrichedSessionId = retro.sessionId;
@@ -284,7 +295,11 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
   // Single bundled rule-review across all enriched sessions
   if (options.enrich && options.format !== "json" && collectedRules.length > 0) {
     const deduped = Array.from(new Set(collectedRules));
-    console.log(chalk.bold.cyan(`Reviewing ${deduped.length} candidate rule(s) from ${retros.length} session(s):\n`));
+    console.log(
+      chalk.bold.cyan(
+        `Reviewing ${deduped.length} candidate rule(s) from ${retros.length} session(s):\n`
+      )
+    );
     await promptToSaveRules(deduped, repoPath, lastEnrichedSessionId);
   }
 }
@@ -345,13 +360,15 @@ async function runAmpRetro(options: RetroOptions): Promise<void> {
 function generateAmpRetroPrompt(
   retro: Retrospective,
   files: AmpFileChange[],
-  existingLearnings?: LearningFile[],
+  existingLearnings?: LearningFile[]
 ): string {
   const diffSummaries = files
     .slice(0, 20) // cap to avoid huge prompts
     .map((f) => {
       const relPath = f.filePath.split("/").slice(-3).join("/");
-      const flags = [f.isNewFile ? "NEW" : "MODIFIED", f.reverted ? "REVERTED" : ""].filter(Boolean).join(", ");
+      const flags = [f.isNewFile ? "NEW" : "MODIFIED", f.reverted ? "REVERTED" : ""]
+        .filter(Boolean)
+        .join(", ");
       const diffLines = f.diff.split("\n");
       // Show first 30 lines of diff
       const shortDiff = diffLines.slice(0, 30).join("\n");
@@ -377,7 +394,11 @@ Amp only stores file changes (diffs), not conversation transcripts. Analyze the 
 ${retro.revertedWork.map((r) => `- ${r.files.map((f) => f.split("/").pop()).join(", ")}: ${r.wastedOperations} reverted operations`).join("\n") || "None"}
 
 ## Most-Touched Files
-${Object.entries(retro.effort.fileTouchCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([f, c]) => `- ${f.split("/").pop()} (${c}x)`).join("\n")}
+${Object.entries(retro.effort.fileTouchCounts)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 10)
+  .map(([f, c]) => `- ${f.split("/").pop()} (${c}x)`)
+  .join("\n")}
 
 ## Static Analysis Learnings
 ${retro.learnings.map((l) => `- [${l.severity}/${l.category}] ${l.description} → ${l.suggestion}`).join("\n") || "None"}
@@ -387,9 +408,11 @@ ${diffSummaries}
 ${files.length > 20 ? `\n... and ${files.length - 20} more files (omitted for brevity)` : ""}
 
 ## Existing Learnings (already captured)
-${existingLearnings && existingLearnings.length > 0
+${
+  existingLearnings && existingLearnings.length > 0
     ? existingLearnings.map((l) => `- ${l.id} [${l.category}] ${l.title}`).join("\n")
-    : "None yet"}
+    : "None yet"
+}
 
 ---
 
@@ -420,11 +443,16 @@ async function enrichAmpRetro(
   files: AmpFileChange[],
   projectRoot: string,
   existingLearnings: LearningFile[],
-  agentOverride?: string,
+  agentOverride?: string
 ): Promise<void> {
   const agentNames = agentOverride ? agentOverride.split(",").map((a) => a.trim()) : ["Amp"];
   const prompt = generateAmpRetroPrompt(retro, files, existingLearnings);
-  const enrichments = await runMultiAgentEnrichment(agentNames, prompt, projectRoot, retro.checkpointId);
+  const enrichments = await runMultiAgentEnrichment(
+    agentNames,
+    prompt,
+    projectRoot,
+    retro.checkpointId
+  );
 
   if (enrichments.length === 0) {
     printRetro(retro);
@@ -448,25 +476,38 @@ async function enrichAmpRetro(
  * Load a session from Entire.io or native Claude Code transcripts.
  * Returns null if nothing is available (and prints appropriate messages).
  */
-async function loadSession(
-  repoPath: string,
-  requestedId?: string,
-): Promise<Checkpoint | null> {
+async function loadSession(repoPath: string, requestedId?: string): Promise<Checkpoint | null> {
   if (requestedId) {
-    const directNative = hasNativeTranscripts(repoPath) ? loadNativeSession(repoPath, requestedId) : null;
-    if (directNative && directNative.sessions.length > 0 && directNative.sessions[0].transcript.length > 0) {
+    const directNative = hasNativeTranscripts(repoPath)
+      ? loadNativeSession(repoPath, requestedId)
+      : null;
+    if (
+      directNative &&
+      directNative.sessions.length > 0 &&
+      directNative.sessions[0].transcript.length > 0
+    ) {
       return directNative;
     }
 
-    const directCodex = hasCodexSessions() ? loadCodexSessionCheckpoint(requestedId, repoPath) : null;
-    if (directCodex && directCodex.sessions.length > 0 && directCodex.sessions[0].transcript.length > 0) {
+    const directCodex = hasCodexSessions()
+      ? loadCodexSessionCheckpoint(requestedId, repoPath)
+      : null;
+    if (
+      directCodex &&
+      directCodex.sessions.length > 0 &&
+      directCodex.sessions[0].transcript.length > 0
+    ) {
       return directCodex;
     }
 
     const hasBranch = await hasEntireBranch(repoPath);
     if (hasBranch) {
       const checkpoint = await loadCheckpoint(repoPath, requestedId);
-      if (checkpoint && checkpoint.sessions.length > 0 && checkpoint.sessions[0].transcript.length > 0) {
+      if (
+        checkpoint &&
+        checkpoint.sessions.length > 0 &&
+        checkpoint.sessions[0].transcript.length > 0
+      ) {
         return checkpoint;
       }
     }
@@ -475,14 +516,22 @@ async function loadSession(
     const latest = pickLatestRetroCandidate(candidates);
     if (latest) {
       const checkpoint = await loadSessionCandidate(repoPath, latest);
-      if (checkpoint && checkpoint.sessions.length > 0 && checkpoint.sessions[0].transcript.length > 0) {
+      if (
+        checkpoint &&
+        checkpoint.sessions.length > 0 &&
+        checkpoint.sessions[0].transcript.length > 0
+      ) {
         return checkpoint;
       }
     }
   }
 
   console.log(chalk.yellow("No session data found."));
-  console.log(chalk.gray("Supported sources: native Claude Code (~/.claude/projects/), Codex (~/.codex/sessions/), Entire.io, Amp (~/.amp/file-changes/)."));
+  console.log(
+    chalk.gray(
+      "Supported sources: native Claude Code (~/.claude/projects/), Codex (~/.codex/sessions/), Entire.io, Amp (~/.amp/file-changes/)."
+    )
+  );
   return null;
 }
 
@@ -496,7 +545,7 @@ async function listRetroCandidates(repoPath: string): Promise<RetroSessionCandid
         id: session.sessionId,
         createdAt: session.createdAt,
         title: session.title,
-      })),
+      }))
     );
   }
 
@@ -507,7 +556,7 @@ async function listRetroCandidates(repoPath: string): Promise<RetroSessionCandid
         id: session.sessionId,
         createdAt: session.createdAt,
         title: session.title,
-      })),
+      }))
     );
   }
 
@@ -520,7 +569,7 @@ async function listRetroCandidates(repoPath: string): Promise<RetroSessionCandid
         id: checkpoint.checkpointId,
         createdAt: checkpoint.createdAt,
         title: checkpoint.title,
-      })),
+      }))
     );
   }
 
@@ -529,17 +578,17 @@ async function listRetroCandidates(repoPath: string): Promise<RetroSessionCandid
 }
 
 export function pickLatestRetroCandidate(
-  candidates: RetroSessionCandidate[],
+  candidates: RetroSessionCandidate[]
 ): RetroSessionCandidate | null {
   if (candidates.length === 0) return null;
   return candidates.reduce((latest, candidate) =>
-    candidate.createdAt > latest.createdAt ? candidate : latest,
+    candidate.createdAt > latest.createdAt ? candidate : latest
   );
 }
 
 async function loadSessionCandidate(
   repoPath: string,
-  candidate: RetroSessionCandidate,
+  candidate: RetroSessionCandidate
 ): Promise<Checkpoint | null> {
   switch (candidate.source) {
     case "claude-native":
@@ -556,7 +605,12 @@ function enrichmentCachePath(projectRoot: string, checkpointId: string, agent?: 
   return join(projectRoot, ".sheal", "retros", `${checkpointId}${suffix}.md`);
 }
 
-function saveEnrichment(projectRoot: string, checkpointId: string, content: string, agent?: string): void {
+function saveEnrichment(
+  projectRoot: string,
+  checkpointId: string,
+  content: string,
+  agent?: string
+): void {
   const dir = join(projectRoot, ".sheal", "retros");
   mkdirSync(dir, { recursive: true });
   writeFileSync(enrichmentCachePath(projectRoot, checkpointId, agent), content, "utf-8");
@@ -610,7 +664,8 @@ function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): voi
   console.log();
 
   // Health score
-  const scoreColor = retro.healthScore >= 80 ? chalk.green : retro.healthScore >= 50 ? chalk.yellow : chalk.red;
+  const scoreColor =
+    retro.healthScore >= 80 ? chalk.green : retro.healthScore >= 50 ? chalk.yellow : chalk.red;
   console.log(`  Health Score: ${scoreColor(retro.healthScore + "/100")}`);
   console.log();
 
@@ -642,7 +697,9 @@ function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): voi
 
   if (retro.effort.tokenUsage) {
     const tu = retro.effort.tokenUsage;
-    console.log(`    Tokens: ${tu.inputTokens} in / ${tu.outputTokens} out (${tu.apiCallCount} API calls)`);
+    console.log(
+      `    Tokens: ${tu.inputTokens} in / ${tu.outputTokens} out (${tu.apiCallCount} API calls)`
+    );
     if (tu.cacheReadTokens > 0) {
       console.log(`    Cache: ${tu.cacheReadTokens} read / ${tu.cacheCreationTokens} created`);
     }
@@ -665,7 +722,9 @@ function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): voi
   if (retro.revertedWork.length > 0) {
     console.log(chalk.yellow.bold("  Reverted/Churned Work:"));
     for (const rw of retro.revertedWork) {
-      console.log(chalk.yellow(`    ! ${rw.wastedOperations} extra operations on ${rw.files.length} file(s)`));
+      console.log(
+        chalk.yellow(`    ! ${rw.wastedOperations} extra operations on ${rw.files.length} file(s)`)
+      );
       for (const f of rw.files) {
         console.log(chalk.gray(`      ${f.split("/").pop()}`));
       }
@@ -744,14 +803,19 @@ async function enrichSession(
   checkpoint: Checkpoint,
   projectRoot: string,
   existingLearnings: LearningFile[],
-  agentOverride?: string,
+  agentOverride?: string
 ): Promise<{ enrichments: CachedEnrichment[]; rules: string[] }> {
   const session = checkpoint.sessions[0];
   const defaultAgent = session?.metadata.agent ?? "claude";
   const agentNames = agentOverride ? agentOverride.split(",").map((a) => a.trim()) : [defaultAgent];
 
   const prompt = generateRetroPrompt(retro, checkpoint, existingLearnings);
-  const enrichments = await runMultiAgentEnrichment(agentNames, prompt, projectRoot, retro.checkpointId);
+  const enrichments = await runMultiAgentEnrichment(
+    agentNames,
+    prompt,
+    projectRoot,
+    retro.checkpointId
+  );
 
   if (enrichments.length === 0) {
     return { enrichments: [], rules: [] };
@@ -766,12 +830,26 @@ async function enrichSession(
   return { enrichments: allEnrichments, rules };
 }
 
-async function enrichRetro(retro: Retrospective, checkpoint: Checkpoint, projectRoot: string, existingLearnings: LearningFile[], agentOverride?: string): Promise<void> {
+async function enrichRetro(
+  retro: Retrospective,
+  checkpoint: Checkpoint,
+  projectRoot: string,
+  existingLearnings: LearningFile[],
+  agentOverride?: string
+): Promise<void> {
   if (existingLearnings.length > 0) {
-    console.log(chalk.gray(`Including ${existingLearnings.length} existing learnings for context.`));
+    console.log(
+      chalk.gray(`Including ${existingLearnings.length} existing learnings for context.`)
+    );
   }
 
-  const { enrichments, rules } = await enrichSession(retro, checkpoint, projectRoot, existingLearnings, agentOverride);
+  const { enrichments, rules } = await enrichSession(
+    retro,
+    checkpoint,
+    projectRoot,
+    existingLearnings,
+    agentOverride
+  );
 
   if (enrichments.length === 0) {
     printRetro(retro);
@@ -793,7 +871,7 @@ async function runMultiAgentEnrichment(
   agentNames: string[],
   prompt: string,
   projectRoot: string,
-  checkpointId: string,
+  checkpointId: string
 ): Promise<CachedEnrichment[]> {
   // Resolve CLIs for all requested agents
   const agentClis: Array<{ name: string; cli: Awaited<ReturnType<typeof detectAgentCli>> }> = [];
@@ -810,7 +888,9 @@ async function runMultiAgentEnrichment(
   if (agentClis.length === 0) {
     console.log(chalk.yellow("No compatible agent CLI found."));
     console.log(chalk.gray("Supported: claude, gemini, codex, amp"));
-    console.log(chalk.gray("\nUse --prompt to generate a prompt you can pipe to any LLM manually."));
+    console.log(
+      chalk.gray("\nUse --prompt to generate a prompt you can pipe to any LLM manually.")
+    );
     return [];
   }
 
@@ -824,7 +904,11 @@ async function runMultiAgentEnrichment(
     if (result.success) {
       const agentLabel = agentNames.length > 1 ? name : undefined;
       saveEnrichment(projectRoot, checkpointId, result.output, agentLabel);
-      console.log(chalk.gray(`Cached to .sheal/retros/${checkpointId}${agentLabel ? `.${agentLabel}` : ""}.md`));
+      console.log(
+        chalk.gray(
+          `Cached to .sheal/retros/${checkpointId}${agentLabel ? `.${agentLabel}` : ""}.md`
+        )
+      );
       enrichments.push({ agent: name, content: result.output });
     } else {
       console.log(chalk.red(`${name} failed: ${result.error}`));
@@ -837,7 +921,7 @@ async function runMultiAgentEnrichment(
         console.log(chalk.gray(`  Invoking ${cli!.command}...`));
         const result = await invokeAgent(cli!, prompt);
         return { name, result };
-      }),
+      })
     );
 
     for (const { name, result } of results) {
@@ -862,18 +946,18 @@ async function runMultiAgentEnrichment(
 async function maybeConsolidate(
   enrichments: CachedEnrichment[],
   projectRoot: string,
-  checkpointId: string,
+  checkpointId: string
 ): Promise<CachedEnrichment | null> {
   if (enrichments.length < 2) return null;
 
   console.log(chalk.gray(`\nConsolidating ${enrichments.length} agent assessments...`));
 
   const prompt = generateConsolidationPrompt(
-    enrichments.map((e) => ({ agent: e.agent, content: e.content })),
+    enrichments.map((e) => ({ agent: e.agent, content: e.content }))
   );
 
   // Use the first available agent CLI for consolidation
-  const cli = await detectAgentCli("claude") ?? await detectAgentCli();
+  const cli = (await detectAgentCli("claude")) ?? (await detectAgentCli());
   if (!cli) {
     console.log(chalk.yellow("No agent available for consolidation. Showing individual results."));
     return null;
@@ -886,16 +970,21 @@ async function maybeConsolidate(
   }
 
   saveEnrichment(projectRoot, checkpointId, result.output, "consolidated");
-  console.log(chalk.green(`  Consolidated assessment saved to .sheal/retros/${checkpointId}.consolidated.md`));
+  console.log(
+    chalk.green(`  Consolidated assessment saved to .sheal/retros/${checkpointId}.consolidated.md`)
+  );
 
   return { agent: "consolidated", content: result.output };
 }
 
 function severityIcon(learning: Learning): string {
   switch (learning.severity) {
-    case "high": return chalk.red("●");
-    case "medium": return chalk.yellow("●");
-    case "low": return chalk.blue("●");
+    case "high":
+      return chalk.red("●");
+    case "medium":
+      return chalk.yellow("●");
+    case "low":
+      return chalk.blue("●");
   }
 }
 
@@ -908,7 +997,7 @@ export function parseRulesFromOutput(output: string): string[] {
   // Match various heading formats for "Rules":
   //   **Rules:**   **Rules**:   ## Rules   ### Rules:   Rules:
   const rulesMatch = output.match(
-    /(?:\*{1,2}Rules\*{0,2}\s*:?\s*\*{0,2}|#{1,4}\s*Rules\s*:?)\s*\n([\s\S]*?)(?:\n\*{1,2}[A-Z]|\n#{1,4}\s|$)/,
+    /(?:\*{1,2}Rules\*{0,2}\s*:?\s*\*{0,2}|#{1,4}\s*Rules\s*:?)\s*\n([\s\S]*?)(?:\n\*{1,2}[A-Z]|\n#{1,4}\s|$)/
   );
   if (!rulesMatch) return [];
 
@@ -930,7 +1019,11 @@ export function parseRulesFromOutput(output: string): string[] {
 /**
  * Ask the user to review each rule and save accepted ones as learnings.
  */
-async function promptToSaveRules(rules: string[], projectRoot: string, sessionId?: string): Promise<void> {
+async function promptToSaveRules(
+  rules: string[],
+  projectRoot: string,
+  sessionId?: string
+): Promise<void> {
   const { reviewDraftLearnings } = await import("../learn/review.js");
   const { getProjectDir } = await import("../learn/store.js");
   const { mkdirSync } = await import("node:fs");
@@ -965,16 +1058,24 @@ async function promptToSaveRules(rules: string[], projectRoot: string, sessionId
     return;
   }
 
-  console.log(chalk.gray(`\nSaved ${drafts.length} draft learning(s) to .sheal/learnings/. Starting review...`));
+  console.log(
+    chalk.gray(
+      `\nSaved ${drafts.length} draft learning(s) to .sheal/learnings/. Starting review...`
+    )
+  );
 
   // Review drafts — accepted ones get promoted to active, removed ones get deleted
   const result = await reviewDraftLearnings(projectDir);
 
   if (result.promoted > 0) {
-    console.log(chalk.green(`\n${result.promoted} learning(s) accepted. Run 'sheal learn list' to view.`));
+    console.log(
+      chalk.green(`\n${result.promoted} learning(s) accepted. Run 'sheal learn list' to view.`)
+    );
     console.log(chalk.gray("Use 'sheal learn promote' to share with other projects."));
   }
   if (result.remaining > 0) {
-    console.log(chalk.yellow(`${result.remaining} draft(s) remaining. Run 'sheal learn review' to continue.`));
+    console.log(
+      chalk.yellow(`${result.remaining} draft(s) remaining. Run 'sheal learn review' to continue.`)
+    );
   }
 }

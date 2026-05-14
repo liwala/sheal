@@ -15,10 +15,7 @@ import type { AgentType, SessionEntry, EntryType } from "./types.js";
 /**
  * Parse a JSONL transcript into normalized session entries.
  */
-export function parseTranscript(
-  content: string,
-  agent?: AgentType,
-): SessionEntry[] {
+export function parseTranscript(content: string, agent?: AgentType): SessionEntry[] {
   const lines = content.trim().split("\n").filter(Boolean);
   const entries: SessionEntry[] = [];
 
@@ -46,7 +43,7 @@ export function parseTranscript(
  */
 function normalizeEntry(
   raw: Record<string, unknown>,
-  agent?: AgentType,
+  agent?: AgentType
 ): SessionEntry | SessionEntry[] | null {
   // Claude Code envelope format (real transcripts): { type, message, uuid, timestamp }
   if (detectClaudeEnvelopeFormat(raw)) {
@@ -121,13 +118,20 @@ function detectGeminiFormat(raw: Record<string, unknown>): boolean {
  * - "queue-operation": queue ops — skip these
  * - "last-prompt": session end marker — skip
  */
-function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntry | SessionEntry[] | null {
+function normalizeClaudeEnvelopeEntry(
+  raw: Record<string, unknown>
+): SessionEntry | SessionEntry[] | null {
   const type = raw.type as string;
   const uuid = (raw.uuid as string) ?? "";
   const timestamp = raw.timestamp as string | undefined;
 
   // Skip non-message types
-  if (type === "progress" || type === "file-history-snapshot" || type === "queue-operation" || type === "last-prompt") {
+  if (
+    type === "progress" ||
+    type === "file-history-snapshot" ||
+    type === "queue-operation" ||
+    type === "last-prompt"
+  ) {
     return null;
   }
 
@@ -168,7 +172,7 @@ function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntr
         toolInput: tb.input,
         filesAffected: extractFilesFromToolInput(
           tb.name as string,
-          tb.input as Record<string, unknown>,
+          tb.input as Record<string, unknown>
         ),
       }));
       // Also include any text blocks (assistant reasoning before tool calls)
@@ -186,9 +190,8 @@ function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntr
     // Tool results
     if (resultBlocks.length > 0) {
       const rb = resultBlocks[0];
-      const resultContent = typeof rb.content === "string"
-        ? rb.content
-        : JSON.stringify(rb.content);
+      const resultContent =
+        typeof rb.content === "string" ? rb.content : JSON.stringify(rb.content);
       return {
         uuid: (rb.tool_use_id as string) ?? uuid,
         type: "tool",
@@ -209,7 +212,9 @@ function normalizeClaudeEnvelopeEntry(raw: Record<string, unknown>): SessionEntr
     }
 
     // Thinking blocks only — skip (contains signature data, not useful)
-    const hasOnlyThinking = blocks.every((b) => b.type === "thinking" || b.type === "redacted_thinking");
+    const hasOnlyThinking = blocks.every(
+      (b) => b.type === "thinking" || b.type === "redacted_thinking"
+    );
     if (hasOnlyThinking) return null;
   }
 
@@ -246,16 +251,17 @@ function normalizeClaudeRawEntry(raw: Record<string, unknown>): SessionEntry | n
         toolInput: toolBlock.input,
         filesAffected: extractFilesFromToolInput(
           toolBlock.name as string,
-          toolBlock.input as Record<string, unknown>,
+          toolBlock.input as Record<string, unknown>
         ),
       };
     }
 
     const resultBlock = blocks.find((b) => b.type === "tool_result");
     if (resultBlock) {
-      const content = typeof resultBlock.content === "string"
-        ? resultBlock.content
-        : JSON.stringify(resultBlock.content);
+      const content =
+        typeof resultBlock.content === "string"
+          ? resultBlock.content
+          : JSON.stringify(resultBlock.content);
       return {
         uuid: (resultBlock.tool_use_id as string) ?? uuid,
         type: "tool",
@@ -349,10 +355,7 @@ function mapRole(role: string): EntryType {
 /**
  * Extract file paths from tool input for file-modifying tools.
  */
-function extractFilesFromToolInput(
-  toolName: string,
-  input: Record<string, unknown>,
-): string[] {
+function extractFilesFromToolInput(toolName: string, input: Record<string, unknown>): string[] {
   if (!input) return [];
 
   const fileTools = ["Write", "Edit", "NotebookEdit", "mcp__acp__Write", "mcp__acp__Edit"];

@@ -10,13 +10,20 @@
  *   Haiku 3.5: $0.80 input, $4 output,  $1.00 cache write,   $0.08 cache read
  */
 
-import type { TokenSummary, CostEstimate, DigestReport, DigestDiff, DigestItem, DigestCategory } from "./types.js";
+import type {
+  TokenSummary,
+  CostEstimate,
+  DigestReport,
+  DigestDiff,
+  DigestItem,
+  DigestCategory,
+} from "./types.js";
 
 interface ModelPricing {
-  input: number;    // per 1M tokens
-  output: number;   // per 1M tokens
+  input: number; // per 1M tokens
+  output: number; // per 1M tokens
   cacheWrite: number; // per 1M tokens
-  cacheRead: number;  // per 1M tokens
+  cacheRead: number; // per 1M tokens
 }
 
 // Model name patterns → pricing (per 1M tokens)
@@ -27,31 +34,36 @@ export const MODEL_PRICING: Array<{ pattern: RegExp; pricing: ModelPricing }> = 
   // Opus 4.5+ (including 4.6, 4.10, etc.): $5 in, $25 out
   {
     pattern: /opus.*4[.-]([5-9]|\d{2,})/i,
-    pricing: { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
+    pricing: { input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.5 },
   },
   // Opus 4.0/4.1 (legacy): $15 in, $75 out
   {
     pattern: /opus/i,
-    pricing: { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.50 },
+    pricing: { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5 },
   },
   // Sonnet 4.x: $3 in, $15 out
   {
     pattern: /sonnet/i,
-    pricing: { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
+    pricing: { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
   },
   // Haiku 4.5: $1 in, $5 out
   {
     pattern: /haiku.*4[.-]5/i,
-    pricing: { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.10 },
+    pricing: { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
   },
   // Haiku 3.5: $0.80 in, $4 out
   {
     pattern: /haiku/i,
-    pricing: { input: 0.80, output: 4, cacheWrite: 1.00, cacheRead: 0.08 },
+    pricing: { input: 0.8, output: 4, cacheWrite: 1.0, cacheRead: 0.08 },
   },
 ];
 
-export const DEFAULT_PRICING: ModelPricing = { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 };
+export const DEFAULT_PRICING: ModelPricing = {
+  input: 3,
+  output: 15,
+  cacheWrite: 3.75,
+  cacheRead: 0.3,
+};
 
 export function getPricing(modelName: string): ModelPricing {
   // Fast mode = 6x standard pricing — applies to any model used with Claude Code's /fast toggle
@@ -101,12 +113,15 @@ export interface ModelCostBreakdown {
 
 /** Subscription plans */
 export const PLANS: Record<string, number> = {
-  "Pro": 20,
+  Pro: 20,
   "Max 5x": 100,
   "Max 20x": 200,
 };
 
-export function estimateCost(tokens: TokenSummary, plan?: string): CostEstimate & { byModelBreakdown: ModelCostBreakdown[] } {
+export function estimateCost(
+  tokens: TokenSummary,
+  plan?: string
+): CostEstimate & { byModelBreakdown: ModelCostBreakdown[] } {
   let totalCost = 0;
   const byModelBreakdown: ModelCostBreakdown[] = [];
 
@@ -172,10 +187,11 @@ export function estimateCost(tokens: TokenSummary, plan?: string): CostEstimate 
       let projCost = 0;
       for (const [model, data] of Object.entries(models)) {
         const pricing = getPricing(model);
-        projCost += (data.input / 1_000_000) * pricing.input
-          + (data.output / 1_000_000) * pricing.output
-          + (data.cacheRead / 1_000_000) * pricing.cacheRead
-          + (data.cacheCreate / 1_000_000) * pricing.cacheWrite;
+        projCost +=
+          (data.input / 1_000_000) * pricing.input +
+          (data.output / 1_000_000) * pricing.output +
+          (data.cacheRead / 1_000_000) * pricing.cacheRead +
+          (data.cacheCreate / 1_000_000) * pricing.cacheWrite;
       }
       byProject[project] = projCost;
     }

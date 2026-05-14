@@ -3,7 +3,14 @@
  */
 
 import type { Session, SessionEntry, Checkpoint } from "@liwala/agent-sessions";
-import type { EffortBreakdown, FailureLoop, RevertedWork, Learning, HumanPatterns, CoordinationIssue } from "./types.js";
+import type {
+  EffortBreakdown,
+  FailureLoop,
+  RevertedWork,
+  Learning,
+  HumanPatterns,
+  CoordinationIssue,
+} from "./types.js";
 
 /**
  * Build an effort breakdown from session transcript.
@@ -49,7 +56,8 @@ export function detectFailureLoops(session: Session): FailureLoop[] {
   const entries = session.transcript;
   const loops: FailureLoop[] = [];
 
-  let currentRun: { key: string; label: string; entries: typeof entries; errors: string[] } | null = null;
+  let currentRun: { key: string; label: string; entries: typeof entries; errors: string[] } | null =
+    null;
 
   for (const entry of entries) {
     if (entry.type === "tool" && entry.toolName) {
@@ -63,7 +71,8 @@ export function detectFailureLoops(session: Session): FailureLoop[] {
         currentRun = { key, label, entries: [entry], errors: [] };
       }
     } else if (entry.type === "tool" && entry.toolOutput && currentRun) {
-      const output = typeof entry.toolOutput === "string" ? entry.toolOutput : JSON.stringify(entry.toolOutput);
+      const output =
+        typeof entry.toolOutput === "string" ? entry.toolOutput : JSON.stringify(entry.toolOutput);
       if (output.toLowerCase().includes("error") || output.includes("Exit code 1")) {
         currentRun.errors.push(output.slice(0, 200));
       }
@@ -105,7 +114,7 @@ function getActionLabel(entry: SessionEntry): string {
 
 function flushRun(
   run: { key: string; label: string; entries: SessionEntry[]; errors: string[] } | null,
-  loops: FailureLoop[],
+  loops: FailureLoop[]
 ): void {
   // Only count as a loop if: 3+ retries AND at least one error detected
   if (run && run.entries.length >= 3 && run.errors.length > 0) {
@@ -167,8 +176,15 @@ export function detectBashFailures(session: Session): { command: string; error: 
       for (let j = i + 1; j < Math.min(i + 3, entries.length); j++) {
         const result = entries[j];
         if (result.type === "tool" && result.toolOutput) {
-          const output = typeof result.toolOutput === "string" ? result.toolOutput : JSON.stringify(result.toolOutput);
-          if (output.includes("Exit code 1") || output.includes("Error:") || output.includes("error:")) {
+          const output =
+            typeof result.toolOutput === "string"
+              ? result.toolOutput
+              : JSON.stringify(result.toolOutput);
+          if (
+            output.includes("Exit code 1") ||
+            output.includes("Error:") ||
+            output.includes("error:")
+          ) {
             failures.push({
               command: command.slice(0, 100),
               error: output.slice(0, 200),
@@ -190,7 +206,7 @@ export function extractLearnings(
   effort: EffortBreakdown,
   failureLoops: FailureLoop[],
   revertedWork: RevertedWork[],
-  bashFailures: { command: string; error: string }[],
+  bashFailures: { command: string; error: string }[]
 ): Learning[] {
   const learnings: Learning[] = [];
   let id = 1;
@@ -277,14 +293,14 @@ export function analyzeHumanPatterns(session: Session): HumanPatterns {
     : Math.round(entries.length * 0.15);
 
   // Average interval between prompts
-  const avgPromptInterval = userEntries.length > 1
-    ? estimatedMinutes / userEntries.length
-    : estimatedMinutes;
+  const avgPromptInterval =
+    userEntries.length > 1 ? estimatedMinutes / userEntries.length : estimatedMinutes;
 
   // Corrections: user redirecting the agent
-  const correctionPatterns = /^(no[,.\s]|not that|instead[,\s]|wrong|stop|don'?t|actually[,\s]|wait[,\s]|I said|I meant|that'?s not|let'?s not)/i;
+  const correctionPatterns =
+    /^(no[,.\s]|not that|instead[,\s]|wrong|stop|don'?t|actually[,\s]|wait[,\s]|I said|I meant|that'?s not|let'?s not)/i;
   const correctionCount = userEntries.filter((e) =>
-    correctionPatterns.test(e.content.trim()),
+    correctionPatterns.test(e.content.trim())
   ).length;
 
   // Prompt length analysis
@@ -292,21 +308,21 @@ export function analyzeHumanPatterns(session: Session): HumanPatterns {
   const longPromptCount = userEntries.filter((e) => e.content.trim().length > 500).length;
 
   // Context compaction detection (system messages about compaction/summary)
-  const contextCompacted = entries.some((e) =>
-    e.type === "system" && (
-      e.content.includes("compaction") ||
-      e.content.includes("compressed") ||
-      e.content.includes("context limit") ||
-      e.content.includes("being continued from a previous conversation")
-    ),
-  ) || entries.some((e) =>
-    e.type === "user" && e.content.includes("being continued from a previous conversation"),
-  );
+  const contextCompacted =
+    entries.some(
+      (e) =>
+        e.type === "system" &&
+        (e.content.includes("compaction") ||
+          e.content.includes("compressed") ||
+          e.content.includes("context limit") ||
+          e.content.includes("being continued from a previous conversation"))
+    ) ||
+    entries.some(
+      (e) => e.type === "user" && e.content.includes("being continued from a previous conversation")
+    );
 
   // Engagement: how much of the transcript is human input
-  const humanEngagementRatio = entries.length > 0
-    ? userEntries.length / entries.length
-    : 0;
+  const humanEngagementRatio = entries.length > 0 ? userEntries.length / entries.length : 0;
 
   return {
     durationMinutes: estimatedMinutes,
@@ -327,7 +343,7 @@ export function calculateHealthScore(
   failureLoops: FailureLoop[],
   revertedWork: RevertedWork[],
   bashFailures: { command: string; error: string }[],
-  effort: EffortBreakdown,
+  effort: EffortBreakdown
 ): number {
   let score = 100;
 

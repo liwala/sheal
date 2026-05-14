@@ -10,7 +10,15 @@
  *   turn_context: (turn boundaries)
  */
 
-import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
+import {
+  existsSync,
+  openSync,
+  readSync,
+  closeSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { Checkpoint, CheckpointInfo, CheckpointRoot, Session, SessionEntry } from "./types.js";
@@ -106,9 +114,11 @@ export function listCodexSessionsForProject(projectPath: string): CheckpointInfo
 /**
  * Load a single Codex session's full transcript by session ID.
  */
-export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; entries: CodexTranscriptEntry[] } | null {
+export function loadCodexSession(
+  sessionId: string
+): { meta: CodexSessionFile; entries: CodexTranscriptEntry[] } | null {
   const files = collectSessionFiles();
-  const file = files.find(f => f.id === sessionId);
+  const file = files.find((f) => f.id === sessionId);
   if (!file) return null;
 
   const content = readFileSync(file.path, "utf-8");
@@ -122,7 +132,9 @@ export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; e
         const p = obj.payload;
         if (p.type === "message" && Array.isArray(p.content)) {
           const texts = p.content
-            .filter((c: any) => c.type === "input_text" || c.type === "output_text" || c.type === "text")
+            .filter(
+              (c: any) => c.type === "input_text" || c.type === "output_text" || c.type === "text"
+            )
             .map((c: any) => c.text || "")
             .join("\n");
           if (texts.trim()) {
@@ -133,13 +145,19 @@ export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; e
             role: "assistant",
             content: "",
             toolName: p.name,
-            toolInput: typeof p.arguments === "string" ? p.arguments.slice(0, 200) : JSON.stringify(p.arguments).slice(0, 200),
+            toolInput:
+              typeof p.arguments === "string"
+                ? p.arguments.slice(0, 200)
+                : JSON.stringify(p.arguments).slice(0, 200),
             timestamp: obj.timestamp,
           });
         } else if (p.type === "function_call_output") {
           entries.push({
             role: "system",
-            content: typeof p.output === "string" ? p.output.slice(0, 500) : JSON.stringify(p.output).slice(0, 500),
+            content:
+              typeof p.output === "string"
+                ? p.output.slice(0, 500)
+                : JSON.stringify(p.output).slice(0, 500),
             toolName: p.call_id,
             timestamp: obj.timestamp,
           });
@@ -158,7 +176,7 @@ export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; e
  */
 export function loadCodexSessionCheckpoint(
   sessionId: string,
-  projectRoot?: string,
+  projectRoot?: string
 ): Checkpoint | null {
   const files = collectSessionFiles();
   const file = files.find((f) => f.id === sessionId);
@@ -192,9 +210,7 @@ export function codexSessionToCheckpoint(meta: CodexSessionFile, content: string
       cliVersion: meta.cliVersion,
     },
     transcript,
-    prompts: transcript
-      .filter((entry) => entry.type === "user")
-      .map((entry) => entry.content),
+    prompts: transcript.filter((entry) => entry.type === "user").map((entry) => entry.content),
   };
 
   const root: CheckpointRoot = {
@@ -247,12 +263,15 @@ function collectSessionFiles(): CodexSessionFile[] {
 
 function parseCodexTranscript(content: string): SessionEntry[] {
   const entries: SessionEntry[] = [];
-  const toolCalls = new Map<string, {
-    originalName: string;
-    mappedName: string;
-    input: unknown;
-    filesAffected: string[];
-  }>();
+  const toolCalls = new Map<
+    string,
+    {
+      originalName: string;
+      mappedName: string;
+      input: unknown;
+      filesAffected: string[];
+    }
+  >();
 
   for (const line of content.split("\n")) {
     if (!line) continue;
@@ -296,9 +315,8 @@ function parseCodexTranscript(content: string): SessionEntry[] {
 
       if (payload.type === "function_call_output") {
         const pending = toolCalls.get(payload.call_id);
-        const output = typeof payload.output === "string"
-          ? payload.output
-          : JSON.stringify(payload.output);
+        const output =
+          typeof payload.output === "string" ? payload.output : JSON.stringify(payload.output);
         entries.push({
           uuid: payload.call_id ?? "",
           type: "tool",
@@ -320,7 +338,7 @@ function parseCodexTranscript(content: string): SessionEntry[] {
 
 function normalizeCodexCustomToolCall(
   raw: Record<string, unknown>,
-  timestamp?: string,
+  timestamp?: string
 ): SessionEntry | null {
   const originalName = typeof raw.name === "string" ? raw.name : "";
   const mappedName = mapCodexToolName(originalName);
@@ -341,17 +359,19 @@ function normalizeCodexCustomToolCall(
 
 function normalizeCodexMessage(
   payload: Record<string, unknown>,
-  timestamp?: string,
+  timestamp?: string
 ): SessionEntry | null {
   const role = payload.role;
   const content = payload.content;
   if ((role !== "user" && role !== "assistant") || !Array.isArray(content)) return null;
 
   const texts = content
-    .filter((block): block is Record<string, unknown> =>
-      !!block && typeof block === "object" &&
-      (block.type === "input_text" || block.type === "output_text" || block.type === "text") &&
-      typeof block.text === "string",
+    .filter(
+      (block): block is Record<string, unknown> =>
+        !!block &&
+        typeof block === "object" &&
+        (block.type === "input_text" || block.type === "output_text" || block.type === "text") &&
+        typeof block.text === "string"
     )
     .map((block) => (block.text as string).trim())
     .filter(Boolean);
@@ -378,7 +398,7 @@ function normalizeCodexMessage(
 
 function normalizeCodexToolCall(
   payload: Record<string, unknown>,
-  timestamp?: string,
+  timestamp?: string
 ): {
   entry: SessionEntry | null;
   pending: { originalName: string; mappedName: string; input: unknown; filesAffected: string[] };

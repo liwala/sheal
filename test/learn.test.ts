@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync, readdirSync, statSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  rmSync,
+  existsSync,
+  readdirSync,
+  statSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -125,9 +134,7 @@ This is the body.
   });
 
   it("throws on missing frontmatter", () => {
-    expect(() => parseLearningContent("no frontmatter")).toThrow(
-      "missing frontmatter"
-    );
+    expect(() => parseLearningContent("no frontmatter")).toThrow("missing frontmatter");
   });
 });
 
@@ -210,8 +217,12 @@ describe("detectProjectTags", () => {
 describe("sessionId traceability", () => {
   let dir: string;
 
-  beforeEach(() => { dir = makeTempDir(); });
-  afterEach(() => { rmSync(dir, { recursive: true }); });
+  beforeEach(() => {
+    dir = makeTempDir();
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true });
+  });
 
   it("round-trips sessionId through write/read", () => {
     const learning = { ...sampleLearning, sessionId: "abc-123-session" };

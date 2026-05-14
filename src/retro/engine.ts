@@ -21,13 +21,12 @@ import {
  * Run a full retrospective analysis on a checkpoint.
  * Analyzes the first session by default (most checkpoints have one session).
  */
-export function runRetrospective(
-  checkpoint: Checkpoint,
-  sessionIndex = 0,
-): Retrospective {
+export function runRetrospective(checkpoint: Checkpoint, sessionIndex = 0): Retrospective {
   const session = checkpoint.sessions[sessionIndex];
   if (!session) {
-    throw new Error(`Session index ${sessionIndex} not found in checkpoint ${checkpoint.root.checkpointId}`);
+    throw new Error(
+      `Session index ${sessionIndex} not found in checkpoint ${checkpoint.root.checkpointId}`
+    );
   }
 
   const effort = analyzeEffort(session);

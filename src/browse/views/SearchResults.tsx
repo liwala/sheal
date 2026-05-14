@@ -20,7 +20,7 @@ export function moveSearchCursor(
   scrollOffset: number,
   direction: -1 | 1,
   itemCount: number,
-  maxRows: number,
+  maxRows: number
 ): { cursor: number; scrollOffset: number } {
   if (itemCount <= 0) return { cursor: 0, scrollOffset: 0 };
 
@@ -35,7 +35,12 @@ export function moveSearchCursor(
   return { cursor: nextCursor, scrollOffset: nextOffset };
 }
 
-export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }: SearchResultsProps) {
+export function SearchResults({
+  initialQuery,
+  onSelectSession,
+  onBack,
+  onQuit,
+}: SearchResultsProps) {
   const [cursor, setCursor] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [query, setQuery] = useState(initialQuery || "");
@@ -84,9 +89,18 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "/") { setInputActive(true); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (input === "/") {
+      setInputActive(true);
+      return;
+    }
 
     if (key.upArrow) {
       const next = moveSearchCursor(cursor, scrollOffset, -1, results.length, maxRows);
@@ -108,7 +122,12 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
     <Box flexDirection="column">
       <Box marginBottom={1}>
         <Text bold>Transcript Search</Text>
-        {searchDone && <Text dimColor> ({results.length} results across {projects.length} projects)</Text>}
+        {searchDone && (
+          <Text dimColor>
+            {" "}
+            ({results.length} results across {projects.length} projects)
+          </Text>
+        )}
       </Box>
 
       {inputActive ? (
@@ -117,32 +136,40 @@ export function SearchResults({ initialQuery, onSelectSession, onBack, onQuit }:
         query && <Text dimColor>Query: "{query}" (/ to change)</Text>
       )}
 
-      {searching && <Text color="yellow">Searching {projects.reduce((s, p) => s + p.sessionCount, 0)} sessions...</Text>}
+      {searching && (
+        <Text color="yellow">
+          Searching {projects.reduce((s, p) => s + p.sessionCount, 0)} sessions...
+        </Text>
+      )}
 
       <Box flexDirection="column" height={maxRows}>
         {windowItems.map((r, i) => {
           const globalIdx = scrollOffset + i;
           return (
-          <Box key={`${r.slug}-${r.sessionId}`} flexDirection="column">
-            <Box>
-              <Text color={globalIdx === cursor ? "cyan" : undefined} bold={globalIdx === cursor}>
-                {globalIdx === cursor ? "> " : "  "}
-                {r.projectName}
-              </Text>
-              <Text dimColor> {r.sessionId.slice(0, 12)} {r.createdAt?.slice(0, 16)}</Text>
-              <Text color="yellow"> ({r.matchCount} hits)</Text>
+            <Box key={`${r.slug}-${r.sessionId}`} flexDirection="column">
+              <Box>
+                <Text color={globalIdx === cursor ? "cyan" : undefined} bold={globalIdx === cursor}>
+                  {globalIdx === cursor ? "> " : "  "}
+                  {r.projectName}
+                </Text>
+                <Text dimColor>
+                  {" "}
+                  {r.sessionId.slice(0, 12)} {r.createdAt?.slice(0, 16)}
+                </Text>
+                <Text color="yellow"> ({r.matchCount} hits)</Text>
+              </Box>
+              {r.snippet && (
+                <Text dimColor wrap="truncate">
+                  {" "}
+                  {r.snippet.slice(0, 100)}
+                </Text>
+              )}
             </Box>
-            {r.snippet && (
-              <Text dimColor wrap="truncate">    {r.snippet.slice(0, 100)}</Text>
-            )}
-          </Box>
           );
         })}
-        {searchDone && results.length === 0 && (
-          <Text dimColor>  No matches found</Text>
-        )}
+        {searchDone && results.length === 0 && <Text dimColor> No matches found</Text>}
         {results.length > maxRows && scrollOffset + maxRows < results.length && (
-          <Text dimColor>  ↓ {results.length - scrollOffset - maxRows} more</Text>
+          <Text dimColor> ↓ {results.length - scrollOffset - maxRows} more</Text>
         )}
       </Box>
 
@@ -172,7 +199,7 @@ function readHeadBytes(path: string, maxBytes: number): string {
  */
 function searchTranscripts(
   projects: ReturnType<typeof listAllNativeProjects>,
-  query: string,
+  query: string
 ): SearchResult[] {
   const results: SearchResult[] = [];
   const q = query.toLowerCase();

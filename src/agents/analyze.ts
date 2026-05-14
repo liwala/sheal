@@ -152,29 +152,29 @@ export function analyzeAgents(input: ProjectTasks[], topN: number = 10): AgentAn
       sessions: count,
       pct: totalSessions === 0 ? 0 : Math.round((count / totalSessions) * 1000) / 10,
       count,
-    })),
+    }))
   ).map(({ agent, sessions, pct }) => ({ agent, sessions, pct }));
 
   const solo: OpenClose[] = sortByCountDesc(
-    toArray(soloCounts).map(({ key, count }) => ({ agent: key, count })),
+    toArray(soloCounts).map(({ key, count }) => ({ agent: key, count }))
   );
 
   const mixed = sortByCountDesc(
-    toArray(mixedCounts).map(({ key, count }) => ({ combo: key, count })),
+    toArray(mixedCounts).map(({ key, count }) => ({ combo: key, count }))
   );
 
   const handoffsArr: Handoff[] = sortByCountDesc(
     [...handoffs.entries()].map(([key, count]) => {
       const [from, to] = key.split(">");
       return { from, to, count };
-    }),
+    })
   );
 
   const opensArr: OpenClose[] = sortByCountDesc(
-    toArray(opens).map(({ key, count }) => ({ agent: key, count })),
+    toArray(opens).map(({ key, count }) => ({ agent: key, count }))
   );
   const closesArr: OpenClose[] = sortByCountDesc(
-    toArray(closes).map(({ key, count }) => ({ agent: key, count })),
+    toArray(closes).map(({ key, count }) => ({ agent: key, count }))
   );
 
   // Top mixed tasks by session count, then by duration.

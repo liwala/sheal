@@ -19,8 +19,12 @@ const runners: TestRunner[] = [
     detect: (root) => {
       try {
         const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf-8"));
-        return !!pkg.scripts?.test && pkg.scripts.test !== 'echo "Error: no test specified" && exit 1';
-      } catch { return false; }
+        return (
+          !!pkg.scripts?.test && pkg.scripts.test !== 'echo "Error: no test specified" && exit 1'
+        );
+      } catch {
+        return false;
+      }
     },
   },
   {
@@ -32,7 +36,9 @@ const runners: TestRunner[] = [
       try {
         const pyproject = readFileSync(join(root, "pyproject.toml"), "utf-8");
         return pyproject.includes("[tool.pytest");
-      } catch { return false; }
+      } catch {
+        return false;
+      }
     },
   },
   {
@@ -63,21 +69,31 @@ export const testsChecker: Checker = {
 
       if (result.timedOut) {
         return {
-          name: this.name, label: this.label, severity: "warn",
+          name: this.name,
+          label: this.label,
+          severity: "warn",
           details: [{ message: `Test command timed out after ${timeoutMs}ms`, severity: "warn" }],
           durationMs: elapsed(),
         };
       }
 
       const severity = result.exitCode === 0 ? "pass" : "fail";
-      const output = (result.stdout + "\n" + result.stderr).trim().split("\n").slice(-20).join("\n");
+      const output = (result.stdout + "\n" + result.stderr)
+        .trim()
+        .split("\n")
+        .slice(-20)
+        .join("\n");
       return {
-        name: this.name, label: this.label, severity,
-        details: [{
-          message: severity === "pass" ? "Tests passed" : "Tests failed",
-          severity,
-          data: { command: ctx.config.checkers.tests.command, output },
-        }],
+        name: this.name,
+        label: this.label,
+        severity,
+        details: [
+          {
+            message: severity === "pass" ? "Tests passed" : "Tests failed",
+            severity,
+            data: { command: ctx.config.checkers.tests.command, output },
+          },
+        ],
         durationMs: elapsed(),
       };
     }
@@ -86,7 +102,9 @@ export const testsChecker: Checker = {
     const detected = runners.filter((r) => r.detect(ctx.projectRoot));
     if (detected.length === 0) {
       return {
-        name: this.name, label: this.label, severity: "warn",
+        name: this.name,
+        label: this.label,
+        severity: "warn",
         details: [{ message: "No test suite detected", severity: "warn" }],
         durationMs: elapsed(),
       };
@@ -98,7 +116,9 @@ export const testsChecker: Checker = {
 
     if (result.timedOut) {
       return {
-        name: this.name, label: this.label, severity: "warn",
+        name: this.name,
+        label: this.label,
+        severity: "warn",
         details: [{ message: `${runner.name} timed out after ${timeoutMs}ms`, severity: "warn" }],
         durationMs: elapsed(),
       };
@@ -107,12 +127,19 @@ export const testsChecker: Checker = {
     const severity = result.exitCode === 0 ? "pass" : "fail";
     const output = (result.stdout + "\n" + result.stderr).trim().split("\n").slice(-20).join("\n");
     return {
-      name: this.name, label: this.label, severity,
-      details: [{
-        message: severity === "pass" ? `${runner.name}: all tests passed` : `${runner.name}: tests failed`,
-        severity,
-        data: { runner: runner.name, output },
-      }],
+      name: this.name,
+      label: this.label,
+      severity,
+      details: [
+        {
+          message:
+            severity === "pass"
+              ? `${runner.name}: all tests passed`
+              : `${runner.name}: tests failed`,
+          severity,
+          data: { runner: runner.name, output },
+        },
+      ],
       durationMs: elapsed(),
     };
   },

@@ -13,14 +13,14 @@
 # encode_logged_query: false
 
 # behavior:
-  # read_only: false
-  # autocommit: true
-  # disable_client_multi_statements: false
-  # dolt_transaction_commit: false
-  # event_scheduler: "OFF"
-  # auto_gc_behavior:
-    # enable: true
-    # archive_level: 1
+# read_only: false
+# autocommit: true
+# disable_client_multi_statements: false
+# dolt_transaction_commit: false
+# event_scheduler: "OFF"
+# auto_gc_behavior:
+# enable: true
+# archive_level: 1
 
 listener:
   # host: localhost
@@ -41,14 +41,14 @@ listener:
 # cfg_dir: .doltcfg
 
 # remotesapi:
-  # port: 8000
-  # read_only: false
+# port: 8000
+# read_only: false
 
 # mcp_server:
-  # port: 7007
-  # user: root
-  # password: ""
-  # database: ""
+# port: 7007
+# user: root
+# password: ""
+# database: ""
 
 # privilege_file: .doltcfg/privileges.db
 
@@ -56,41 +56,41 @@ listener:
 
 # user_session_vars:
 # - name: root
-  # vars:
-    # dolt_log_level: warn
-    # dolt_show_system_tables: 1
+# vars:
+# dolt_log_level: warn
+# dolt_show_system_tables: 1
 
 # system_variables:
-  # dolt_log_level: info
-  # dolt_transaction_commit: 1
+# dolt_log_level: info
+# dolt_transaction_commit: 1
 
 # jwks: []
 
 # metrics:
-  # labels: {}
-  # host: localhost
-  # port: 9091
-  # tls_cert: ""
-  # tls_key: ""
-  # tls_ca: ""
+# labels: {}
+# host: localhost
+# port: 9091
+# tls_cert: ""
+# tls_key: ""
+# tls_ca: ""
 
 # cluster:
-  # standby_remotes:
-  # - name: standby_replica_one
-    # remote_url_template: https://standby_replica_one.svc.cluster.local:50051/{database}
-  # - name: standby_replica_two
-    # remote_url_template: https://standby_replica_two.svc.cluster.local:50051/{database}
-  # bootstrap_role: primary
-  # bootstrap_epoch: 1
-  # remotesapi:
-    # address: 127.0.0.1
-    # port: 50051
-    # tls_key: remotesapi_key.pem
-    # tls_cert: remotesapi_chain.pem
-    # tls_ca: standby_cas.pem
-    # server_name_urls:
-    # - https://standby_replica_one.svc.cluster.local
-    # - https://standby_replica_two.svc.cluster.local
-    # server_name_dns:
-    # - standby_replica_one.svc.cluster.local
-    # - standby_replica_two.svc.cluster.local
+# standby_remotes:
+# - name: standby_replica_one
+# remote_url_template: https://standby_replica_one.svc.cluster.local:50051/{database}
+# - name: standby_replica_two
+# remote_url_template: https://standby_replica_two.svc.cluster.local:50051/{database}
+# bootstrap_role: primary
+# bootstrap_epoch: 1
+# remotesapi:
+# address: 127.0.0.1
+# port: 50051
+# tls_key: remotesapi_key.pem
+# tls_cert: remotesapi_chain.pem
+# tls_ca: standby_cas.pem
+# server_name_urls:
+# - https://standby_replica_one.svc.cluster.local
+# - https://standby_replica_two.svc.cluster.local
+# server_name_dns:
+# - standby_replica_one.svc.cluster.local
+# - standby_replica_two.svc.cluster.local

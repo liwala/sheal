@@ -53,8 +53,9 @@ export function loadRetroContent(projectPath: string, sessionId: string): string
   // Prefix match
   try {
     const files = readdirSync(retroDir);
-    const match = files.find((f) =>
-      sessionId.startsWith(f.replace(".md", "")) || f.replace(".md", "").startsWith(sessionId),
+    const match = files.find(
+      (f) =>
+        sessionId.startsWith(f.replace(".md", "")) || f.replace(".md", "").startsWith(sessionId)
     );
     if (match) return readFileSync(join(retroDir, match), "utf-8");
   } catch {
@@ -87,7 +88,9 @@ export function countLearnings(projectPath: string): { local: number; global: nu
   if (existsSync(localDir)) {
     try {
       local = readdirSync(localDir).filter((f) => f.startsWith("LEARN-")).length;
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   const homeDir = process.env.HOME || process.env.USERPROFILE || "";
@@ -95,7 +98,9 @@ export function countLearnings(projectPath: string): { local: number; global: nu
   if (existsSync(globalDir)) {
     try {
       global = readdirSync(globalDir).filter((f) => f.startsWith("LEARN-")).length;
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   return { local, global };
@@ -233,8 +238,14 @@ function parseAskFrontmatter(filename: string, content: string): AskInfo | null 
   // Preview: first non-empty line of the answer section
   const answerMatch = body.match(/## Answer\n+([\s\S]*?)(?:\n##|$)/);
   const preview = answerMatch
-    ? answerMatch[1].split("\n").find((l) => l.trim())?.slice(0, 100) || ""
-    : body.split("\n").find((l) => l.trim())?.slice(0, 100) || "";
+    ? answerMatch[1]
+        .split("\n")
+        .find((l) => l.trim())
+        ?.slice(0, 100) || ""
+    : body
+        .split("\n")
+        .find((l) => l.trim())
+        ?.slice(0, 100) || "";
 
   return {
     filename,

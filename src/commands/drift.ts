@@ -52,7 +52,9 @@ async function analyzeRecentSessions(repoPath: string, count: number): Promise<R
         if (cp && cp.sessions[0]?.transcript.length > 0) {
           retros.push(runRetrospective(cp));
         }
-      } catch { /* skip bad sessions */ }
+      } catch {
+        /* skip bad sessions */
+      }
     }
   }
 
@@ -66,7 +68,9 @@ async function analyzeRecentSessions(repoPath: string, count: number): Promise<R
         if (cp && cp.sessions[0]?.transcript.length > 0) {
           retros.push(runRetrospective(cp));
         }
-      } catch { /* skip bad checkpoints */ }
+      } catch {
+        /* skip bad checkpoints */
+      }
     }
   }
 
@@ -99,9 +103,13 @@ function formatReport(report: DriftReport): void {
 
   for (const match of report.drifted) {
     const count = match.violations.length;
-    const severity = count >= 3 ? chalk.red("●●●") : count >= 2 ? chalk.yellow("●●") : chalk.yellow("●");
-    const sourceLabel = match.learning.source === "global" ? chalk.blue("[global]") : chalk.cyan("[project]");
-    console.log(`${severity} ${sourceLabel} ${chalk.bold(match.learning.id)}: ${match.learning.title}`);
+    const severity =
+      count >= 3 ? chalk.red("●●●") : count >= 2 ? chalk.yellow("●●") : chalk.yellow("●");
+    const sourceLabel =
+      match.learning.source === "global" ? chalk.blue("[global]") : chalk.cyan("[project]");
+    console.log(
+      `${severity} ${sourceLabel} ${chalk.bold(match.learning.id)}: ${match.learning.title}`
+    );
 
     // Deduplicate violations by evidence
     const seen = new Set<string>();
@@ -116,7 +124,9 @@ function formatReport(report: DriftReport): void {
   }
 
   if (report.healthy.length > 0) {
-    console.log(chalk.green(`${report.healthy.length} learning(s) healthy — ${sourceSummary(report.healthy)}`));
+    console.log(
+      chalk.green(`${report.healthy.length} learning(s) healthy — ${sourceSummary(report.healthy)}`)
+    );
   }
 }
 
@@ -124,20 +134,30 @@ export async function runDrift(options: DriftOptions): Promise<void> {
   const repoPath = options.projectRoot;
 
   // Load all active learnings (global + project), tagging their source
-  const globalLearnings = listLearnings(getGlobalDir()).map((l) => ({ ...l, source: "global" as const }));
+  const globalLearnings = listLearnings(getGlobalDir()).map((l) => ({
+    ...l,
+    source: "global" as const,
+  }));
   const projectDir = getProjectDir(repoPath);
   const projectLearnings = existsSync(projectDir)
     ? listLearnings(projectDir).map((l) => ({ ...l, source: "project" as const }))
     : [];
-  const allLearnings = [...globalLearnings, ...projectLearnings]
-    .filter((l) => l.status === "active");
+  const allLearnings = [...globalLearnings, ...projectLearnings].filter(
+    (l) => l.status === "active"
+  );
 
   if (allLearnings.length === 0) {
-    console.log(chalk.yellow("No active learnings to check. Run 'sheal retro --enrich' to generate some."));
+    console.log(
+      chalk.yellow("No active learnings to check. Run 'sheal retro --enrich' to generate some.")
+    );
     return;
   }
 
-  console.log(chalk.gray(`Checking ${allLearnings.length} active learning(s) against last ${options.last} session(s)...`));
+  console.log(
+    chalk.gray(
+      `Checking ${allLearnings.length} active learning(s) against last ${options.last} session(s)...`
+    )
+  );
 
   // Analyze recent sessions
   const retros = await analyzeRecentSessions(repoPath, options.last);

@@ -30,7 +30,7 @@ export async function runCheck(options: CheckOptions): Promise<void> {
         return await Promise.race([
           checker.run(ctx),
           new Promise<CheckResult>((_, reject) =>
-            setTimeout(() => reject(new Error("timeout")), config.timeoutMs),
+            setTimeout(() => reject(new Error("timeout")), config.timeoutMs)
           ),
         ]);
       } catch {
@@ -42,7 +42,7 @@ export async function runCheck(options: CheckOptions): Promise<void> {
           durationMs: config.timeoutMs,
         };
       }
-    }),
+    })
   );
 
   if (format === "json") {

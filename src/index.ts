@@ -5,8 +5,27 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
-import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
+import {
+  runLearnAdd,
+  runLearnList,
+  runLearnShow,
+  runLearnSync,
+  runLearnReview,
+  runLearnPromote,
+  runLearnPrune,
+  runLearnRemoteAdd,
+  runLearnRemoteShow,
+  runLearnRemoteRemove,
+  runLearnPush,
+  runLearnPull,
+} from "./commands/learn.js";
+import {
+  runBackupRemoteAdd,
+  runBackupRemoteShow,
+  runBackupRemoteRemove,
+  runBackupPush,
+  runBackupPull,
+} from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runAgents } from "./commands/agents.js";
@@ -157,7 +176,10 @@ program
   .description("Run pre-session health check on a project")
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .option("-p, --project <path>", "Project root path", process.cwd())
-  .option("--skip <checkers>", "Comma-separated checkers to skip (git,dependencies,tests,environment,session-learnings,performance)")
+  .option(
+    "--skip <checkers>",
+    "Comma-separated checkers to skip (git,dependencies,tests,environment,session-learnings,performance)"
+  )
   .action(async (opts) => {
     await runCheck({
       format: opts.format,
@@ -452,15 +474,17 @@ program
     });
   });
 
-const learn = program
-  .command("learn")
-  .description("Manage ADR-style session learnings");
+const learn = program.command("learn").description("Manage ADR-style session learnings");
 
 learn
   .command("add <insight>")
   .description("Add a new learning (project-local by default)")
   .option("--tags <tags>", "Comma-separated tags", "general")
-  .option("--category <cat>", "Category: missing-context, failure-loop, wasted-effort, environment, workflow", "workflow")
+  .option(
+    "--category <cat>",
+    "Category: missing-context, failure-loop, wasted-effort, environment, workflow",
+    "workflow"
+  )
   .option("--severity <sev>", "Severity: low, medium, high", "medium")
   .option("--global", "Save to global store instead of project", false)
   .option("-p, --project <path>", "Project root path", process.cwd())
@@ -611,9 +635,7 @@ backup
     await runBackupPull();
   });
 
-const backupRemote = backup
-  .command("remote")
-  .description("Manage git remote for ~/.sheal/ backup");
+const backupRemote = backup.command("remote").description("Manage git remote for ~/.sheal/ backup");
 
 backupRemote
   .command("add <url>")

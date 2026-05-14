@@ -1,9 +1,26 @@
-import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync, renameSync } from "node:fs";
+import {
+  mkdirSync,
+  copyFileSync,
+  readdirSync,
+  existsSync,
+  readFileSync,
+  renameSync,
+} from "node:fs";
 import { join, basename } from "node:path";
 import chalk from "chalk";
 import { getShealHomeDir } from "../learn/index.js";
 import { readGlobalConfig, writeGlobalConfig } from "../learn/remote-config.js";
-import { isGitRepo, initRepo, addRemote, removeRemote, getRemoteUrl, commitAll, push, pull, lastCommitInfo } from "../learn/git.js";
+import {
+  isGitRepo,
+  initRepo,
+  addRemote,
+  removeRemote,
+  getRemoteUrl,
+  commitAll,
+  push,
+  pull,
+  lastCommitInfo,
+} from "../learn/git.js";
 import { listAllNativeProjects } from "@liwala/agent-sessions";
 
 // ── Remote management ───────────────────────────────────────────────
@@ -51,7 +68,9 @@ export async function runBackupRemoteShow(): Promise<void> {
   }
 
   console.log(`${chalk.bold("Remote:")}  ${config.remote.url}`);
-  console.log(`${chalk.bold("Git:")}     ${isRepo ? chalk.green("initialized") : chalk.red("not initialized")}`);
+  console.log(
+    `${chalk.bold("Git:")}     ${isRepo ? chalk.green("initialized") : chalk.red("not initialized")}`
+  );
   console.log(`${chalk.bold("Dir:")}     ${dir}`);
 
   if (isRepo) {
@@ -101,7 +120,9 @@ export async function runBackupPush(opts: { includeRetros?: boolean } = {}): Pro
   if (opts.includeRetros) {
     const result = aggregateRetros(dir);
     if (result.files > 0) {
-      console.log(chalk.gray(`Aggregated ${result.files} retro(s) from ${result.projects} project(s).`));
+      console.log(
+        chalk.gray(`Aggregated ${result.files} retro(s) from ${result.projects} project(s).`)
+      );
     }
   }
 
@@ -176,7 +197,9 @@ function aggregateRetros(shealHome: string): { projects: number; files: number }
       const projectRetros = join(project.projectPath, ".sheal", "retros");
       if (!existsSync(projectRetros)) continue;
 
-      const retroFiles = readdirSync(projectRetros).filter((f) => f.endsWith(".md") || f.endsWith(".json"));
+      const retroFiles = readdirSync(projectRetros).filter(
+        (f) => f.endsWith(".md") || f.endsWith(".json")
+      );
       if (retroFiles.length === 0) continue;
 
       // Use project name as subdirectory, slugified for safety

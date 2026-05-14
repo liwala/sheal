@@ -18,7 +18,7 @@ export async function runBrowse(options: BrowseOptions): Promise<void> {
       initialQuery: options.query,
       initialAgent: options.agent,
       initialView: options.startView,
-    }),
+    })
   );
 
   await waitUntilExit();

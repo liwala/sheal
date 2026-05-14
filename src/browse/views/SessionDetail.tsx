@@ -16,7 +16,14 @@ interface SessionDetailProps {
   onViewRetro: () => void;
 }
 
-export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, onViewRetro }: SessionDetailProps) {
+export function SessionDetail({
+  slug,
+  sessionId,
+  projectPath,
+  onBack,
+  onQuit,
+  onViewRetro,
+}: SessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -26,7 +33,8 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
 
   const { checkpoint, blocks, title, hasRetroFile } = useMemo(() => {
     const cp = loadNativeSessionBySlug(slug, sessionId);
-    if (!cp || cp.sessions.length === 0) return { checkpoint: null, blocks: [], title: "", hasRetroFile: false };
+    if (!cp || cp.sessions.length === 0)
+      return { checkpoint: null, blocks: [], title: "", hasRetroFile: false };
     const blks = buildBlocks(cp.sessions[0].transcript);
     const firstUser = blks.find((b) => b.type === "user");
     const hr = projectPath ? hasRetro(projectPath, sessionId) : false;
@@ -36,9 +44,8 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
   const filteredBlocks = useMemo(() => {
     if (!searchText) return blocks;
     const q = searchText.toLowerCase();
-    return blocks.filter((b) =>
-      b.summary.toLowerCase().includes(q) ||
-      b.lines.some((l) => l.toLowerCase().includes(q)),
+    return blocks.filter(
+      (b) => b.summary.toLowerCase().includes(q) || b.lines.some((l) => l.toLowerCase().includes(q))
     );
   }, [blocks, searchText]);
 
@@ -53,17 +60,31 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "/") { setSearchActive(true); return; }
-    if (input === "r") { onViewRetro(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (input === "/") {
+      setSearchActive(true);
+      return;
+    }
+    if (input === "r") {
+      onViewRetro();
+      return;
+    }
 
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
     } else if (key.downArrow) {
       setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + 1));
     } else if (key.pageDown) {
-      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3)));
+      setScrollPos((p) =>
+        Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3))
+      );
     } else if (key.pageUp) {
       setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
     } else if (key.return) {
@@ -110,11 +131,14 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
 
     // Header line: "> ASSISTANT: [+N] first line..."
     const cursor = isCurrent ? ">" : " ";
-    const callCount = block.type === "tool-group" && block.entryCount > 1
-      ? ` (${block.entryCount} calls)` : "";
-    const expandHint = contentLines.length > previewCount
-      ? (isExpanded ? " [-]" : ` [+${contentLines.length}]`)
-      : "";
+    const callCount =
+      block.type === "tool-group" && block.entryCount > 1 ? ` (${block.entryCount} calls)` : "";
+    const expandHint =
+      contentLines.length > previewCount
+        ? isExpanded
+          ? " [-]"
+          : ` [+${contentLines.length}]`
+        : "";
     renderedLines.push({
       text: `${cursor} ${label}:${callCount}${expandHint} ${block.summary.slice(0, 100)}`,
       color,
@@ -127,7 +151,10 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         if (renderedLines.length >= maxRows) break;
       }
       if (contentLines.length > maxShow) {
-        renderedLines.push({ text: `    ... (${contentLines.length - maxShow} more lines)`, dim: true });
+        renderedLines.push({
+          text: `    ... (${contentLines.length - maxShow} more lines)`,
+          dim: true,
+        });
       }
     } else if (previewCount > 0 && contentLines.length > 0) {
       for (const line of contentLines.slice(0, previewCount)) {
@@ -135,7 +162,10 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         if (renderedLines.length >= maxRows) break;
       }
       if (contentLines.length > previewCount) {
-        renderedLines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true });
+        renderedLines.push({
+          text: `    ... (${contentLines.length - previewCount} more, enter to expand)`,
+          dim: true,
+        });
       }
     }
   }
@@ -145,7 +175,9 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
       <Box marginBottom={1} flexDirection="column">
         <Box>
           <Text bold>Session </Text>
-          <Text bold color="cyan">{sessionId.slice(0, 12)}</Text>
+          <Text bold color="cyan">
+            {sessionId.slice(0, 12)}
+          </Text>
           <Text dimColor> | {meta.createdAt?.slice(0, 16)}</Text>
           {meta.agent && <Text dimColor> | {meta.agent}</Text>}
           {meta.model && <Text dimColor> | {meta.model}</Text>}
@@ -154,28 +186,23 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
         {title && <Text>{title}</Text>}
         {meta.tokenUsage && (
           <Text dimColor>
-            Tokens: {meta.tokenUsage.inputTokens.toLocaleString()} in / {meta.tokenUsage.outputTokens.toLocaleString()} out ({meta.tokenUsage.apiCallCount} calls)
+            Tokens: {meta.tokenUsage.inputTokens.toLocaleString()} in /{" "}
+            {meta.tokenUsage.outputTokens.toLocaleString()} out ({meta.tokenUsage.apiCallCount}{" "}
+            calls)
           </Text>
         )}
         <Text dimColor>
           {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
-          {" | "}{scrollPos + 1}/{filteredBlocks.length}
+          {" | "}
+          {scrollPos + 1}/{filteredBlocks.length}
         </Text>
       </Box>
 
-      {searchActive && (
-        <SearchBar label="Search" value={searchText} onChange={setSearchText} />
-      )}
+      {searchActive && <SearchBar label="Search" value={searchText} onChange={setSearchText} />}
 
       <Box flexDirection="column">
         {renderedLines.map((line, i) => (
-          <Text
-            key={i}
-            color={line.color as any}
-            bold={line.bold}
-            dimColor={line.dim}
-            wrap="wrap"
-          >
+          <Text key={i} color={line.color as any} bold={line.bold} dimColor={line.dim} wrap="wrap">
             {line.text}
           </Text>
         ))}
@@ -189,4 +216,3 @@ export function SessionDetail({ slug, sessionId, projectPath, onBack, onQuit, on
     </Box>
   );
 }
-

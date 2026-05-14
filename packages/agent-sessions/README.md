@@ -36,13 +36,13 @@ if (hasNativeTranscripts(process.cwd())) {
 
 ## Supported sources
 
-| Agent / source | Reads from | Functions |
-| --- | --- | --- |
-| Claude Code | `~/.claude/projects/<slug>/*.jsonl` | `hasNativeTranscripts`, `listNativeSessions`, `loadNativeSession`, `listAllNativeProjects`, `listNativeSessionsBySlug`, `loadNativeSessionBySlug` |
-| OpenAI Codex CLI | `~/.codex/sessions/` | `hasCodexSessions`, `listCodexProjects`, `listCodexSessionsForProject`, `loadCodexSession`, `loadCodexSessionCheckpoint` |
-| Sourcegraph Amp | `~/.amp/threads/` | `hasAmpSessions`, `listAmpProjects`, `listAmpSessionsForProject`, `listAmpThreadFiles`, `getAmpThreadProjectPath` |
-| Gemini CLI | `~/.gemini/` | `listGeminiProjects`, `listGeminiSessionsForProject`, `loadGeminiSession` |
-| Entire.io | `entire/checkpoints/v1` git branch | `hasEntireBranch`, `listCheckpoints`, `loadCheckpoint`, `loadAllCheckpoints` |
+| Agent / source   | Reads from                          | Functions                                                                                                                                         |
+| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code      | `~/.claude/projects/<slug>/*.jsonl` | `hasNativeTranscripts`, `listNativeSessions`, `loadNativeSession`, `listAllNativeProjects`, `listNativeSessionsBySlug`, `loadNativeSessionBySlug` |
+| OpenAI Codex CLI | `~/.codex/sessions/`                | `hasCodexSessions`, `listCodexProjects`, `listCodexSessionsForProject`, `loadCodexSession`, `loadCodexSessionCheckpoint`                          |
+| Sourcegraph Amp  | `~/.amp/threads/`                   | `hasAmpSessions`, `listAmpProjects`, `listAmpSessionsForProject`, `listAmpThreadFiles`, `getAmpThreadProjectPath`                                 |
+| Gemini CLI       | `~/.gemini/`                        | `listGeminiProjects`, `listGeminiSessionsForProject`, `loadGeminiSession`                                                                         |
+| Entire.io        | `entire/checkpoints/v1` git branch  | `hasEntireBranch`, `listCheckpoints`, `loadCheckpoint`, `loadAllCheckpoints`                                                                      |
 
 All loaders return data shaped against shared types (`Session`, `SessionEntry`, `Checkpoint`, `CheckpointInfo`, `TokenUsage`, …) — see `src/types.ts`.
 

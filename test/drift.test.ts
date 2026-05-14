@@ -48,12 +48,18 @@ describe("drift detection", () => {
   });
 
   it("detects drift from failure loops matching retry-related learnings", () => {
-    const learnings = [makeLearning({
-      body: "If a tool call fails twice, try a different approach instead of retrying the same call.",
-    })];
-    const retros = [makeRetro({
-      failureLoops: [{ action: "Read", retryCount: 5, entries: [], errorPattern: "file not found" }],
-    })];
+    const learnings = [
+      makeLearning({
+        body: "If a tool call fails twice, try a different approach instead of retrying the same call.",
+      }),
+    ];
+    const retros = [
+      makeRetro({
+        failureLoops: [
+          { action: "Read", retryCount: 5, entries: [], errorPattern: "file not found" },
+        ],
+      }),
+    ];
     const report = detectDrift(learnings, retros);
     expect(report.drifted).toHaveLength(1);
     expect(report.drifted[0].learning.id).toBe("LEARN-001");
@@ -63,10 +69,12 @@ describe("drift detection", () => {
   it("detects drift from enrichment Recurring section", () => {
     const learnings = [makeLearning({ id: "LEARN-042" })];
     const retros = [makeRetro()];
-    const enrichments = [{
-      sessionId: "sess-001",
-      content: "**Recurring:** LEARN-042 was violated again — same retry pattern observed.",
-    }];
+    const enrichments = [
+      {
+        sessionId: "sess-001",
+        content: "**Recurring:** LEARN-042 was violated again — same retry pattern observed.",
+      },
+    ];
     const report = detectDrift(learnings, retros, enrichments);
     expect(report.drifted).toHaveLength(1);
     expect(report.drifted[0].violations[0].evidence).toContain("LLM flagged");
@@ -74,9 +82,11 @@ describe("drift detection", () => {
 
   it("ignores draft learnings", () => {
     const learnings = [makeLearning({ status: "draft" })];
-    const retros = [makeRetro({
-      failureLoops: [{ action: "Read", retryCount: 5, entries: [], errorPattern: "error" }],
-    })];
+    const retros = [
+      makeRetro({
+        failureLoops: [{ action: "Read", retryCount: 5, entries: [], errorPattern: "error" }],
+      }),
+    ];
     const report = detectDrift(learnings, retros);
     expect(report.drifted).toHaveLength(0);
     expect(report.healthy).toHaveLength(0); // draft filtered out entirely

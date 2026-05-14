@@ -11,18 +11,14 @@ import type { Retrospective, EffortBreakdown, RevertedWork, Learning } from "./t
 /**
  * Run a retrospective on an Amp thread's file changes.
  */
-export function runAmpRetrospective(
-  threadId: string,
-  files: AmpFileChange[],
-): Retrospective {
+export function runAmpRetrospective(threadId: string, files: AmpFileChange[]): Retrospective {
   const effort = analyzeAmpEffort(files);
   const revertedWork = detectAmpReverts(files);
   const learnings = extractAmpLearnings(effort, revertedWork, files);
   const healthScore = calculateAmpHealthScore(revertedWork, effort, files);
 
-  const earliest = files.length > 0
-    ? new Date(Math.min(...files.map((f) => f.timestamp))).toISOString()
-    : "";
+  const earliest =
+    files.length > 0 ? new Date(Math.min(...files.map((f) => f.timestamp))).toISOString() : "";
 
   return {
     checkpointId: threadId,
@@ -52,7 +48,7 @@ function analyzeAmpEffort(files: AmpFileChange[]): EffortBreakdown {
     entryCounts: {
       "file-change": files.length,
       "new-file": files.filter((f) => f.isNewFile).length,
-      "reverted": files.filter((f) => f.reverted).length,
+      reverted: files.filter((f) => f.reverted).length,
     },
     toolCounts,
     fileTouchCounts,
@@ -66,16 +62,18 @@ function detectAmpReverts(files: AmpFileChange[]): RevertedWork[] {
   const reverted = files.filter((f) => f.reverted);
   if (reverted.length === 0) return [];
 
-  return [{
-    files: reverted.map((f) => f.filePath),
-    wastedOperations: reverted.length,
-  }];
+  return [
+    {
+      files: reverted.map((f) => f.filePath),
+      wastedOperations: reverted.length,
+    },
+  ];
 }
 
 function extractAmpLearnings(
   effort: EffortBreakdown,
   revertedWork: RevertedWork[],
-  files: AmpFileChange[],
+  files: AmpFileChange[]
 ): Learning[] {
   const learnings: Learning[] = [];
   let id = 1;
@@ -89,7 +87,8 @@ function extractAmpLearnings(
       category: "wasted-effort",
       severity: ratio > 0.3 ? "high" : revertedCount >= 3 ? "medium" : "low",
       description: `${revertedCount} of ${files.length} file changes were reverted (${(ratio * 100).toFixed(0)}%)`,
-      suggestion: "High revert rate suggests exploration or false starts. Consider planning before writing.",
+      suggestion:
+        "High revert rate suggests exploration or false starts. Consider planning before writing.",
       evidence: files.filter((f) => f.reverted).map((f) => f.filePath.split("/").pop() || ""),
     });
   }
@@ -142,7 +141,7 @@ function extractAmpLearnings(
 function calculateAmpHealthScore(
   revertedWork: RevertedWork[],
   effort: EffortBreakdown,
-  files: AmpFileChange[],
+  files: AmpFileChange[]
 ): number {
   let score = 100;
 

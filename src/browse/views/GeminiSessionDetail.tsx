@@ -13,20 +13,20 @@ interface DisplayBlock {
 }
 
 const PREVIEW_LINES: Record<DisplayBlock["type"], number> = {
-  "user": 3,
-  "assistant": 4,
+  user: 3,
+  assistant: 4,
   "tool-group": 0,
 };
 
 const TYPE_COLORS: Record<DisplayBlock["type"], string> = {
-  "user": "green",
-  "assistant": "blue",
+  user: "green",
+  assistant: "blue",
   "tool-group": "yellow",
 };
 
 const TYPE_LABELS: Record<DisplayBlock["type"], string> = {
-  "user": "USER",
-  "assistant": "ASSISTANT",
+  user: "USER",
+  assistant: "ASSISTANT",
   "tool-group": "TOOLS",
 };
 
@@ -38,7 +38,13 @@ interface GeminiSessionDetailProps {
   onViewRetro: () => void;
 }
 
-export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, onViewRetro }: GeminiSessionDetailProps) {
+export function GeminiSessionDetail({
+  sessionId,
+  projectPath,
+  onBack,
+  onQuit,
+  onViewRetro,
+}: GeminiSessionDetailProps) {
   const [scrollPos, setScrollPos] = useState(0);
   const [searchActive, setSearchActive] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -57,30 +63,47 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
   const filteredBlocks = useMemo(() => {
     if (!searchText) return blocks;
     const q = searchText.toLowerCase();
-    return blocks.filter((b) =>
-      b.summary.toLowerCase().includes(q) ||
-      b.lines.some((l) => l.toLowerCase().includes(q)),
+    return blocks.filter(
+      (b) => b.summary.toLowerCase().includes(q) || b.lines.some((l) => l.toLowerCase().includes(q))
     );
   }, [blocks, searchText]);
 
   useInput((input, key) => {
     if (searchActive) {
-      if (key.escape) { setSearchActive(false); setSearchText(""); }
-      else if (key.return) { setSearchActive(false); }
+      if (key.escape) {
+        setSearchActive(false);
+        setSearchText("");
+      } else if (key.return) {
+        setSearchActive(false);
+      }
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "/") { setSearchActive(true); return; }
-    if (input === "r") { onViewRetro(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (input === "/") {
+      setSearchActive(true);
+      return;
+    }
+    if (input === "r") {
+      onViewRetro();
+      return;
+    }
 
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
     } else if (key.downArrow) {
       setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + 1));
     } else if (key.pageDown) {
-      setScrollPos((p) => Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3)));
+      setScrollPos((p) =>
+        Math.min(Math.max(0, filteredBlocks.length - 1), p + Math.floor(maxRows / 3))
+      );
     } else if (key.pageUp) {
       setScrollPos((p) => Math.max(0, p - Math.floor(maxRows / 3)));
     } else if (key.return) {
@@ -120,11 +143,14 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
 
     const contentLines = block.lines.slice(1);
     const cursor = isCurrent ? ">" : " ";
-    const callCount = block.type === "tool-group" && block.entryCount > 1
-      ? ` (${block.entryCount} calls)` : "";
-    const expandHint = contentLines.length > previewCount
-      ? (isExpanded ? " [-]" : ` [+${contentLines.length}]`)
-      : "";
+    const callCount =
+      block.type === "tool-group" && block.entryCount > 1 ? ` (${block.entryCount} calls)` : "";
+    const expandHint =
+      contentLines.length > previewCount
+        ? isExpanded
+          ? " [-]"
+          : ` [+${contentLines.length}]`
+        : "";
     renderedLines.push({
       text: `${cursor} ${label}:${callCount}${expandHint} ${block.summary.slice(0, 100)}`,
       color,
@@ -137,7 +163,10 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
         if (renderedLines.length >= maxRows) break;
       }
       if (contentLines.length > maxShow) {
-        renderedLines.push({ text: `    ... (${contentLines.length - maxShow} more lines)`, dim: true });
+        renderedLines.push({
+          text: `    ... (${contentLines.length - maxShow} more lines)`,
+          dim: true,
+        });
       }
     } else if (previewCount > 0 && contentLines.length > 0) {
       for (const line of contentLines.slice(0, previewCount)) {
@@ -145,7 +174,10 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
         if (renderedLines.length >= maxRows) break;
       }
       if (contentLines.length > previewCount) {
-        renderedLines.push({ text: `    ... (${contentLines.length - previewCount} more, enter to expand)`, dim: true });
+        renderedLines.push({
+          text: `    ... (${contentLines.length - previewCount} more, enter to expand)`,
+          dim: true,
+        });
       }
     }
   }
@@ -155,7 +187,9 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
       <Box marginBottom={1} flexDirection="column">
         <Box>
           <Text bold>Session </Text>
-          <Text bold color="cyan">{sessionId.slice(0, 12)}</Text>
+          <Text bold color="cyan">
+            {sessionId.slice(0, 12)}
+          </Text>
           <Text dimColor> | {meta.startTime?.slice(0, 16)}</Text>
           <Text color="green"> [Gemini]</Text>
           {meta.model && <Text dimColor> | {meta.model}</Text>}
@@ -163,23 +197,16 @@ export function GeminiSessionDetail({ sessionId, projectPath, onBack, onQuit, on
         {title && <Text>{title}</Text>}
         <Text dimColor>
           {filteredBlocks.length} blocks{searchText ? ` (filtered)` : ""}
-          {" | "}{scrollPos + 1}/{filteredBlocks.length}
+          {" | "}
+          {scrollPos + 1}/{filteredBlocks.length}
         </Text>
       </Box>
 
-      {searchActive && (
-        <SearchBar label="Search" value={searchText} onChange={setSearchText} />
-      )}
+      {searchActive && <SearchBar label="Search" value={searchText} onChange={setSearchText} />}
 
       <Box flexDirection="column">
         {renderedLines.map((line, i) => (
-          <Text
-            key={i}
-            color={line.color as any}
-            bold={line.bold}
-            dimColor={line.dim}
-            wrap="wrap"
-          >
+          <Text key={i} color={line.color as any} bold={line.bold} dimColor={line.dim} wrap="wrap">
             {line.text}
           </Text>
         ))}
@@ -201,9 +228,7 @@ function buildGeminiBlocks(entries: GeminiTranscriptEntry[]): DisplayBlock[] {
   const flushToolGroup = () => {
     if (toolGroup.length === 0) return;
 
-    const names = toolGroup
-      .filter((e) => e.toolName)
-      .map((e) => e.toolName!);
+    const names = toolGroup.filter((e) => e.toolName).map((e) => e.toolName!);
     const uniqueNames = [...new Set(names)];
     const summary = uniqueNames.join(", ") || `${toolGroup.length} calls`;
 
@@ -212,7 +237,8 @@ function buildGeminiBlocks(entries: GeminiTranscriptEntry[]): DisplayBlock[] {
       if (entry.toolName) {
         lines.push(entry.toolName);
         if (entry.toolInput) lines.push(`  ${entry.toolInput.slice(0, 100)}`);
-        if (entry.toolOutput) lines.push(`  -> ${entry.toolOutput.replace(/\n/g, " ").slice(0, 100)}`);
+        if (entry.toolOutput)
+          lines.push(`  -> ${entry.toolOutput.replace(/\n/g, " ").slice(0, 100)}`);
       }
     }
 

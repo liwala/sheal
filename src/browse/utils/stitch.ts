@@ -42,7 +42,7 @@ export interface TaskGroup {
  */
 export function stitchSessions(
   sessions: CheckpointInfo[],
-  gapMs: number = DEFAULT_GAP_MS,
+  gapMs: number = DEFAULT_GAP_MS
 ): TaskGroup[] {
   if (sessions.length === 0) return [];
 

@@ -21,7 +21,13 @@
     "outcome": "Changed token TTL from 1h to 24h to match refresh middleware expectations",
     "learnings": {
       "repo": ["Auth tokens use JWT with configurable expiration in src/auth.ts"],
-      "code": [{"path": "src/auth.ts", "line": 3, "finding": "Token expiration must match refresh middleware interval (24h)"}],
+      "code": [
+        {
+          "path": "src/auth.ts",
+          "line": 3,
+          "finding": "Token expiration must match refresh middleware interval (24h)"
+        }
+      ],
       "workflow": ["Check refresh logic when changing token TTL"]
     },
     "friction": ["Token TTL was hardcoded instead of configurable"],

@@ -47,7 +47,7 @@ function runGit(repoPath: string, args: string[], timeoutMs = 10_000): Promise<s
           return;
         }
         resolve(stdout.toString());
-      },
+      }
     );
   });
 }
@@ -55,10 +55,7 @@ function runGit(repoPath: string, args: string[], timeoutMs = 10_000): Promise<s
 /**
  * Read a file from the checkpoints branch using git show.
  */
-async function readBranchFile(
-  repoPath: string,
-  filePath: string,
-): Promise<string | null> {
+async function readBranchFile(repoPath: string, filePath: string): Promise<string | null> {
   return runGit(repoPath, ["show", `${CHECKPOINT_BRANCH}:${filePath}`]);
 }
 
@@ -75,18 +72,24 @@ async function listBranchFiles(repoPath: string): Promise<string[]> {
  * Check if the entire/checkpoints/v1 branch exists locally or as origin remote.
  */
 export async function hasEntireBranch(repoPath: string): Promise<boolean> {
-  const local = await runGit(repoPath, ["rev-parse", "--verify", `refs/heads/${CHECKPOINT_BRANCH}`], 5_000);
+  const local = await runGit(
+    repoPath,
+    ["rev-parse", "--verify", `refs/heads/${CHECKPOINT_BRANCH}`],
+    5_000
+  );
   if (local !== null) return true;
-  const remote = await runGit(repoPath, ["rev-parse", "--verify", `refs/remotes/origin/${CHECKPOINT_BRANCH}`], 5_000);
+  const remote = await runGit(
+    repoPath,
+    ["rev-parse", "--verify", `refs/remotes/origin/${CHECKPOINT_BRANCH}`],
+    5_000
+  );
   return remote !== null;
 }
 
 /**
  * List all committed checkpoints (lightweight — no transcripts loaded).
  */
-export async function listCheckpoints(
-  repoPath: string,
-): Promise<CheckpointInfo[]> {
+export async function listCheckpoints(repoPath: string): Promise<CheckpointInfo[]> {
   const files = await listBranchFiles(repoPath);
 
   // Find root metadata.json files (pattern: XX/YYYYYYYYYY/metadata.json)
@@ -142,7 +145,7 @@ export async function listCheckpoints(
  */
 export async function loadCheckpoint(
   repoPath: string,
-  checkpointId: string,
+  checkpointId: string
 ): Promise<Checkpoint | null> {
   const prefix = checkpointId.slice(0, 2);
   const suffix = checkpointId.slice(2);
@@ -182,10 +185,7 @@ export async function loadCheckpoint(
 /**
  * Load a single session from a checkpoint.
  */
-async function loadSession(
-  repoPath: string,
-  sessionPath: string,
-): Promise<Session | null> {
+async function loadSession(repoPath: string, sessionPath: string): Promise<Session | null> {
   // Read session metadata
   const metaContent = await readBranchFile(repoPath, `${sessionPath}/metadata.json`);
   if (!metaContent) return null;
@@ -222,13 +222,15 @@ function parseRootMetadata(raw: Record<string, unknown>): CheckpointRoot {
       contentHash: s.content_hash,
       prompt: s.prompt,
     })),
-    tokenUsage: raw.token_usage ? {
-      inputTokens: (raw.token_usage as Record<string, number>).input_tokens,
-      cacheCreationTokens: (raw.token_usage as Record<string, number>).cache_creation_tokens,
-      cacheReadTokens: (raw.token_usage as Record<string, number>).cache_read_tokens,
-      outputTokens: (raw.token_usage as Record<string, number>).output_tokens,
-      apiCallCount: (raw.token_usage as Record<string, number>).api_call_count,
-    } : undefined,
+    tokenUsage: raw.token_usage
+      ? {
+          inputTokens: (raw.token_usage as Record<string, number>).input_tokens,
+          cacheCreationTokens: (raw.token_usage as Record<string, number>).cache_creation_tokens,
+          cacheReadTokens: (raw.token_usage as Record<string, number>).cache_read_tokens,
+          outputTokens: (raw.token_usage as Record<string, number>).output_tokens,
+          apiCallCount: (raw.token_usage as Record<string, number>).api_call_count,
+        }
+      : undefined,
   };
 }
 
@@ -251,44 +253,52 @@ function parseMetadata(content: string): SessionMetadata {
     turnId: raw.turn_id,
     isTask: raw.is_task,
     toolUseId: raw.tool_use_id,
-    tokenUsage: raw.token_usage ? {
-      inputTokens: raw.token_usage.input_tokens,
-      cacheCreationTokens: raw.token_usage.cache_creation_tokens,
-      cacheReadTokens: raw.token_usage.cache_read_tokens,
-      outputTokens: raw.token_usage.output_tokens,
-      apiCallCount: raw.token_usage.api_call_count,
-    } : undefined,
-    sessionMetrics: raw.session_metrics ? {
-      durationMs: raw.session_metrics.duration_ms,
-      turnCount: raw.session_metrics.turn_count,
-      contextTokens: raw.session_metrics.context_tokens,
-      contextWindowSize: raw.session_metrics.context_window_size,
-    } : undefined,
-    summary: raw.summary ? {
-      intent: raw.summary.intent,
-      outcome: raw.summary.outcome,
-      learnings: {
-        repo: raw.summary.learnings?.repo ?? [],
-        code: (raw.summary.learnings?.code ?? []).map((c: Record<string, unknown>) => ({
-          path: c.path,
-          line: c.line,
-          endLine: c.end_line,
-          finding: c.finding,
-        })),
-        workflow: raw.summary.learnings?.workflow ?? [],
-      },
-      friction: raw.summary.friction ?? [],
-      openItems: raw.summary.open_items ?? [],
-    } : undefined,
-    initialAttribution: raw.initial_attribution ? {
-      calculatedAt: raw.initial_attribution.calculated_at,
-      agentLines: raw.initial_attribution.agent_lines,
-      humanAdded: raw.initial_attribution.human_added,
-      humanModified: raw.initial_attribution.human_modified,
-      humanRemoved: raw.initial_attribution.human_removed,
-      totalCommitted: raw.initial_attribution.total_committed,
-      agentPercentage: raw.initial_attribution.agent_percentage,
-    } : undefined,
+    tokenUsage: raw.token_usage
+      ? {
+          inputTokens: raw.token_usage.input_tokens,
+          cacheCreationTokens: raw.token_usage.cache_creation_tokens,
+          cacheReadTokens: raw.token_usage.cache_read_tokens,
+          outputTokens: raw.token_usage.output_tokens,
+          apiCallCount: raw.token_usage.api_call_count,
+        }
+      : undefined,
+    sessionMetrics: raw.session_metrics
+      ? {
+          durationMs: raw.session_metrics.duration_ms,
+          turnCount: raw.session_metrics.turn_count,
+          contextTokens: raw.session_metrics.context_tokens,
+          contextWindowSize: raw.session_metrics.context_window_size,
+        }
+      : undefined,
+    summary: raw.summary
+      ? {
+          intent: raw.summary.intent,
+          outcome: raw.summary.outcome,
+          learnings: {
+            repo: raw.summary.learnings?.repo ?? [],
+            code: (raw.summary.learnings?.code ?? []).map((c: Record<string, unknown>) => ({
+              path: c.path,
+              line: c.line,
+              endLine: c.end_line,
+              finding: c.finding,
+            })),
+            workflow: raw.summary.learnings?.workflow ?? [],
+          },
+          friction: raw.summary.friction ?? [],
+          openItems: raw.summary.open_items ?? [],
+        }
+      : undefined,
+    initialAttribution: raw.initial_attribution
+      ? {
+          calculatedAt: raw.initial_attribution.calculated_at,
+          agentLines: raw.initial_attribution.agent_lines,
+          humanAdded: raw.initial_attribution.human_added,
+          humanModified: raw.initial_attribution.human_modified,
+          humanRemoved: raw.initial_attribution.human_removed,
+          totalCommitted: raw.initial_attribution.total_committed,
+          agentPercentage: raw.initial_attribution.agent_percentage,
+        }
+      : undefined,
     checkpointTranscriptStart: raw.checkpoint_transcript_start,
   };
 }
@@ -297,9 +307,7 @@ function parseMetadata(content: string): SessionMetadata {
  * Load all checkpoints with full session data.
  * Use with caution on repos with many checkpoints — prefer listCheckpoints + loadCheckpoint.
  */
-export async function loadAllCheckpoints(
-  repoPath: string,
-): Promise<Checkpoint[]> {
+export async function loadAllCheckpoints(repoPath: string): Promise<Checkpoint[]> {
   const infos = await listCheckpoints(repoPath);
   const checkpoints: Checkpoint[] = [];
 

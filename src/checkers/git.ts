@@ -14,7 +14,9 @@ export const gitChecker: Checker = {
     const isRepo = await exec("git", ["rev-parse", "--is-inside-work-tree"], { cwd });
     if (isRepo.exitCode !== 0) {
       return {
-        name: this.name, label: this.label, severity: "skip",
+        name: this.name,
+        label: this.label,
+        severity: "skip",
         details: [{ message: "Not a git repository", severity: "skip" }],
         durationMs: elapsed(),
       };

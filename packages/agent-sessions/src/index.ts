@@ -26,11 +26,7 @@ export {
   loadCodexSessionCheckpoint,
   codexSessionToCheckpoint,
 } from "./codex.js";
-export type {
-  CodexProject,
-  CodexSessionFile,
-  CodexTranscriptEntry,
-} from "./codex.js";
+export type { CodexProject, CodexSessionFile, CodexTranscriptEntry } from "./codex.js";
 
 // Sourcegraph Amp native sessions
 export {
@@ -49,11 +45,7 @@ export {
   listGeminiSessionsForProject,
   loadGeminiSession,
 } from "./gemini.js";
-export type {
-  GeminiProject,
-  GeminiSessionFile,
-  GeminiTranscriptEntry,
-} from "./gemini.js";
+export type { GeminiProject, GeminiSessionFile, GeminiTranscriptEntry } from "./gemini.js";
 
 // Transcript normalization
 export { parseTranscript } from "./transcript.js";

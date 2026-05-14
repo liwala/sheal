@@ -22,7 +22,10 @@ function detectAgent(projectRoot: string): string | null {
 /**
  * Measure the total size of agent config files in bytes.
  */
-function measureConfigSize(projectRoot: string): { totalBytes: number; files: { path: string; bytes: number }[] } {
+function measureConfigSize(projectRoot: string): {
+  totalBytes: number;
+  files: { path: string; bytes: number }[];
+} {
   const candidates = [
     "CLAUDE.md",
     ".cursorrules",
@@ -46,7 +49,6 @@ function measureConfigSize(projectRoot: string): { totalBytes: number; files: { 
 
   return { totalBytes, files };
 }
-
 
 // 10KB warn, 20KB fail for total agent config size
 const CONFIG_WARN_BYTES = 10_000;
@@ -80,7 +82,10 @@ export const performanceChecker: Checker = {
             if (hasRtkHook) {
               details.push({ message: "RTK hook active in Claude Code", severity: "pass" });
             } else {
-              details.push({ message: "RTK installed but no hook configured in Claude Code settings", severity: "warn" });
+              details.push({
+                message: "RTK installed but no hook configured in Claude Code settings",
+                severity: "warn",
+              });
             }
           } catch {
             // ignore parse errors
@@ -136,9 +141,18 @@ export const performanceChecker: Checker = {
       }
     }
 
-    const worst = details.some((d) => d.severity === "fail") ? "fail"
-      : details.some((d) => d.severity === "warn") ? "warn" : "pass";
+    const worst = details.some((d) => d.severity === "fail")
+      ? "fail"
+      : details.some((d) => d.severity === "warn")
+        ? "warn"
+        : "pass";
 
-    return { name: this.name, label: this.label, severity: worst as CheckResult["severity"], details, durationMs: elapsed() };
+    return {
+      name: this.name,
+      label: this.label,
+      severity: worst as CheckResult["severity"],
+      details,
+      durationMs: elapsed(),
+    };
   },
 };

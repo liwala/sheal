@@ -110,7 +110,13 @@ export function loadSessionsInWindow(opts: {
       sessionsByAgent.claude++;
 
       // Extract per-model tokens from raw JSONL
-      const jsonlPath = join(homedir(), ".claude", "projects", project.slug, `${info.sessionId}.jsonl`);
+      const jsonlPath = join(
+        homedir(),
+        ".claude",
+        "projects",
+        project.slug,
+        `${info.sessionId}.jsonl`
+      );
       extractModelTokens(jsonlPath, tokens, project.name);
 
       for (const session of cp.sessions) {
@@ -198,14 +204,23 @@ export function loadSessionsInWindow(opts: {
   try {
     const ampProjects = listAmpProjects();
     const filteredAmp = projectFilter
-      ? ampProjects.filter((p: NativeProject) => p.name.toLowerCase().includes(projectFilter.toLowerCase()))
+      ? ampProjects.filter((p: NativeProject) =>
+          p.name.toLowerCase().includes(projectFilter.toLowerCase())
+        )
       : ampProjects;
 
     for (const project of filteredAmp) {
       if (project.lastModified >= sinceISO && project.lastModified <= untilISO) {
         // Amp doesn't provide token data or prompts, just note it exists
         if (!tokens.byAgent["amp"]) {
-          tokens.byAgent["amp"] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0, sessionCount: 0 };
+          tokens.byAgent["amp"] = {
+            input: 0,
+            output: 0,
+            cacheRead: 0,
+            cacheCreate: 0,
+            apiCalls: 0,
+            sessionCount: 0,
+          };
         }
         tokens.byAgent["amp"].sessionCount += project.sessionCount;
         sessionsByAgent.amp += project.sessionCount;
@@ -265,7 +280,13 @@ function extractModelTokens(jsonlPath: string, summary: TokenSummary, projectNam
           const cacheCreate = u.cache_creation_input_tokens ?? 0;
 
           if (!summary.byModel[model]) {
-            summary.byModel[model] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0 };
+            summary.byModel[model] = {
+              input: 0,
+              output: 0,
+              cacheRead: 0,
+              cacheCreate: 0,
+              apiCalls: 0,
+            };
           }
           summary.byModel[model].input += input;
           summary.byModel[model].output += output;
@@ -279,7 +300,13 @@ function extractModelTokens(jsonlPath: string, summary: TokenSummary, projectNam
               summary.byProjectModel[projectName] = {};
             }
             if (!summary.byProjectModel[projectName][model]) {
-              summary.byProjectModel[projectName][model] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0 };
+              summary.byProjectModel[projectName][model] = {
+                input: 0,
+                output: 0,
+                cacheRead: 0,
+                cacheCreate: 0,
+                apiCalls: 0,
+              };
             }
             summary.byProjectModel[projectName][model].input += input;
             summary.byProjectModel[projectName][model].output += output;
@@ -297,12 +324,7 @@ function extractModelTokens(jsonlPath: string, summary: TokenSummary, projectNam
   }
 }
 
-function addTokens(
-  summary: TokenSummary,
-  tu: TokenUsage,
-  agent: string,
-  project: string,
-): void {
+function addTokens(summary: TokenSummary, tu: TokenUsage, agent: string, project: string): void {
   summary.totalInput += tu.inputTokens;
   summary.totalOutput += tu.outputTokens;
   summary.totalCacheRead += tu.cacheReadTokens;
@@ -310,7 +332,14 @@ function addTokens(
   summary.totalApiCalls += tu.apiCallCount;
 
   if (!summary.byAgent[agent]) {
-    summary.byAgent[agent] = { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, apiCalls: 0, sessionCount: 0 };
+    summary.byAgent[agent] = {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreate: 0,
+      apiCalls: 0,
+      sessionCount: 0,
+    };
   }
   summary.byAgent[agent].input += tu.inputTokens;
   summary.byAgent[agent].output += tu.outputTokens;

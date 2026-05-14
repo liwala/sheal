@@ -61,9 +61,22 @@ function loadActiveLearnings(projectRoot: string): LearningFile[] {
 
 /** Tags to skip when choosing a grouping key (platform/language tags, not topics). */
 const GENERIC_TAGS = new Set([
-  "general", "workflow", "environment",
-  "claude", "cursor", "codex", "copilot", "amp", "gemini",
-  "javascript", "typescript", "node", "react", "go", "python", "rust",
+  "general",
+  "workflow",
+  "environment",
+  "claude",
+  "cursor",
+  "codex",
+  "copilot",
+  "amp",
+  "gemini",
+  "javascript",
+  "typescript",
+  "node",
+  "react",
+  "go",
+  "python",
+  "rust",
 ]);
 
 /**
@@ -125,9 +138,7 @@ function injectRulesBlock(filepath: string, block: string, dryRun: boolean): boo
   const content = readFileSync(filepath, "utf-8");
 
   if (content.includes(RULES_BEGIN)) {
-    const re = new RegExp(
-      `${escapeRegExp(RULES_BEGIN)}[\\s\\S]*?${escapeRegExp(RULES_END)}`,
-    );
+    const re = new RegExp(`${escapeRegExp(RULES_BEGIN)}[\\s\\S]*?${escapeRegExp(RULES_END)}`);
     const updated = content.replace(re, block);
     if (updated === content) return false;
     if (!dryRun) writeFileSync(filepath, updated);
@@ -149,9 +160,7 @@ function removeRulesBlock(filepath: string, dryRun: boolean): boolean {
   const content = readFileSync(filepath, "utf-8");
   if (!content.includes(RULES_BEGIN)) return false;
 
-  const re = new RegExp(
-    `\\n?${escapeRegExp(RULES_BEGIN)}[\\s\\S]*?${escapeRegExp(RULES_END)}\\n?`,
-  );
+  const re = new RegExp(`\\n?${escapeRegExp(RULES_BEGIN)}[\\s\\S]*?${escapeRegExp(RULES_END)}\\n?`);
   const updated = content.replace(re, "\n");
   if (updated === content) return false;
   if (!dryRun) writeFileSync(filepath, updated);
@@ -165,9 +174,7 @@ export async function runRules(options: RulesOptions): Promise<void> {
   const learnings = loadActiveLearnings(projectRoot);
 
   // Find existing agent config files
-  const existing = AGENT_FILES.filter((f) =>
-    existsSync(join(projectRoot, f)),
-  );
+  const existing = AGENT_FILES.filter((f) => existsSync(join(projectRoot, f)));
 
   if (learnings.length === 0) {
     console.log(chalk.yellow("No active learnings to inject."));

@@ -15,9 +15,9 @@ import { StatusBar } from "../components/StatusBar.js";
 
 const AGENT_COLORS: Record<string, string> = {
   "Claude Code": "blue",
-  "Codex": "yellow",
-  "Amp": "magenta",
-  "Gemini": "green",
+  Codex: "yellow",
+  Amp: "magenta",
+  Gemini: "green",
   "Entire.io": "greenBright",
 };
 
@@ -101,7 +101,9 @@ export function SessionList({
         setEntireSessions(marked);
       });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [project.projectPath]);
 
   const allSessions = useMemo(() => {
@@ -122,8 +124,14 @@ export function SessionList({
 
   const hasMultipleAgents = (project.agents?.length ?? 0) > 1;
 
-  const entireCount = useMemo(() => allSessions.filter((s) => s.agent === "Entire.io").length, [allSessions]);
-  const pipedCount = useMemo(() => allSessions.filter((s) => s.title?.startsWith("[piped]")).length, [allSessions]);
+  const entireCount = useMemo(
+    () => allSessions.filter((s) => s.agent === "Entire.io").length,
+    [allSessions]
+  );
+  const pipedCount = useMemo(
+    () => allSessions.filter((s) => s.title?.startsWith("[piped]")).length,
+    [allSessions]
+  );
 
   const filtered = useMemo(() => {
     let result = allSessions;
@@ -137,14 +145,11 @@ export function SessionList({
       const q = filterText.toLowerCase();
       result = result.filter(
         (s) =>
-          s.sessionId.toLowerCase().includes(q) ||
-          (s.title?.toLowerCase().includes(q) ?? false),
+          s.sessionId.toLowerCase().includes(q) || (s.title?.toLowerCase().includes(q) ?? false)
       );
     }
     if (agentFilter) {
-      result = result.filter((s) =>
-        s.agent?.toLowerCase().includes(agentFilter.toLowerCase()),
-      );
+      result = result.filter((s) => s.agent?.toLowerCase().includes(agentFilter.toLowerCase()));
     }
     return result;
   }, [allSessions, filterText, agentFilter, hidePiped, hideEntire]);
@@ -160,13 +165,38 @@ export function SessionList({
       return;
     }
 
-    if (input === "q") { onQuit(); return; }
-    if (key.escape) { onBack(); return; }
-    if (input === "/") { setFilterActive(true); return; }
-    if (input === "s") { onSearch(); return; }
-    if (input === "a") { onAgentFilterToggle(); return; }
-    if (input === "p") { setHidePiped(!hidePiped); setCursor(0); setScrollOffset(0); return; }
-    if (input === "e") { setHideEntire(!hideEntire); setCursor(0); setScrollOffset(0); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
+    if (key.escape) {
+      onBack();
+      return;
+    }
+    if (input === "/") {
+      setFilterActive(true);
+      return;
+    }
+    if (input === "s") {
+      onSearch();
+      return;
+    }
+    if (input === "a") {
+      onAgentFilterToggle();
+      return;
+    }
+    if (input === "p") {
+      setHidePiped(!hidePiped);
+      setCursor(0);
+      setScrollOffset(0);
+      return;
+    }
+    if (input === "e") {
+      setHideEntire(!hideEntire);
+      setCursor(0);
+      setScrollOffset(0);
+      return;
+    }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -191,21 +221,36 @@ export function SessionList({
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold color="cyan">{project.name}</Text>
+          <Text bold color="cyan">
+            {project.name}
+          </Text>
           <Text bold>{" > Sessions"}</Text>
-          <Text dimColor> ({filtered.length} of {allSessions.length})</Text>
+          <Text dimColor>
+            {" "}
+            ({filtered.length} of {allSessions.length})
+          </Text>
           {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
         </Box>
         <Box>
-          {entireCount > 0 && <Text dimColor>{hideEntire ? `${entireCount} entire.io hidden, e to show` : `showing ${entireCount} entire.io, e to hide`}</Text>}
+          {entireCount > 0 && (
+            <Text dimColor>
+              {hideEntire
+                ? `${entireCount} entire.io hidden, e to show`
+                : `showing ${entireCount} entire.io, e to hide`}
+            </Text>
+          )}
           {entireCount > 0 && pipedCount > 0 && <Text dimColor> | </Text>}
-          {pipedCount > 0 && <Text dimColor>{hidePiped ? `${pipedCount} piped hidden, p to show` : `showing ${pipedCount} piped, p to hide`}</Text>}
+          {pipedCount > 0 && (
+            <Text dimColor>
+              {hidePiped
+                ? `${pipedCount} piped hidden, p to show`
+                : `showing ${pipedCount} piped, p to hide`}
+            </Text>
+          )}
         </Box>
       </Box>
 
-      {filterActive && (
-        <SearchBar label="Filter" value={filterText} onChange={setFilterText} />
-      )}
+      {filterActive && <SearchBar label="Filter" value={filterText} onChange={setFilterText} />}
 
       <Box flexDirection="column" height={maxRows}>
         {windowItems.map((s, i) => {
@@ -213,25 +258,34 @@ export function SessionList({
           const isPiped = s.title?.startsWith("[piped]") ?? false;
           const agentColor = AGENT_COLORS[s.agent || ""] || "white";
           return (
-          <Box key={`${s.agent}-${s.sessionId}`}>
-            <Text color={globalIdx === cursor ? "cyan" : undefined} bold={globalIdx === cursor} dimColor={isPiped && globalIdx !== cursor}>
-              {globalIdx === cursor ? "> " : "  "}
-              {s.sessionId.slice(0, 12)}
-            </Text>
-            <Text dimColor> {s.createdAt?.slice(0, 16) || ""}</Text>
-            {hasMultipleAgents && s.agent && (
-              <Text color={agentColor as any}> [{s.agent === "Claude Code" ? "claude" : s.agent.toLowerCase()}]</Text>
-            )}
-            {retroSet.has(s.sessionId) && <Text color="magenta"> [R]</Text>}
-            {s.filesTouched.length > 0 && <Text dimColor> {s.filesTouched.length}f</Text>}
-            {s.title && <Text dimColor={isPiped && globalIdx !== cursor}> {s.title.slice(0, 50)}</Text>}
-          </Box>
+            <Box key={`${s.agent}-${s.sessionId}`}>
+              <Text
+                color={globalIdx === cursor ? "cyan" : undefined}
+                bold={globalIdx === cursor}
+                dimColor={isPiped && globalIdx !== cursor}
+              >
+                {globalIdx === cursor ? "> " : "  "}
+                {s.sessionId.slice(0, 12)}
+              </Text>
+              <Text dimColor> {s.createdAt?.slice(0, 16) || ""}</Text>
+              {hasMultipleAgents && s.agent && (
+                <Text color={agentColor as any}>
+                  {" "}
+                  [{s.agent === "Claude Code" ? "claude" : s.agent.toLowerCase()}]
+                </Text>
+              )}
+              {retroSet.has(s.sessionId) && <Text color="magenta"> [R]</Text>}
+              {s.filesTouched.length > 0 && <Text dimColor> {s.filesTouched.length}f</Text>}
+              {s.title && (
+                <Text dimColor={isPiped && globalIdx !== cursor}> {s.title.slice(0, 50)}</Text>
+              )}
+            </Box>
           );
         })}
         {filtered.length > maxRows && scrollOffset + maxRows < filtered.length && (
-          <Text dimColor>  ↓ {filtered.length - scrollOffset - maxRows} more</Text>
+          <Text dimColor> ↓ {filtered.length - scrollOffset - maxRows} more</Text>
         )}
-        {filtered.length === 0 && <Text dimColor>  No sessions match filters</Text>}
+        {filtered.length === 0 && <Text dimColor> No sessions match filters</Text>}
       </Box>
 
       <StatusBar view="sessions" searchActive={filterActive} />

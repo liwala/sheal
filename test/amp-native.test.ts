@@ -12,12 +12,8 @@ vi.mock("node:os", async () => {
 });
 
 // Import after mock setup
-const {
-  hasAmpSessions,
-  listAmpProjects,
-  listAmpSessionsForProject,
-  listAmpThreadFiles,
-} = await import("@liwala/agent-sessions");
+const { hasAmpSessions, listAmpProjects, listAmpSessionsForProject, listAmpThreadFiles } =
+  await import("@liwala/agent-sessions");
 
 function makeFileChange(opts: {
   id: string;
@@ -42,11 +38,19 @@ function makeFileChange(opts: {
 describe("amp-native", () => {
   beforeEach(() => {
     // Clean up any previous test data
-    try { rmSync(testHome, { recursive: true }); } catch { /* ignore */ }
+    try {
+      rmSync(testHome, { recursive: true });
+    } catch {
+      /* ignore */
+    }
   });
 
   afterEach(() => {
-    try { rmSync(testHome, { recursive: true }); } catch { /* ignore */ }
+    try {
+      rmSync(testHome, { recursive: true });
+    } catch {
+      /* ignore */
+    }
   });
 
   describe("hasAmpSessions", () => {
@@ -65,17 +69,23 @@ describe("amp-native", () => {
       const threadDir = join(testHome, ".amp", "file-changes", "T-abc123");
       mkdirSync(threadDir, { recursive: true });
 
-      writeFileSync(join(threadDir, "change1.json"), makeFileChange({
-        id: "id-1",
-        uri: "file:///Users/lu/code/proj/src/main.ts",
-        timestamp: 1773214562000,
-      }));
-      writeFileSync(join(threadDir, "change2.json"), makeFileChange({
-        id: "id-2",
-        uri: "file:///Users/lu/code/proj/src/util.ts",
-        timestamp: 1773214563000,
-        isNewFile: true,
-      }));
+      writeFileSync(
+        join(threadDir, "change1.json"),
+        makeFileChange({
+          id: "id-1",
+          uri: "file:///Users/lu/code/proj/src/main.ts",
+          timestamp: 1773214562000,
+        })
+      );
+      writeFileSync(
+        join(threadDir, "change2.json"),
+        makeFileChange({
+          id: "id-2",
+          uri: "file:///Users/lu/code/proj/src/util.ts",
+          timestamp: 1773214563000,
+          isNewFile: true,
+        })
+      );
 
       const files = listAmpThreadFiles("T-abc123");
       expect(files).toHaveLength(2);
@@ -97,21 +107,30 @@ describe("amp-native", () => {
       const threadDir = join(testHome, ".amp", "file-changes", "T-proj1");
       mkdirSync(threadDir, { recursive: true });
 
-      writeFileSync(join(threadDir, "c1.json"), makeFileChange({
-        id: "1",
-        uri: "file:///Users/lu/code/myproject/src/main.ts",
-        timestamp: 1000,
-      }));
-      writeFileSync(join(threadDir, "c2.json"), makeFileChange({
-        id: "2",
-        uri: "file:///Users/lu/code/myproject/src/utils/helper.ts",
-        timestamp: 2000,
-      }));
-      writeFileSync(join(threadDir, "c3.json"), makeFileChange({
-        id: "3",
-        uri: "file:///Users/lu/code/myproject/package.json",
-        timestamp: 3000,
-      }));
+      writeFileSync(
+        join(threadDir, "c1.json"),
+        makeFileChange({
+          id: "1",
+          uri: "file:///Users/lu/code/myproject/src/main.ts",
+          timestamp: 1000,
+        })
+      );
+      writeFileSync(
+        join(threadDir, "c2.json"),
+        makeFileChange({
+          id: "2",
+          uri: "file:///Users/lu/code/myproject/src/utils/helper.ts",
+          timestamp: 2000,
+        })
+      );
+      writeFileSync(
+        join(threadDir, "c3.json"),
+        makeFileChange({
+          id: "3",
+          uri: "file:///Users/lu/code/myproject/package.json",
+          timestamp: 3000,
+        })
+      );
 
       const projects = listAmpProjects();
       expect(projects).toHaveLength(1);
@@ -125,29 +144,38 @@ describe("amp-native", () => {
       // Thread 1: project A
       const t1Dir = join(ampDir, "T-thread1");
       mkdirSync(t1Dir, { recursive: true });
-      writeFileSync(join(t1Dir, "c1.json"), makeFileChange({
-        id: "1",
-        uri: "file:///Users/lu/code/projA/src/file1.ts",
-        timestamp: 1000,
-      }));
+      writeFileSync(
+        join(t1Dir, "c1.json"),
+        makeFileChange({
+          id: "1",
+          uri: "file:///Users/lu/code/projA/src/file1.ts",
+          timestamp: 1000,
+        })
+      );
 
       // Thread 2: project A (same project)
       const t2Dir = join(ampDir, "T-thread2");
       mkdirSync(t2Dir, { recursive: true });
-      writeFileSync(join(t2Dir, "c1.json"), makeFileChange({
-        id: "2",
-        uri: "file:///Users/lu/code/projA/src/file2.ts",
-        timestamp: 2000,
-      }));
+      writeFileSync(
+        join(t2Dir, "c1.json"),
+        makeFileChange({
+          id: "2",
+          uri: "file:///Users/lu/code/projA/src/file2.ts",
+          timestamp: 2000,
+        })
+      );
 
       // Thread 3: project B (different project)
       const t3Dir = join(ampDir, "T-thread3");
       mkdirSync(t3Dir, { recursive: true });
-      writeFileSync(join(t3Dir, "c1.json"), makeFileChange({
-        id: "3",
-        uri: "file:///Users/lu/code/projB/main.py",
-        timestamp: 3000,
-      }));
+      writeFileSync(
+        join(t3Dir, "c1.json"),
+        makeFileChange({
+          id: "3",
+          uri: "file:///Users/lu/code/projB/main.py",
+          timestamp: 3000,
+        })
+      );
 
       const projects = listAmpProjects();
       expect(projects).toHaveLength(2);
@@ -163,11 +191,14 @@ describe("amp-native", () => {
       const threadDir = join(testHome, ".amp", "file-changes", "T-shape");
       mkdirSync(threadDir, { recursive: true });
 
-      writeFileSync(join(threadDir, "c1.json"), makeFileChange({
-        id: "1",
-        uri: "file:///Users/lu/code/test/file.ts",
-        timestamp: 1773214562000,
-      }));
+      writeFileSync(
+        join(threadDir, "c1.json"),
+        makeFileChange({
+          id: "1",
+          uri: "file:///Users/lu/code/test/file.ts",
+          timestamp: 1773214562000,
+        })
+      );
 
       const projects = listAmpProjects();
       expect(projects).toHaveLength(1);
@@ -190,17 +221,23 @@ describe("amp-native", () => {
       const t1Dir = join(ampDir, "T-sess1");
       mkdirSync(t1Dir, { recursive: true });
 
-      writeFileSync(join(t1Dir, "c1.json"), makeFileChange({
-        id: "1",
-        uri: "file:///Users/lu/code/proj/src/a.ts",
-        timestamp: 1773214560000,
-      }));
-      writeFileSync(join(t1Dir, "c2.json"), makeFileChange({
-        id: "2",
-        uri: "file:///Users/lu/code/proj/src/b.ts",
-        timestamp: 1773214562000,
-        reverted: true,
-      }));
+      writeFileSync(
+        join(t1Dir, "c1.json"),
+        makeFileChange({
+          id: "1",
+          uri: "file:///Users/lu/code/proj/src/a.ts",
+          timestamp: 1773214560000,
+        })
+      );
+      writeFileSync(
+        join(t1Dir, "c2.json"),
+        makeFileChange({
+          id: "2",
+          uri: "file:///Users/lu/code/proj/src/b.ts",
+          timestamp: 1773214562000,
+          reverted: true,
+        })
+      );
 
       const sessions = listAmpSessionsForProject("/Users/lu/code/proj/src");
       expect(sessions).toHaveLength(1);
@@ -218,11 +255,14 @@ describe("amp-native", () => {
       const threadDir = join(testHome, ".amp", "file-changes", "T-single");
       mkdirSync(threadDir, { recursive: true });
 
-      writeFileSync(join(threadDir, "c1.json"), makeFileChange({
-        id: "1",
-        uri: "file:///Users/lu/code/proj/config.json",
-        timestamp: 1000,
-      }));
+      writeFileSync(
+        join(threadDir, "c1.json"),
+        makeFileChange({
+          id: "1",
+          uri: "file:///Users/lu/code/proj/config.json",
+          timestamp: 1000,
+        })
+      );
 
       const sessions = listAmpSessionsForProject("/Users/lu/code/proj");
       expect(sessions).toHaveLength(1);

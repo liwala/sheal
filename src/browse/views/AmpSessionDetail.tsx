@@ -29,7 +29,10 @@ export function AmpSessionDetail({ threadId, projectPath, onBack, onQuit }: AmpS
   };
 
   useInput((input, key) => {
-    if (input === "q") { onQuit(); return; }
+    if (input === "q") {
+      onQuit();
+      return;
+    }
     if (key.escape) {
       if (showDiff) {
         setShowDiff(false);
@@ -72,7 +75,9 @@ export function AmpSessionDetail({ threadId, projectPath, onBack, onQuit }: AmpS
         <Box marginBottom={1} flexDirection="column">
           <Box>
             <Text bold>Amp Thread </Text>
-            <Text bold color="cyan">{threadId}</Text>
+            <Text bold color="cyan">
+              {threadId}
+            </Text>
             <Text dimColor> | Amp</Text>
           </Box>
           <Text bold>{relativePath(selectedFile)}</Text>
@@ -109,12 +114,15 @@ export function AmpSessionDetail({ threadId, projectPath, onBack, onQuit }: AmpS
       <Box marginBottom={1} flexDirection="column">
         <Box>
           <Text bold>Amp Thread </Text>
-          <Text bold color="cyan">{threadId}</Text>
+          <Text bold color="cyan">
+            {threadId}
+          </Text>
           <Text dimColor> | Amp</Text>
         </Box>
         <Text dimColor>
           {new Date(earliest.timestamp).toISOString().slice(0, 16)}
-          {latest.timestamp !== earliest.timestamp && ` — ${new Date(latest.timestamp).toISOString().slice(0, 16)}`}
+          {latest.timestamp !== earliest.timestamp &&
+            ` — ${new Date(latest.timestamp).toISOString().slice(0, 16)}`}
         </Text>
         <Text dimColor>
           {files.length} file(s)
@@ -137,12 +145,14 @@ export function AmpSessionDetail({ threadId, projectPath, onBack, onQuit }: AmpS
             <Text dimColor> {new Date(f.timestamp).toISOString().slice(11, 19)}</Text>
           </Box>
         ))}
-        {files.length > maxRows && (
-          <Text dimColor>  ... {files.length - maxRows} more files</Text>
-        )}
+        {files.length > maxRows && <Text dimColor> ... {files.length - maxRows} more files</Text>}
       </Box>
 
-      <StatusBar view="detail" searchActive={false} info="^/v Navigate  enter View diff  esc Back  q Quit" />
+      <StatusBar
+        view="detail"
+        searchActive={false}
+        info="^/v Navigate  enter View diff  esc Back  q Quit"
+      />
     </Box>
   );
 }

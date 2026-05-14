@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import type { KnowledgeGraph, FileNode, AgentNode, SessionNode, SessionCorrelation } from "../src/graph/types.js";
+import type {
+  KnowledgeGraph,
+  FileNode,
+  AgentNode,
+  SessionNode,
+  SessionCorrelation,
+} from "../src/graph/types.js";
 
 function makeGraph(overrides: Partial<KnowledgeGraph> = {}): KnowledgeGraph {
   return {
@@ -10,7 +16,12 @@ function makeGraph(overrides: Partial<KnowledgeGraph> = {}): KnowledgeGraph {
     sessions: [],
     hotFiles: [],
     correlations: [],
-    stats: { totalSessions: 0, totalFiles: 0, totalAgents: 0, dateRange: { earliest: "", latest: "" } },
+    stats: {
+      totalSessions: 0,
+      totalFiles: 0,
+      totalAgents: 0,
+      dateRange: { earliest: "", latest: "" },
+    },
     ...overrides,
   };
 }
@@ -37,7 +48,16 @@ describe("KnowledgeGraph types", () => {
       sessionIds: ["s1", "s3", "s4", "s5", "s6"],
     });
 
-    const graph = makeGraph({ files, agents, stats: { totalSessions: 5, totalFiles: 1, totalAgents: 2, dateRange: { earliest: "2026-03-20", latest: "2026-03-21" } } });
+    const graph = makeGraph({
+      files,
+      agents,
+      stats: {
+        totalSessions: 5,
+        totalFiles: 1,
+        totalAgents: 2,
+        dateRange: { earliest: "2026-03-20", latest: "2026-03-21" },
+      },
+    });
 
     expect(graph.stats.totalAgents).toBe(2);
     expect(graph.files.get("src/app.ts")?.agents).toContain("Amp");
@@ -93,12 +113,18 @@ describe("SessionCorrelation", () => {
   it("correlations sort cross-agent first", () => {
     const correlations: SessionCorrelation[] = [
       {
-        sessions: [], sharedFiles: ["a.ts"], timeGapMinutes: 10,
-        crossAgent: false, description: "same agent",
+        sessions: [],
+        sharedFiles: ["a.ts"],
+        timeGapMinutes: 10,
+        crossAgent: false,
+        description: "same agent",
       },
       {
-        sessions: [], sharedFiles: ["a.ts", "b.ts"], timeGapMinutes: 5,
-        crossAgent: true, description: "cross agent",
+        sessions: [],
+        sharedFiles: ["a.ts", "b.ts"],
+        timeGapMinutes: 5,
+        crossAgent: true,
+        description: "cross agent",
       },
     ];
 

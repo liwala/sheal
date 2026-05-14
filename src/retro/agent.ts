@@ -39,12 +39,12 @@ const AGENT_CLIS: Record<string, AgentCli> = {
     args: [],
     stdinPrompt: true,
   },
-  "Codex": {
+  Codex: {
     command: "codex",
     args: ["exec", "-"],
     stdinPrompt: true,
   },
-  "Amp": {
+  Amp: {
     command: "amp",
     args: ["-x"],
     stdinPrompt: true,
@@ -92,12 +92,10 @@ export interface AgentInvocationResult {
  * Accepts an Entire.io agent type ("Claude Code") or a bare CLI name ("claude").
  * Prefers the given agent, falls back to any available agent.
  */
-export async function detectAgentCli(
-  sessionAgent?: AgentType,
-): Promise<AgentCli | null> {
+export async function detectAgentCli(sessionAgent?: AgentType): Promise<AgentCli | null> {
   if (sessionAgent) {
     const cli = AGENT_CLIS[sessionAgent] ?? CLI_BY_COMMAND[sessionAgent];
-    if (cli && await isCommandAvailable(cli.command)) {
+    if (cli && (await isCommandAvailable(cli.command))) {
       return cli;
     }
   }
@@ -134,7 +132,7 @@ export function defaultAgentTimeoutMs(): number {
 export async function invokeAgent(
   cli: AgentCli,
   prompt: string,
-  timeoutMs = defaultAgentTimeoutMs(),
+  timeoutMs = defaultAgentTimeoutMs()
 ): Promise<AgentInvocationResult> {
   const label = `${cli.command} ${cli.args.join(" ")}`;
 
@@ -148,7 +146,11 @@ export async function invokeAgent(
     try {
       stdinFd = openSync(tmpFile, "r");
     } catch (err) {
-      try { unlinkSync(tmpFile); } catch { /* ignore */ }
+      try {
+        unlinkSync(tmpFile);
+      } catch {
+        /* ignore */
+      }
       resolve({
         agent: cli.command,
         command: label,
@@ -230,7 +232,11 @@ export async function invokeAgent(
     });
 
     function cleanup() {
-      try { unlinkSync(tmpFile); } catch { /* ignore */ }
+      try {
+        unlinkSync(tmpFile);
+      } catch {
+        /* ignore */
+      }
     }
   });
 }

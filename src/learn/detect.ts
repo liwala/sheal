@@ -40,7 +40,10 @@ export function detectProjectTags(root: string): string[] {
       const srcFiles = readdirSync(srcDir, { recursive: true }) as string[];
       for (const f of srcFiles) {
         const name = typeof f === "string" ? f : "";
-        if (name.endsWith(".tsx") || name.endsWith(".jsx")) { tags.add("react"); break; }
+        if (name.endsWith(".tsx") || name.endsWith(".jsx")) {
+          tags.add("react");
+          break;
+        }
       }
     } catch {
       // ignore read errors
