@@ -11,11 +11,11 @@ API or CLI behavior):
 
 1. Write the test that asserts the intent of the behavior.
 2. Run the suite. Confirm the new test fails — for the right reason (not a typo,
-import error, or unrelated failure).
+   import error, or unrelated failure).
 3. Only then write the source that makes it pass.
 4. Run the suite again. Confirm it goes green.
 
-A regression test added *after* the source fix is NOT TDD: it never failed, so it
+A regression test added _after_ the source fix is NOT TDD: it never failed, so it
 never proved the bug existed or that the fix addresses it. If you reach for the
 source first, stop — WRITE THE FAILING TEST FIRST.
 
@@ -26,7 +26,7 @@ layout, prompt engineering, data exploration, unfamiliar APIs): spike to learn i
 a throwaway branch or scratch file, discard it, then TDD the real thing from
 scratch.
 
-Declare a spike *before* starting, never after to excuse missing tests:
+Declare a spike _before_ starting, never after to excuse missing tests:
 
 1. State it up front: "Spike to learn X; I'll throw it away and TDD the real thing."
 2. Isolate it — never mixed into the production change.
@@ -50,10 +50,10 @@ changing it.
 
 1. Commit locally as you go, with focused, meaningful messages.
 2. Push only to a dedicated working branch — never to main or a shared branch.
-Gate every push on a green suite and a clean linter; never push with failing
-tests or lint errors.
+   Gate every push on a green suite and a clean linter; never push with failing
+   tests or lint errors.
 3. Scan for staged secrets/credentials before pushing (the linter won't catch
-these). In doubt, don't push — surface it.
+   these). In doubt, don't push — surface it.
 
 ## 5. Read before you write
 
@@ -80,7 +80,7 @@ Stop and ask, rather than guess, when:
 3. Two requirements conflict.
 4. A decision exceeds your confidence or would be expensive to reverse.
 5. You see valuable work beyond what was asked — name it as a suggestion; don't
-silently expand scope.
+   silently expand scope.
 
 Surface blockers concisely: what you tried, what you need. A blocked agent that
 asks beats an unblocked agent that guesses.
@@ -90,7 +90,7 @@ asks beats an unblocked agent that guesses.
 Create and document tools to stay autonomous, but:
 
 1. Prefer existing tooling (standard library, established CLIs, project scripts)
-over bespoke.
+   over bespoke.
 2. Build only after the same manual operation recurs several times.
 3. Prefer a committed script in the repo over one-off tooling.
 4. Flag any new third-party dependency for human sign-off.
@@ -150,24 +150,30 @@ green suite and a clean linter.
 Run `sheal check` at the start of every session to catch environment issues early.
 Run `sheal retro` at the end of sessions to extract learnings.
 
-
 <!-- BEGIN SHEAL RULES -->
+
 ## Session Learnings
+
 <!-- Run `sheal learn show <id>` for full context on any rule -->
 
 ### Parsing
+
 - [LEARN-001] Before writing parsers for external data formats (JSON APIs, JSONL transcripts, config files), always inspect 2-3 real samples first using git show, curl, or cat.
 
 ### Cli
+
 - [LEARN-002] When using an unfamiliar CLI tool for the first time, run <tool> --help and <tool> <subcommand> --help before attempting commands.
 
 ### Testing
+
 - [LEARN-003] After creating test fixtures, verify they match the real data format by comparing structure side-by-side.
 
 ### Services
+
 - [LEARN-004] When a background server process (dolt, postgres, redis) is required, add it to .self-heal.json requiredServices so sheal check catches it at session start.
 
 ### General
+
 - [LEARN-005] When bootstrapping a new TypeScript CLI project, define the full directory structure and module interfaces in a plan before writing any implementation files — this prevents the file churn seen in index.ts (6x) and analyzers.ts (5x).
 - [LEARN-006] Before parsing any external data format (Entire.io transcripts, API responses), fetch a real sample first and save it as a test fixture — do not write parsers against assumed schemas.
 - [LEARN-007] When `sheal check` reports warnings (like untracked files or missing services), resolve them before proceeding — treat warnings as blockers, not informational.
@@ -192,3 +198,11 @@ Run `sheal retro` at the end of sessions to extract learnings.
 - [LEARN-028] When the user reports a UI bug via screenshot, reproduce it locally first by running the command and confirming the exact broken state before editing code.
 - [LEARN-030] After `npm audit` reveals a vulnerability, check if the vulnerable package is a direct or transitive dependency before attempting to pin it — pinning a transitive dependency in `package.json` may have no effect.
 <!-- END SHEAL RULES -->
+
+## Task and question tracking
+
+This project uses `docs/tasks/` to track work items and open decisions. Use the `/opentasks` skill to manage it.
+
+- When planning or breaking down work, record concrete steps as tasks (`/opentasks new task <title>`) and open decisions as questions (`/opentasks new question <title>`).
+- Keep status current: mark items `doing` when you start, `blocked` when waiting, `done` when complete.
+- Never create task or question files manually — always go through `/opentasks` to keep the index in sync.
