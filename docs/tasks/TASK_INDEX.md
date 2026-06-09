@@ -4,9 +4,10 @@
 
 - [x] [`sheal pull --list` end-to-end (discovery slice)](pull-list-command.md) — `done` → src/commands/pull.ts
 
-## D2 — Pull (`sheal pull sbx <name>`)
+## D2 — Pull (`sheal pull sbx <name>`, `sheal pull sbx --all`)
 
 - [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
+- [x] [T1. Batch pull all sbx sandboxes](t1-batch-pull-all-sbx-sandboxes.md) — `done` → src/commands/pull.ts
 - [ ] [Full capture set with gap logging](pull-full-capture-set.md) — `todo`
 - [ ] [Unknown sandbox name error path](pull-unknown-name-error.md) — `todo`
 

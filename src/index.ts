@@ -385,10 +385,12 @@ program
   .command("pull [backend] [name]")
   .description("Discover and pull changes from agent sandboxes")
   .option("--list", "List available agent sandboxes", false)
+  .option("--all", "Pull all sandboxes for a backend", false)
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .action(async (backend: string | undefined, name: string | undefined, opts) => {
     await runPull(backend, name, {
       list: opts.list,
+      all: opts.all,
       format: opts.format,
     });
   });

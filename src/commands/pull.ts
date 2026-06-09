@@ -4,6 +4,7 @@ import type { SandboxInstance } from "../pull/types.js";
 
 export interface PullOptions {
   list?: boolean;
+  all?: boolean;
   format?: string;
 }
 
@@ -15,6 +16,11 @@ interface BackendListing {
 export async function runPull(backend: string | undefined, name: string | undefined, opts: PullOptions): Promise<void> {
   if (opts.list) {
     await runPullList({ format: opts.format ?? "pretty" });
+    return;
+  }
+
+  if (opts.all) {
+    await runPullAll(backend, name);
     return;
   }
 
@@ -36,6 +42,50 @@ export async function runPull(backend: string | undefined, name: string | undefi
 
   console.error("Specify --list, or use `sheal pull sbx <name>`.");
   process.exitCode = 1;
+}
+
+async function runPullAll(backend: string | undefined, name: string | undefined): Promise<void> {
+  if (!backend || name) {
+    console.error("Use `sheal pull sbx --all` to pull every sbx sandbox.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const adapters = await availableSandboxAdapters();
+  const adapter = adapters.find((item) => item.type === backend);
+  if (!adapter) {
+    console.error(`Sandbox backend "${backend}" is not available. Run \`sheal pull --list\` to discover sandboxes.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  let pulled = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const sandbox of await adapter.listInstances()) {
+    if (!hasAvailableWorkspace(sandbox)) {
+      skipped += 1;
+      console.log(`Skipped ${backend}/${sandbox.name}: missing workspace`);
+      continue;
+    }
+
+    try {
+      const stage = createPullStage({ backend, name: sandbox.name });
+      const result = await adapter.pull(sandbox.name, stage.dir, { pulledAt: stage.pulledAt });
+      writePullProvenance(stage.dir, result.provenance);
+      pulled += 1;
+      console.log(`Pulled ${backend}/${sandbox.name} to ${stage.dir}`);
+    } catch (error) {
+      failed += 1;
+      console.error(`Failed ${backend}/${sandbox.name}: ${formatError(error)}`);
+    }
+  }
+
+  console.log(`Summary: pulled ${pulled}, skipped ${skipped}, failed ${failed}`);
+  if (pulled === 0 && failed > 0) {
+    process.exitCode = 1;
+  }
 }
 
 export async function runPullList(opts: { format?: string } = {}): Promise<void> {
@@ -85,4 +135,12 @@ function formatPullList(listings: BackendListing[]): string {
   }
 
   return lines.join("\n");
+}
+
+function hasAvailableWorkspace(sandbox: SandboxInstance): boolean {
+  return sandbox.workspaces.length > 0 && sandbox.workspaceMissing !== true;
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
