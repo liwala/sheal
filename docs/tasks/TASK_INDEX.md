@@ -14,7 +14,7 @@
 ## ops — Cross-cutting
 
 - [ ] [Config setting for staging directory](pull-staging-config.md) — `todo`
-- [ ] [Docs sync for shipped `sheal pull` scope](pull-docs-sync.md) — `todo`
+- [x] [Docs sync for shipped `sheal pull` scope](pull-docs-sync.md) — `done` → src/index.ts, README.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
 
 ## Open questions
 

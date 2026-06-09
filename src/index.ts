@@ -106,6 +106,12 @@ Backup & Sync (git-based)
   sheal backup pull               Pull + merge from remote
   sheal learn push/pull           Aliases for backup push/pull
 
+Sandbox Pull
+────────────
+  sheal pull --list               List available local sbx sandboxes
+  sheal pull sbx <name>           Pull one sbx sandbox's git diff to staging
+  sheal pull sbx --all            Pull every sbx sandbox with a workspace
+
 Browsing
 ────────
   sheal browse                    Interactive TUI for sessions & retros

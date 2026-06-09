@@ -138,6 +138,21 @@ deferred until the local path is proven.
   **sheal daemon** — but the first cut stays simple (on-demand `sheal pull`),
   with checkpointing added incrementally. (Directional answer to Q6.)
 
+### Implementation note: shipped local slice
+
+As of the first local slice after PR #28, the shipped command surface is narrower
+than the full validation milestone:
+
+- `sheal pull --list` discovers local `sbx` sandboxes.
+- `sheal pull sbx <name>` captures one sandbox's git diff into
+  `.sheal/pulls/sbx/<name>/<timestamp>/` with pull-time provenance.
+- `sheal pull sbx --all` captures every listed `sbx` sandbox that has an
+  available workspace and skips entries whose workspace is missing.
+
+Still deferred: the full capture set (memories, self-authored artifacts, and
+transcripts), remote/cloud adapters, staging directory configuration, retention
+and garbage collection, and daemon/checkpointing behavior.
+
 ## Consequences
 
 **Positive**
