@@ -119,30 +119,31 @@ so the main context stays focused.
 
 ## Landing the Plane (Session Completion)
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+When ending a work session, satisfy the Definition of Done (§10) and the
+version-control rules (§4). Concretely:
 
-**MANDATORY WORKFLOW:**
-
-1. **Run quality gates** (if code changed) - Tests, linters, builds
-2. **PUSH TO REMOTE** - This is MANDATORY:
+1. **Run quality gates** — tests, linter, build. The suite must be green and the
+   linter clean before anything is pushed (§4.2, §10.1).
+2. **Commit and push to the working branch** — never to main or a shared branch
+   (§4.2); scan for staged secrets first (§4.3).
    ```bash
    git pull --rebase
-   git push
-   git status  # MUST show "up to date with origin"
+   git push                 # working branch only, gated on a green suite
+   git status               # confirm up to date with origin
    ```
-3. **Clean up** - Clear stashes, prune remote branches
-4. **Verify** - All changes committed AND pushed
-5. **Hand off** - Provide context for next session
+3. **Clean up** — clear stashes, prune merged branches.
+4. **Verify** — all intended changes committed and pushed.
+5. **Hand off** — context for the next session.
 
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+If a quality gate is red or two requirements conflict, **stop and surface** (§8)
+rather than pushing broken work — a green push gated on passing tests beats one
+that strands a red build on the remote.
 
 ## Git Discipline
 
-Commit and push after every logical change. Do not accumulate uncommitted work across multiple features. Each commit should be a focused, atomic unit. Push immediately after committing.
+Commit after every logical change as a focused, atomic unit; don't accumulate
+uncommitted work across features. Push per §4 — to the working branch, gated on a
+green suite and a clean linter.
 
 ## Self-Healing Workflow
 
