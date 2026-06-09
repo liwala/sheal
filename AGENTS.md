@@ -2,6 +2,121 @@
 
 See also: @CLAUDE.md for Claude Code-specific instructions.
 
+# Agent Operating Policy
+
+## 1. TDD discipline — strict order
+
+For any behavior with a clear, assertable contract (bug fixes, business logic,
+API or CLI behavior):
+
+1. Write the test that asserts the intent of the behavior.
+2. Run the suite. Confirm the new test fails — for the right reason (not a typo,
+import error, or unrelated failure).
+3. Only then write the source that makes it pass.
+4. Run the suite again. Confirm it goes green.
+
+A regression test added *after* the source fix is NOT TDD: it never failed, so it
+never proved the bug existed or that the fix addresses it. If you reach for the
+source first, stop — WRITE THE FAILING TEST FIRST.
+
+### The ONLY exception: spikes
+
+For exploratory work where you don't yet know what the behavior should be (UI
+layout, prompt engineering, data exploration, unfamiliar APIs): spike to learn in
+a throwaway branch or scratch file, discard it, then TDD the real thing from
+scratch.
+
+Declare a spike *before* starting, never after to excuse missing tests:
+
+1. State it up front: "Spike to learn X; I'll throw it away and TDD the real thing."
+2. Isolate it — never mixed into the production change.
+3. Show the discard before the real implementation lands.
+
+An undeclared deviation is not a spike — it's skipped tests.
+
+## 2. Tests assert intent
+
+Tests assert intent (user-visible behavior), not implementation, and should
+survive a refactor. If a test breaks on a rename or internal reshuffle, rewrite it
+to assert observable behavior.
+
+## 3. Never weaken a test to make it pass
+
+Fix the code, never loosen an assertion, delete a case, or mock away the thing
+under test to go green. If the test itself is wrong, say so and explain why before
+changing it.
+
+## 4. Version control
+
+1. Commit locally as you go, with focused, meaningful messages.
+2. Push only to a dedicated working branch — never to main or a shared branch.
+Gate every push on a green suite and a clean linter; never push with failing
+tests or lint errors.
+3. Scan for staged secrets/credentials before pushing (the linter won't catch
+these). In doubt, don't push — surface it.
+
+## 5. Read before you write
+
+Understand existing code and conventions before changing them. Match the patterns
+already in the file or module rather than importing your own idioms.
+
+## 6. Vertical slices
+
+Produce slices that are demonstrable end-to-end at every step, however small — not
+horizontal layers that do nothing on their own.
+
+## 7. Testing the CLI
+
+The durable check is an automated end-to-end test driving the CLI with real
+arguments and I/O, asserting on exit codes and output. Keep a manual smoke test as
+a sanity pass, but never as the only check.
+
+## 8. When blocked or uncertain — stop and surface
+
+Stop and ask, rather than guess, when:
+
+1. You can't write a test that captures the intended behavior.
+2. A test fails and you can't determine why.
+3. Two requirements conflict.
+4. A decision exceeds your confidence or would be expensive to reverse.
+5. You see valuable work beyond what was asked — name it as a suggestion; don't
+silently expand scope.
+
+Surface blockers concisely: what you tried, what you need. A blocked agent that
+asks beats an unblocked agent that guesses.
+
+## 9. Build supporting tools
+
+Create and document tools to stay autonomous, but:
+
+1. Prefer existing tooling (standard library, established CLIs, project scripts)
+over bespoke.
+2. Build only after the same manual operation recurs several times.
+3. Prefer a committed script in the repo over one-off tooling.
+4. Flag any new third-party dependency for human sign-off.
+5. Document each tool: what it does, how to run it, why it exists.
+
+## 10. Definition of done
+
+1. Suite green, linter clean (no failing or skipped tests, no lint errors).
+2. Docs and ADRs updated where warranted.
+3. Change committed and pushed to its working branch.
+4. Result demonstrable end-to-end.
+
+Don't stop short of this, and don't keep polishing past it.
+
+## 11. Architectural Decision Records
+
+Write an ADR when a decision is costly to reverse, constrains future choices, or
+picks between viable alternatives a maintainer would question. Routine, reversible
+choices don't need one. Keep them short: context, decision, alternatives,
+consequences.
+
+## 12. Use subagents
+
+Prioritize subagents for investigation, research, and longer or separable tasks,
+so the main context stays focused.
+
 ## Landing the Plane (Session Completion)
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
