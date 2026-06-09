@@ -6,7 +6,7 @@
 
 ## D2 — Pull (`sheal pull sbx <name>`)
 
-- [ ] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `doing`
+- [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
 - [ ] [Full capture set with gap logging](pull-full-capture-set.md) — `todo`
 - [ ] [Unknown sandbox name error path](pull-unknown-name-error.md) — `todo`
 

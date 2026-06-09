@@ -1,9 +1,11 @@
 ---
-status: doing
+status: done
 started: 2026-06-09
+closed: 2026-06-09
 type: task
 deliverable: D2
 created: 2026-06-09
+output: src/commands/pull.ts
 ---
 
 # Thin pull: capture git diff to staging with provenance
@@ -39,6 +41,18 @@ TDD order (§1), vertical slice (§6):
    (§7 — not the only check).
 
 DoD (§10) applies.
+
+## Implemented contract
+
+- `sheal pull sbx <name>` stages into the project-local default
+  `.sheal/pulls/sbx/<name>/<timestamp>/`.
+- The thin slice captures only `git.diff`, produced with
+  `sbx exec <name> git -C <workspace> diff` against the first available sbx
+  workspace from `sbx ls --json`.
+- `provenance.json` contains `backend`, `type`, sandbox `name`, `agent`,
+  `status`, `pulledAt`, and `sourcePaths`.
+- `sbx cp` was inspected for future capture slices, but this slice does not use
+  it because git diff is captured directly from stdout.
 
 ## Output
 
