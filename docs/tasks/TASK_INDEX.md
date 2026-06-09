@@ -9,7 +9,7 @@
 - [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
 - [x] [T1. Batch pull all sbx sandboxes](t1-batch-pull-all-sbx-sandboxes.md) — `done` → src/commands/pull.ts
 - [ ] [Full capture set with gap logging](pull-full-capture-set.md) — `todo`
-- [ ] [Unknown sandbox name error path](pull-unknown-name-error.md) — `todo`
+- [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
 
 ## ops — Cross-cutting
 
