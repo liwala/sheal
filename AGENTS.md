@@ -192,3 +192,11 @@ Run `sheal retro` at the end of sessions to extract learnings.
 - [LEARN-028] When the user reports a UI bug via screenshot, reproduce it locally first by running the command and confirming the exact broken state before editing code.
 - [LEARN-030] After `npm audit` reveals a vulnerability, check if the vulnerable package is a direct or transitive dependency before attempting to pin it — pinning a transitive dependency in `package.json` may have no effect.
 <!-- END SHEAL RULES -->
+
+## Task and question tracking
+
+This project uses `docs/tasks/` to track work items and open decisions. Use the `/opentasks` skill to manage it.
+
+- When planning or breaking down work, record concrete steps as tasks (`/opentasks new task <title>`) and open decisions as questions (`/opentasks new question <title>`).
+- Keep status current: mark items `doing` when you start, `blocked` when waiting, `done` when complete.
+- Never create task or question files manually — always go through `/opentasks` to keep the index in sync.
