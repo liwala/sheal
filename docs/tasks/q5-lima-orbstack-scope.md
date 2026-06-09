@@ -6,24 +6,22 @@ created: 2026-06-09
 closed: 2026-06-09
 ---
 
-# Q5. Implement lima/orbstack adapters alongside docker, or docker-only first?
+# Q5. Which sandbox backend should ship first?
 
-**Answered (2026-06-09, Luisa):** Sandboxes only for now — scope the first cut to
-docker-based agent **sandboxes**. Defer lima/orbstack general-runtime adapters
-until there's a real need. `--list` and the first adapter target the sandbox case
-on the docker backend; lima/orbstack are revisited later.
+**Answered (2026-06-09, Luisa):** sbx first — treat Docker Sandboxes (`sbx`) as
+the first sandbox backend. `sheal pull --list` discovers sandboxes from
+`sbx ls --json`, and future pull naming is `sheal pull sbx <name>`.
 
-> Follow-up to settle during D1: how a sandbox is identified among docker
-> containers (image/label/name convention) so `--list` shows sandboxes rather
-> than every running container.
+Raw docker-container discovery is deferred, along with lima/orbstack
+general-runtime adapters. Because `sbx` already exposes sandbox records, D1 does
+not need a label/image/name heuristic to distinguish ordinary Docker containers
+from agent sandboxes.
 
-**Why it matters:** ADR 0005's `--list` names docker, lima, and orbstack as local
-runtimes. Scoping the first cut affects how soon `--list` is useful on non-docker
-setups.
+**Why it matters:** ADR 0005's `--list` names local runtimes broadly. Scoping the
+first cut to an actual sandbox API keeps D1 useful without treating every Docker
+container as an agent sandbox.
 
-- Docker-only first → fastest to a working slice; `--list` shows only docker.
-- All three at once → broader coverage, more inspection/adapters up front
-  (orbstack often speaks the docker API; lima uses `limactl list`).
-
-**Still open:** whether your day-to-day uses lima/orbstack enough to need them in
-the first slice, or docker-first is fine.
+- sbx first → fastest path to agent-sandbox discovery with explicit sandbox
+  fields.
+- Raw docker/lima/orbstack adapters later → broader coverage, but only after
+  there is a real need and a clear sandbox-identification contract.

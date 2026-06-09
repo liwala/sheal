@@ -1,0 +1,21 @@
+{
+  "sandboxes": [
+    {
+      "name": "claude-acme-api",
+      "agent": "claude",
+      "status": "running",
+      "workspaces": [
+        "/Users/example/code/acme/api"
+      ]
+    },
+    {
+      "name": "codex-missing-worktree",
+      "agent": "codex",
+      "status": "stopped",
+      "workspaces": [
+        "/Users/example/code/acme/missing-worktree"
+      ],
+      "workspace_missing": true
+    }
+  ]
+}

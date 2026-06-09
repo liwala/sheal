@@ -5,12 +5,12 @@ deliverable: D2
 created: 2026-06-09
 ---
 
-# Unknown container name error path
+# Unknown sandbox name error path
 
 ## Objective
 
-`sheal pull docker <name>` must fail clearly when `<name>` is not a running
-container the adapter can see — a non-zero exit and a message pointing at
+`sheal pull sbx <name>` must fail clearly when `<name>` is not a sandbox the
+adapter can see — a non-zero exit and a message pointing at
 `sheal pull --list` — rather than producing an empty/partial staging dir.
 
 ## What we need to extract / do

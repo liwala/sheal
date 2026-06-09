@@ -2,13 +2,13 @@
 
 ## D1 — Discovery (`sheal pull --list`)
 
-- [ ] [`sheal pull --list` end-to-end (discovery slice)](pull-list-command.md) — `todo`
+- [x] [`sheal pull --list` end-to-end (discovery slice)](pull-list-command.md) — `done` → src/commands/pull.ts
 
-## D2 — Pull (`sheal pull docker <name>`)
+## D2 — Pull (`sheal pull sbx <name>`)
 
 - [ ] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `todo`
 - [ ] [Full capture set with gap logging](pull-full-capture-set.md) — `todo`
-- [ ] [Unknown container name error path](pull-unknown-name-error.md) — `todo`
+- [ ] [Unknown sandbox name error path](pull-unknown-name-error.md) — `todo`
 
 ## ops — Cross-cutting
 

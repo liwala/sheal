@@ -28,8 +28,8 @@ TDD order (§1):
 2. **Implement to green**:
    - define the ordered candidate path list to copy out (workdir git diff,
      agent artifact paths, transcript pointer).
-   - docker adapter `pull()` copies each present path via `docker cp`; records
-     missing ones as gaps.
+   - sbx adapter `pull()` copies each present path via `sbx cp`; records missing
+     ones as gaps.
    - surface gaps in command output (and JSON format).
 3. **Confirm green.**
 
@@ -37,7 +37,7 @@ DoD (§10) applies.
 
 ## Output
 
-Code: extended docker `pull()` + capture-set definition; gap reporting in
+Code: extended sbx `pull()` + capture-set definition; gap reporting in
 `src/commands/pull.ts`; test `test/pull-capture.test.ts`.
 
 ## Dependencies

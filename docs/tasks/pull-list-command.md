@@ -1,8 +1,11 @@
 ---
-status: todo
+status: done
+started: 2026-06-09
 type: task
 deliverable: D1
 created: 2026-06-09
+closed: 2026-06-09
+output: src/commands/pull.ts
 ---
 
 # `sheal pull --list` end-to-end (discovery slice)
@@ -10,29 +13,31 @@ created: 2026-06-09
 ## Objective
 
 First vertical slice of ADR 0005: a `sheal pull --list` command that enumerates
-local container runtimes and the running containers under each. Demonstrable on
-its own — run it, see runtimes + containers — before any pulling exists.
+local agent sandboxes through `sbx ls --json`. Demonstrable on its own — run it,
+see sandbox name, agent, status, workspaces, and missing-workspace markers —
+before any pulling exists.
 
-**Scope (Q5 answered):** sandboxes only for now — docker backend, focused on
-agent **sandboxes**; lima/orbstack deferred. Settle during this task how a
-sandbox is distinguished from an ordinary docker container (image/label/name).
+**Scope (Q5 answered):** sbx first — treat Docker Sandboxes (`sbx`) as the first
+sandbox backend. Raw docker-container discovery and lima/orbstack general-runtime
+adapters are deferred. Future pull naming is `sheal pull sbx <name>`.
 
 ## What we need to extract / do
 
 TDD order (AGENTS.md §1), vertical slice (§6), CLI e2e (§7):
 
 1. **Inspect real data first** (§5, LEARN-001): capture actual
-   `docker ps --format '{{json .}}'` output and save a fixture.
+   `sbx ls --json` output and save a sanitized fixture.
 2. **Write the failing e2e test** (`test/pull-list.test.ts`) driving the command
-   with real args, asserting exit code `0` and that output lists detected
-   runtimes + running containers (id, name, image, status). Drive the runtime
-   call off the fixture via an injected/faked `exec` so the test needs no real
-   Docker. Run the suite; confirm it fails for the right reason.
+   with real args, asserting exit code `0` and that output lists sbx sandbox
+   name, agent, status, workspaces, and `workspace_missing` when present. Drive
+   the sbx call off the fixture via a faked `sbx` executable on `PATH` so the
+   test needs no real sandbox runtime. Run the suite; confirm it fails for the
+   right reason.
 3. **Implement to green**, reading existing patterns before writing (§5):
    - `src/pull/types.ts` — `SandboxAdapter` interface (`type`, `isAvailable()`,
      `listInstances()`) and `SandboxInstance` shape.
-   - `src/pull/adapters/docker.ts` — `isAvailable()` (uses `src/utils/exec.ts`;
-     ENOENT → `exitCode -2` → false) and `listInstances()` parsing `docker ps`.
+   - `src/pull/adapters/sbx.ts` — `isAvailable()` and `listInstances()` parsing
+     `sbx ls --json`.
    - `src/pull/registry.ts` — registry that returns available adapters.
    - `src/commands/pull.ts` — `runPullList()` following the existing `runX`
      command pattern; support `-f, --format pretty|json` like other commands.
@@ -44,9 +49,9 @@ committed + pushed to this working branch.
 
 ## Output
 
-Code: `src/pull/{types,registry}.ts`, `src/pull/adapters/docker.ts`,
+Code: `src/pull/{types,registry}.ts`, `src/pull/adapters/sbx.ts`,
 `src/commands/pull.ts`, registration in `src/index.ts`; test
-`test/pull-list.test.ts` + `docker ps` fixture.
+`test/pull-list.test.ts` + `sbx ls --json` fixture.
 
 ## Dependencies
 

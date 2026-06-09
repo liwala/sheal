@@ -18,6 +18,7 @@ import { runGraph } from "./commands/graph.js";
 import { runDrift } from "./commands/drift.js";
 import { runRules } from "./commands/rules.js";
 import { runAudit } from "./commands/audit.js";
+import { runPull } from "./commands/pull.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -377,6 +378,18 @@ browse
   .action(async () => {
     await runBrowse({
       startView: "digests-list",
+    });
+  });
+
+program
+  .command("pull [backend] [name]")
+  .description("Discover and pull changes from agent sandboxes")
+  .option("--list", "List available agent sandboxes", false)
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .action(async (backend: string | undefined, name: string | undefined, opts) => {
+    await runPull(backend, name, {
+      list: opts.list,
+      format: opts.format,
     });
   });
 
