@@ -1,5 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { exec } from "../../utils/exec.js";
-import type { SandboxAdapter, SandboxInstance } from "../types.js";
+import type { PullOptions, PullResult, SandboxAdapter, SandboxInstance } from "../types.js";
 
 interface SbxListOutput {
   sandboxes?: unknown;
@@ -28,6 +30,44 @@ export class SbxAdapter implements SandboxAdapter {
     }
 
     return parseSbxList(result.stdout);
+  }
+
+  async pull(name: string, stagingDir: string, options: PullOptions = {}): Promise<PullResult> {
+    const sandbox = (await this.listInstances()).find((instance) => instance.name === name);
+    if (!sandbox) {
+      throw new Error(`sbx sandbox not found: ${name}`);
+    }
+
+    const workspace = sandbox.workspaces[0];
+    if (!workspace || sandbox.workspaceMissing) {
+      throw new Error(`sbx sandbox ${name} does not have an available workspace`);
+    }
+
+    const result = await exec("sbx", ["exec", name, "git", "-C", workspace, "diff"], {
+      env: { CI: undefined },
+      timeoutMs: 30_000,
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(formatSbxError(result.stderr || result.stdout || `sbx exec exited with ${result.exitCode}`));
+    }
+
+    mkdirSync(stagingDir, { recursive: true });
+    const diffPath = join(stagingDir, "git.diff");
+    writeFileSync(diffPath, result.stdout, "utf-8");
+
+    return {
+      artifacts: [{ kind: "git.diff", path: diffPath, sourcePath: workspace }],
+      gaps: [],
+      provenance: {
+        backend: "sbx",
+        type: "sbx",
+        name: sandbox.name,
+        agent: sandbox.agent,
+        status: sandbox.status,
+        pulledAt: options.pulledAt ?? new Date().toISOString(),
+        sourcePaths: [workspace],
+      },
+    };
   }
 }
 

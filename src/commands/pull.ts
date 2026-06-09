@@ -1,4 +1,5 @@
 import { availableSandboxAdapters } from "../pull/registry.js";
+import { createPullStage, writePullProvenance } from "../pull/stage.js";
 import type { SandboxInstance } from "../pull/types.js";
 
 export interface PullOptions {
@@ -17,13 +18,23 @@ export async function runPull(backend: string | undefined, name: string | undefi
     return;
   }
 
-  if (backend === "sbx" && name) {
-    console.error("sheal pull sbx <name> is not implemented yet. Run `sheal pull --list` to discover sandboxes.");
-    process.exitCode = 1;
+  if (backend && name) {
+    const adapters = await availableSandboxAdapters();
+    const adapter = adapters.find((item) => item.type === backend);
+    if (!adapter) {
+      console.error(`Sandbox backend "${backend}" is not available. Run \`sheal pull --list\` to discover sandboxes.`);
+      process.exitCode = 1;
+      return;
+    }
+
+    const stage = createPullStage({ backend, name });
+    const result = await adapter.pull(name, stage.dir, { pulledAt: stage.pulledAt });
+    writePullProvenance(stage.dir, result.provenance);
+    console.log(`Pulled ${backend}/${name} to ${stage.dir}`);
     return;
   }
 
-  console.error("Specify --list, or use the future form `sheal pull sbx <name>`.");
+  console.error("Specify --list, or use `sheal pull sbx <name>`.");
   process.exitCode = 1;
 }
 
