@@ -115,6 +115,29 @@ session/run id — onto the captured material. This directly discharges ADR 0001
 open question Q5 (attributing a learning to "Claude in session X" vs. "Codex in
 session Y"): the attribution is recorded by the adapter that pulled it.
 
+### Scope: initial implementation (local-first)
+
+The first cut targets **local runtimes only**; the remote/cloud tier of D2 is
+deferred until the local path is proven.
+
+- **Discovery — `sheal pull --list`.** Enumerates local runtimes —`docker`,
+  `lima`, `orbstack`, docker-based sandboxes — and, under each, the running
+  containers/instances it can reach. `<sandbox-type> <sandbox-name>` are picked
+  from that listing. (Resolves Q1.)
+- **Runtime-native access, no credentials.** Local adapters read artifacts using
+  the runtime's own capabilities — e.g. `docker cp` / `docker exec` and the
+  `lima` / `orbstack` equivalents — not vendor APIs or stored secrets.
+  (Resolves Q4 for the local case.)
+- **Captured material lands in a dedicated staging folder**, separate from
+  sheal's consolidation store, with a sheal setting to configure its location
+  (and, later, retention). Pull is acquisition only; ADR 0001's consolidation
+  reads from staging afterward. (Resolves Q3 for now.)
+- **Crashed / destroyed environments → mid-session checkpointing.** Beyond
+  pulling at/after session end, sheal can checkpoint on an interval so a killed
+  sandbox still leaves a recent footprint. This is the likely home for a future
+  **sheal daemon** — but the first cut stays simple (on-demand `sheal pull`),
+  with checkpointing added incrementally. (Directional answer to Q6.)
+
 ## Consequences
 
 **Positive**
@@ -139,37 +162,40 @@ session Y"): the attribution is recorded by the adapter that pulled it.
 
 ## Open questions
 
-- **Q1.** Discovery — how does `sheal pull` enumerate available environments
-  (`sheal pull --list`?), and how are names assigned/resolved per type?
-- **Q2.** Which concrete types are direct-FS vs. remote-only, and what is the
-  fallback chain when a remote adapter's API is unavailable in a headless run?
-- **Q3.** Retention — who sets sandbox retention, how long, and how is the
-  footprint garbage-collected after a successful pull?
-- **Q4.** Authentication — how does an adapter authenticate to a vendor API or
-  a host docker socket without embedding long-lived credentials?
-- **Q5.** Dedup — when the same session is captured both by a local pull and via
-  its cloud PR, how do we count it once (ties to ADR 0004 Q2)?
-- **Q6.** Truly destroyed environments with no footprint and no teardown hook —
-  accepted as out of reach, or worth periodic mid-session checkpointing?
+Resolved for the local-first cut (see § Scope): Q1 discovery (`--list`),
+Q3 staging folder + setting, Q4 runtime-native access, Q6 (direction:
+checkpointing, later a daemon). Remaining:
+
+- **Q2 (deferred).** The remote/cloud tier — which concrete types are
+  remote-only, and the fallback chain (vendor API → webhook → git/PR) when an
+  API is unavailable in a headless run. Out of scope until local is proven.
+- **Q3a.** Staging retention/GC — how long captured material lives in the
+  staging folder, and how it is cleaned up after consolidation has read it.
+- **Q5 (deferred).** Dedup across capture paths — once remote adapters exist, a
+  session captured both by local pull and via its cloud PR must count once
+  (ties to ADR 0004 Q2). Moot while local-only.
+- **Q6a.** Checkpointing/daemon design — interval, what a checkpoint captures
+  vs. a full pull, and whether the daemon is opt-in per runtime.
 
 ## First step (validation milestone)
 
-Implement **one direct-FS adapter** end-to-end — `sheal pull docker <name>` (or
-`sheal pull claude-sandbox <name>`) — that pulls git diff + agent memory files +
-transcript from a *retained / stopped* sandbox into sheal's store with
-provenance stamped. Then sketch **one remote adapter** that reconstructs a
-session from its git/PR trail alone, to measure the fidelity floor.
+Local-first, two pieces:
+
+1. **`sheal pull --list`** — enumerate local runtimes (`docker`, `lima`,
+   `orbstack`, docker sandboxes) and the running containers under each.
+2. **One direct-FS adapter** end-to-end — `sheal pull docker <name>` — that uses
+   `docker cp` / `docker exec` to pull git diff + agent memory files + transcript
+   from a running (or retained) container into the staging folder, with
+   provenance stamped.
 
 Acceptance criteria:
 
-- If the direct-FS pull recovers the artifacts from a retained sandbox with
-  correct provenance, the host-pull model is validated and this ADR proceeds.
-- If retention turns out unavailable in the target sandbox and no host teardown
-  hook can invoke pull in time, D4 is wrong for that environment and the ADR is
-  revised (e.g. reconsider a minimal host-side teardown trigger) before further
-  adapter work.
-- The git-only remote sketch quantifies the trajectory loss (D5), informing
-  whether remote adapters need more than git.
+- If `--list` shows real runtimes + containers and `sheal pull docker <name>`
+  lands the artifacts in staging with correct provenance, the host-pull model is
+  validated and this ADR proceeds.
+- If runtime-native access can't reach the artifacts (e.g. nothing useful at the
+  expected paths inside the container), the minimal-capture assumption (D5) is
+  revised before adding more adapters.
 
 ## References
 
