@@ -11,6 +11,7 @@ created: 2026-06-09
 by a local pull and via its cloud PR. ADR 0001 derives a pattern's `confidence`
 from how many sessions reinforce it — double-counting one session fabricates
 corroboration.
+
 - Merge on a session/run id → clean, needs a stable shared id across paths.
 - Keep highest-fidelity, drop the rest → simple, but must detect "same session".
 - No dedup → confidence inflation; not acceptable long-term.

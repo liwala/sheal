@@ -8,11 +8,13 @@ created: 2026-06-09
 # Unknown container name error path
 
 ## Objective
+
 `sheal pull docker <name>` must fail clearly when `<name>` is not a running
 container the adapter can see — a non-zero exit and a message pointing at
 `sheal pull --list` — rather than producing an empty/partial staging dir.
 
 ## What we need to extract / do
+
 TDD order (§1):
 
 1. **Write the failing test** (`test/pull-errors.test.ts`): pulling a name absent
@@ -27,7 +29,9 @@ TDD order (§1):
 DoD (§10) applies.
 
 ## Output
+
 Code: name validation in `runPull()`; test `test/pull-errors.test.ts`.
 
 ## Dependencies
+
 `pull-thin-diff` (adapter `pull()` + `runPull()` exist).

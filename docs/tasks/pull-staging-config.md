@@ -8,10 +8,12 @@ created: 2026-06-09
 # Config setting for staging directory
 
 ## Objective
+
 Make the pull staging location configurable (ADR 0005 §Scope, resolves Q3 for the
 local cut), defaulting to the existing `~/.sheal` convention.
 
 ## What we need to extract / do
+
 TDD order (§1):
 
 1. **Write the failing test** (`test/pull-config.test.ts`): when
@@ -27,8 +29,10 @@ TDD order (§1):
 DoD (§10) applies.
 
 ## Output
+
 Code: `pull.stagingDir` across `src/config/{types,defaults,loader}.ts`; resolution
 in `src/commands/pull.ts`; test `test/pull-config.test.ts`.
 
 ## Dependencies
+
 None blocking; pairs with `pull-thin-diff` (which consumes the resolved dir).

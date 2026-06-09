@@ -8,12 +8,14 @@ created: 2026-06-09
 # Thin pull: capture git diff to staging with provenance
 
 ## Objective
+
 Thinnest vertical slice of the pull verb: `sheal pull docker <name>` captures the
 container's **git diff only** into the staging tree and stamps `provenance.json`.
 Proves the host-side host ← container capture path end-to-end (ADR 0005 D1–D3,
 D6) before adding more artifact types.
 
 ## What we need to extract / do
+
 TDD order (§1), vertical slice (§6):
 
 1. **Inspect first** (§5): run `docker exec <c> git -C <workdir> diff` and
@@ -38,10 +40,12 @@ TDD order (§1), vertical slice (§6):
 DoD (§10) applies.
 
 ## Output
+
 Code: `src/pull/stage.ts`, `pull()` on the docker adapter, `runPull()` in
 `src/commands/pull.ts`; test `test/pull-thin.test.ts`.
 
 ## Dependencies
+
 `pull-list-command` (adapter interface, registry, docker `isAvailable`).
 `pull-staging-config` (staging dir resolution) — or land a default here and wire
 the setting in that task.

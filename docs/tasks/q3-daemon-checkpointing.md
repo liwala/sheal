@@ -10,6 +10,7 @@ created: 2026-06-09
 **Why it matters:** host-side `sheal pull` can't capture a sandbox that was fully
 destroyed with no footprint and no teardown hook. Mid-session checkpointing would
 leave a recent footprint even after a crash.
+
 - On-demand pull only → simplest; loses crashed/destroyed sessions.
 - Interval checkpointing (daemon) → survives crashes; new long-running process,
   state, and scheduling to own.

@@ -8,11 +8,17 @@ created: 2026-06-09
 # `sheal pull --list` end-to-end (discovery slice)
 
 ## Objective
+
 First vertical slice of ADR 0005: a `sheal pull --list` command that enumerates
 local container runtimes and the running containers under each. Demonstrable on
 its own — run it, see runtimes + containers — before any pulling exists.
 
+**Scope (Q5 answered):** sandboxes only for now — docker backend, focused on
+agent **sandboxes**; lima/orbstack deferred. Settle during this task how a
+sandbox is distinguished from an ordinary docker container (image/label/name).
+
 ## What we need to extract / do
+
 TDD order (AGENTS.md §1), vertical slice (§6), CLI e2e (§7):
 
 1. **Inspect real data first** (§5, LEARN-001): capture actual
@@ -37,9 +43,11 @@ Definition of done (§10): suite green, lint clean, demonstrable end-to-end,
 committed + pushed to this working branch.
 
 ## Output
+
 Code: `src/pull/{types,registry}.ts`, `src/pull/adapters/docker.ts`,
 `src/commands/pull.ts`, registration in `src/index.ts`; test
 `test/pull-list.test.ts` + `docker ps` fixture.
 
 ## Dependencies
+
 ADR 0005 (#26). `src/utils/exec.ts`. No blocking dependency.

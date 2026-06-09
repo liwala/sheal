@@ -10,6 +10,7 @@ created: 2026-06-09
 **Why it matters:** pulled material accumulates in the staging folder. Without a
 policy it grows unbounded; too aggressive and consolidation loses input before it
 reads it.
+
 - Keep until consolidation has read it, then GC → tight, needs a "consumed" mark.
 - Time-based retention (e.g. N days) → simple, may drop unconsolidated captures.
 - Keep everything → safe, unbounded disk.
