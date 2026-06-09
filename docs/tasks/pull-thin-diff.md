@@ -1,5 +1,6 @@
 ---
-status: todo
+status: doing
+started: 2026-06-09
 type: task
 deliverable: D2
 created: 2026-06-09
