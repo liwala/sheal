@@ -8,7 +8,7 @@
 
 - [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
 - [x] [T1. Batch pull all sbx sandboxes](t1-batch-pull-all-sbx-sandboxes.md) — `done` → src/commands/pull.ts
-- [ ] [T2. Docker pull adapter end-to-end alongside sbx](t2-docker-pull-adapter-end-to-end.md) — `todo`
+- [ ] [T2. Docker pull adapter end-to-end alongside sbx](t2-docker-pull-adapter-end-to-end.md) — `doing`
 - [x] [Full capture set with gap logging](pull-full-capture-set.md) — `done` → src/commands/pull.ts, src/pull/adapters/sbx.ts, src/pull/capture-set.ts, test/pull-capture.test.ts
 - [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
 
