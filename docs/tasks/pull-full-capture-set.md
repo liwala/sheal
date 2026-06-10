@@ -1,8 +1,11 @@
 ---
-status: todo
+status: done
+started: 2026-06-10
+closed: 2026-06-10
 type: task
 deliverable: D2
 created: 2026-06-09
+output: src/commands/pull.ts, src/pull/adapters/sbx.ts, src/pull/capture-set.ts, test/pull-capture.test.ts
 ---
 
 # Full capture set with gap logging
@@ -37,8 +40,8 @@ DoD (§10) applies.
 
 ## Output
 
-Code: extended sbx `pull()` + capture-set definition; gap reporting in
-`src/commands/pull.ts`; test `test/pull-capture.test.ts`.
+Code: extended sbx `pull()` + capture-set definition in `src/pull/capture-set.ts`;
+gap reporting in `src/commands/pull.ts`; test `test/pull-capture.test.ts`.
 
 ## Dependencies
 

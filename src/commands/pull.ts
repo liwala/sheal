@@ -1,6 +1,6 @@
 import { availableSandboxAdapters } from "../pull/registry.js";
 import { createPullStage, writePullProvenance } from "../pull/stage.js";
-import type { SandboxInstance } from "../pull/types.js";
+import type { PullResult, SandboxInstance } from "../pull/types.js";
 
 export interface PullOptions {
   list?: boolean;
@@ -20,7 +20,7 @@ export async function runPull(backend: string | undefined, name: string | undefi
   }
 
   if (opts.all) {
-    await runPullAll(backend, name);
+    await runPullAll(backend, name, { format: opts.format ?? "pretty" });
     return;
   }
 
@@ -43,7 +43,7 @@ export async function runPull(backend: string | undefined, name: string | undefi
     const stage = createPullStage({ backend, name });
     const result = await adapter.pull(name, stage.dir, { pulledAt: stage.pulledAt });
     writePullProvenance(stage.dir, result.provenance);
-    console.log(`Pulled ${backend}/${name} to ${stage.dir}`);
+    printPullResult({ backend, name, stagingDir: stage.dir, result, format: opts.format ?? "pretty" });
     return;
   }
 
@@ -51,7 +51,11 @@ export async function runPull(backend: string | undefined, name: string | undefi
   process.exitCode = 1;
 }
 
-async function runPullAll(backend: string | undefined, name: string | undefined): Promise<void> {
+async function runPullAll(
+  backend: string | undefined,
+  name: string | undefined,
+  opts: { format: string },
+): Promise<void> {
   if (!backend || name) {
     console.error("Use `sheal pull sbx --all` to pull every sbx sandbox.");
     process.exitCode = 1;
@@ -69,11 +73,17 @@ async function runPullAll(backend: string | undefined, name: string | undefined)
   let pulled = 0;
   let skipped = 0;
   let failed = 0;
+  const results: PullCommandResult[] = [];
+  const skippedSandboxes: Array<{ backend: string; name: string; reason: string }> = [];
+  const failures: Array<{ backend: string; name: string; error: string }> = [];
 
   for (const sandbox of await adapter.listInstances()) {
     if (!hasAvailableWorkspace(sandbox)) {
       skipped += 1;
-      console.log(`Skipped ${backend}/${sandbox.name}: missing workspace`);
+      skippedSandboxes.push({ backend, name: sandbox.name, reason: "missing workspace" });
+      if (opts.format !== "json") {
+        console.log(`Skipped ${backend}/${sandbox.name}: missing workspace`);
+      }
       continue;
     }
 
@@ -82,14 +92,24 @@ async function runPullAll(backend: string | undefined, name: string | undefined)
       const result = await adapter.pull(sandbox.name, stage.dir, { pulledAt: stage.pulledAt });
       writePullProvenance(stage.dir, result.provenance);
       pulled += 1;
-      console.log(`Pulled ${backend}/${sandbox.name} to ${stage.dir}`);
+      results.push(buildPullCommandResult({ backend, name: sandbox.name, stagingDir: stage.dir, result }));
+      if (opts.format !== "json") {
+        printPullResult({ backend, name: sandbox.name, stagingDir: stage.dir, result, format: opts.format });
+      }
     } catch (error) {
       failed += 1;
-      console.error(`Failed ${backend}/${sandbox.name}: ${formatError(error)}`);
+      failures.push({ backend, name: sandbox.name, error: formatError(error) });
+      if (opts.format !== "json") {
+        console.error(`Failed ${backend}/${sandbox.name}: ${formatError(error)}`);
+      }
     }
   }
 
-  console.log(`Summary: pulled ${pulled}, skipped ${skipped}, failed ${failed}`);
+  if (opts.format === "json") {
+    console.log(JSON.stringify({ pulled, skipped, failed, results, skippedSandboxes, failures }, null, 2));
+  } else {
+    console.log(`Summary: pulled ${pulled}, skipped ${skipped}, failed ${failed}`);
+  }
   if (pulled === 0 && failed > 0) {
     process.exitCode = 1;
   }
@@ -150,4 +170,52 @@ function hasAvailableWorkspace(sandbox: SandboxInstance): boolean {
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+interface PullCommandResult {
+  backend: string;
+  name: string;
+  stagingDir: string;
+  artifacts: PullResult["artifacts"];
+  gaps: string[];
+  provenance: PullResult["provenance"];
+}
+
+function buildPullCommandResult(params: {
+  backend: string;
+  name: string;
+  stagingDir: string;
+  result: PullResult;
+}): PullCommandResult {
+  return {
+    backend: params.backend,
+    name: params.name,
+    stagingDir: params.stagingDir,
+    artifacts: params.result.artifacts,
+    gaps: params.result.gaps,
+    provenance: params.result.provenance,
+  };
+}
+
+function printPullResult(params: {
+  backend: string;
+  name: string;
+  stagingDir: string;
+  result: PullResult;
+  format: string;
+}): void {
+  const output = buildPullCommandResult(params);
+
+  if (params.format === "json") {
+    console.log(JSON.stringify(output, null, 2));
+    return;
+  }
+
+  console.log(`Pulled ${params.backend}/${params.name} to ${params.stagingDir}`);
+  if (params.result.gaps.length > 0) {
+    console.log("Gaps:");
+    for (const gap of params.result.gaps) {
+      console.log(`  - ${gap}`);
+    }
+  }
 }
