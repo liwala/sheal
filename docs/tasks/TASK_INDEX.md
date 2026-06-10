@@ -8,6 +8,7 @@
 
 - [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
 - [x] [T1. Batch pull all sbx sandboxes](t1-batch-pull-all-sbx-sandboxes.md) — `done` → src/commands/pull.ts
+- [ ] [T2. Docker pull adapter end-to-end alongside sbx](t2-docker-pull-adapter-end-to-end.md) — `todo`
 - [x] [Full capture set with gap logging](pull-full-capture-set.md) — `done` → src/commands/pull.ts, src/pull/adapters/sbx.ts, src/pull/capture-set.ts, test/pull-capture.test.ts
 - [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
 
@@ -20,11 +21,11 @@
 
 **For Luisa:**
 
-- [ ] [Q1. How should the remote/cloud adapter tier work?](q1-remote-adapter-tier.md) — `todo`
 - [ ] [Q2. How do we dedup a session captured by more than one path?](q2-cross-path-dedup.md) — `todo`
-- [ ] [Q3. Do we need a daemon / mid-session checkpointing for crashed environments?](q3-daemon-checkpointing.md) — `todo`
-- [ ] [Q4. What is the staging retention / GC policy?](q4-staging-retention-gc.md) — `todo`
 
 **Answered (history):**
 
+- [x] [Q1. How should the remote/cloud adapter tier work?](q1-remote-adapter-tier.md) — `done`
+- [x] [Q3. Do we need a daemon / mid-session checkpointing for crashed environments?](q3-daemon-checkpointing.md) — `done`
+- [x] [Q4. What is the staging retention / GC policy?](q4-staging-retention-gc.md) — `done`
 - [x] [Q5. Implement lima/orbstack adapters alongside docker, or docker-only first?](q5-lima-orbstack-scope.md) — `done`

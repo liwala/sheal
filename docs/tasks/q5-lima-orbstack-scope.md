@@ -25,3 +25,6 @@ container as an agent sandbox.
   fields.
 - Raw docker/lima/orbstack adapters later → broader coverage, but only after
   there is a real need and a clear sandbox-identification contract.
+
+**Updated direction (2026-06-10, Luisa):** implement sbx and raw Docker
+end-to-end now. Lima and OrbStack remain deferred.

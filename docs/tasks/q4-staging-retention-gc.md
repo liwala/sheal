@@ -1,5 +1,6 @@
 ---
-status: todo
+status: done
+closed: 2026-06-10
 type: question
 owner: Luisa
 created: 2026-06-09
@@ -17,3 +18,8 @@ reads it.
 
 **Still open:** how "consolidated/consumed" is signalled, and the default
 retention window. Tie-in: ADR 0001 consolidation reads from staging.
+
+**Answered (2026-06-10, Luisa):** retention should be parameterized rather than
+hard-coded. For the next implementation slice, model this as a configurable
+retention parameter; consumed/consolidated signalling can be added when
+consolidation starts reading from staging.
