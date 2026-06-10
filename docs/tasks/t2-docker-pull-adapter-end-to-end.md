@@ -1,11 +1,13 @@
 ---
-status: doing
+status: done
 started: 2026-06-10
+closed: 2026-06-10
 type: task
 id: T2
 deliverable: D2
 created: 2026-06-10
 links: ["q5-lima-orbstack-scope.md"]
+output: src/pull/adapters/docker.ts, src/pull/registry.ts, src/commands/pull.ts, test/pull-docker.test.ts, test/pull-list.test.ts
 ---
 
 # T2. Docker pull adapter end-to-end alongside sbx
