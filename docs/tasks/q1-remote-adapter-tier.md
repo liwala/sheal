@@ -17,8 +17,8 @@ path is proven, but it shapes the adapter interface.
 - git/PR-trail-only floor → always available, but low fidelity (loses trajectory).
 - Fallback chain (API → webhook → git) → most robust, most surface area.
 
-**Still open:** which concrete types are remote-only, and the exact fallback
-order when an API is unavailable.
+**Deferred implementation detail:** which concrete types are remote-only, and
+the exact fallback order when an API is unavailable.
 
 **Answered (2026-06-10, Luisa):** skip remote adapters for now. Keep the
 current implementation focused on local direct-FS adapters; revisit API,

@@ -17,9 +17,10 @@ local agent sandboxes through `sbx ls --json`. Demonstrable on its own — run i
 see sandbox name, agent, status, workspaces, and missing-workspace markers —
 before any pulling exists.
 
-**Scope (Q5 answered):** sbx first — treat Docker Sandboxes (`sbx`) as the first
-sandbox backend. Raw docker-container discovery and lima/orbstack general-runtime
-adapters are deferred. Future pull naming is `sheal pull sbx <name>`.
+**Scope at the time (Q5 answered):** sbx first — treat Docker Sandboxes (`sbx`)
+as the first sandbox backend. This slice established `sheal pull sbx <name>`;
+raw Docker container discovery was later added by T2. Lima and OrbStack remain
+deferred.
 
 ## What we need to extract / do
 

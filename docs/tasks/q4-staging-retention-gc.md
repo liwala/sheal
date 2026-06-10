@@ -16,8 +16,9 @@ reads it.
 - Time-based retention (e.g. N days) → simple, may drop unconsolidated captures.
 - Keep everything → safe, unbounded disk.
 
-**Still open:** how "consolidated/consumed" is signalled, and the default
-retention window. Tie-in: ADR 0001 consolidation reads from staging.
+**Follow-up implementation detail:** how "consolidated/consumed" is signalled,
+and the default retention window. Tie-in: ADR 0001 consolidation reads from
+staging.
 
 **Answered (2026-06-10, Luisa):** retention should be parameterized rather than
 hard-coded. For the next implementation slice, model this as a configurable

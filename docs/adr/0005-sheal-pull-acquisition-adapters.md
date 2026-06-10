@@ -181,22 +181,25 @@ daemon/checkpointing behavior.
   diffs without their trajectory.
 - Discovery: the host must be able to enumerate and name pullable environments.
 
-## Open questions
+## Open questions and deferred work
 
-Resolved for the local-first cut (see § Scope): Q1 discovery (`--list`),
-Q3 staging folder + setting, Q4 runtime-native access, Q6 (direction:
-checkpointing, later a daemon). Remaining:
+Resolved for the local-first cut (see § Scope): discovery (`--list`), runtime-
+native local access, staging folder configuration, Docker container selection,
+and the need for future checkpointing for fully destroyed environments.
 
-- **Q2 (deferred).** The remote/cloud tier — which concrete types are
-  remote-only, and the fallback chain (vendor API → webhook → git/PR) when an
-  API is unavailable in a headless run. Out of scope until local is proven.
-- **Q3a.** Staging retention/GC — how long captured material lives in the
-  staging folder, and how it is cleaned up after consolidation has read it.
-- **Q5 (deferred).** Dedup across capture paths — once remote adapters exist, a
-  session captured both by local pull and via its cloud PR must count once
-  (ties to ADR 0004 Q2). Moot while local-only.
-- **Q6a.** Checkpointing/daemon design — interval, what a checkpoint captures
-  vs. a full pull, and whether the daemon is opt-in per runtime.
+Still deferred as implementation work:
+
+- **Remote/cloud adapters.** Which concrete types are remote-only, and the
+  fallback chain (vendor API → webhook → git/PR) when an API is unavailable in a
+  headless run.
+- **Staging retention/GC.** Retention should be configurable; the default window
+  and any later consumed/consolidated signalling still need implementation.
+- **Checkpointing/daemon.** Fully destroyed environments need a host-side
+  checkpointing path, but interval, capture set, and runtime opt-in behavior
+  remain follow-up design work.
+- **Dedup across capture paths.** Once remote adapters exist, a session captured
+  both by local pull and via its cloud PR must count once (ties to ADR 0004 Q2).
+  Moot while local-only, but tracked as the remaining open task question.
 
 ## First step (validation milestone)
 
