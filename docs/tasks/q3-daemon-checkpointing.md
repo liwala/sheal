@@ -1,5 +1,6 @@
 ---
-status: todo
+status: done
+closed: 2026-06-10
 type: question
 owner: Luisa
 created: 2026-06-09
@@ -18,3 +19,8 @@ leave a recent footprint even after a crash.
 **Still open:** checkpoint interval, what a checkpoint captures vs. a full pull,
 and whether the daemon is opt-in per runtime. Start simple per ADR; revisit if
 lost-on-crash sessions prove common.
+
+**Answered (2026-06-10, Luisa):** yes, crashed/destroyed environments do need
+daemon or mid-session checkpointing. The concrete checkpoint interval, capture
+set, and runtime opt-in behavior should be defined in a follow-up implementation
+task.

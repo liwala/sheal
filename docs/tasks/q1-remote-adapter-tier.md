@@ -1,5 +1,6 @@
 ---
-status: todo
+status: done
+closed: 2026-06-10
 type: question
 owner: Luisa
 created: 2026-06-09
@@ -18,3 +19,7 @@ path is proven, but it shapes the adapter interface.
 
 **Still open:** which concrete types are remote-only, and the exact fallback
 order when an API is unavailable.
+
+**Answered (2026-06-10, Luisa):** skip remote adapters for now. Keep the
+current implementation focused on local direct-FS adapters; revisit API,
+webhook, and git/PR-trail fallback ordering only after local runtimes are solid.
