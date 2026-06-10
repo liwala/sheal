@@ -22,8 +22,8 @@ failing.
 TDD order (§1):
 
 1. **Write failing tests** (`test/pull-capture.test.ts`):
-   - a container with diff + a `.claude/` dir + `AGENTS.md`/`MEMORY.md` →
-     all land in staging, `gaps[]` empty.
+   - a container with diff + `$HOME/.claude/` + workspace
+     `AGENTS.md`/`MEMORY.md` → all land in staging, `gaps[]` empty.
    - a container missing the transcript / memory paths → those are listed in
      `provenance.json` `gaps[]`, and the pull still exits `0` (graceful
      degradation, ADR D5 "logs the gap" — never a silent partial).

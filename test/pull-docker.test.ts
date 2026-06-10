@@ -26,6 +26,7 @@ describe("sheal pull docker <container>", () => {
 
     const containerName = "codex-acme-api";
     const workspace = "/workspace/acme/api";
+    const home = "/home/codex";
     const diff = [
       "diff --git a/src/api.ts b/src/api.ts",
       "index 1111111..2222222 100644",
@@ -46,10 +47,12 @@ describe("sheal pull docker <container>", () => {
         Status: "Up 2 hours",
       }],
       workspaces: { [containerName]: workspace },
+      homes: { [containerName]: home },
       diffs: { [containerName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`, `${workspace}/.claude`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"codex\" }\n",
+        [`${home}/.claude/settings.json`]: "{ \"model\": \"codex\" }\n",
+        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
         [`${workspace}/MEMORY.md`]: "# Memory\n",
         [`${workspace}/.sheal/session.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
@@ -75,7 +78,7 @@ describe("sheal pull docker <container>", () => {
       containerId: "0f1e2d3c4b5a",
       image: "ghcr.io/liwala/codex-runner:latest",
       status: "running",
-      sourcePaths: [workspace],
+      sourcePaths: [workspace, home],
       gaps: [],
     });
     expect(typeof provenance.pulledAt).toBe("string");
@@ -91,6 +94,7 @@ describe("sheal pull docker <container>", () => {
 
     const containerName = "claude-missing-capture";
     const workspace = "/workspace/acme/missing";
+    const home = "/home/claude";
     const diff = "diff --git a/README.md b/README.md\n";
 
     writeDockerFixture(binDir, {
@@ -102,10 +106,11 @@ describe("sheal pull docker <container>", () => {
         Status: "Exited (0) 3 minutes ago",
       }],
       workspaces: { [containerName]: workspace },
+      homes: { [containerName]: home },
       diffs: { [containerName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
+        [`${home}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
@@ -147,6 +152,7 @@ describe("sheal pull docker <container>", () => {
         Status: "Up 2 hours",
       }],
       workspaces: { "codex-acme-api": "/workspace/acme/api" },
+      homes: { "codex-acme-api": "/home/codex" },
       diffs: {},
     });
 
@@ -192,6 +198,7 @@ function writeDockerFixture(
   fixture: {
     containers: Array<{ ID: string; Image: string; Names: string; State: string; Status: string }>;
     workspaces: Record<string, string>;
+    homes: Record<string, string>;
     diffs: Record<string, string>;
     directories?: string[];
     files?: Record<string, string>;
@@ -208,6 +215,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 const containers = ${JSON.stringify(fixture.containers)};
 const workspaces = ${JSON.stringify(fixture.workspaces)};
+const homes = ${JSON.stringify(fixture.homes)};
 const diffs = ${JSON.stringify(fixture.diffs)};
 const directories = ${JSON.stringify(fixture.directories ?? [])};
 const files = ${JSON.stringify(fixture.files ?? {})};
@@ -226,6 +234,14 @@ if (args.length === 3 && args[0] === "exec" && args[2] === "pwd") {
   const workspace = workspaces[args[1]];
   if (workspace) {
     process.stdout.write(workspace + "\\n");
+    process.exit(0);
+  }
+}
+
+if (args.length === 4 && args[0] === "exec" && args[2] === "printenv" && args[3] === "HOME") {
+  const home = homes[args[1]];
+  if (home) {
+    process.stdout.write(home + "\\n");
     process.exit(0);
   }
 }

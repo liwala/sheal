@@ -26,7 +26,8 @@ pull the selected container end to end.
 - Drive the CLI end to end with a fake `docker` binary for discovery, single
   pull, and the explicit-selection error paths.
 - Implement a Docker adapter that captures the same ordered material as sbx:
-  git diff, agent artifacts, memory files, and transcript where present.
+  git diff, runtime-home agent artifacts, workspace memory files, and transcript
+  where present.
 - Stamp Docker provenance with backend/type/name, container identity, status,
   pulled time, source paths, and gaps.
 - Keep sbx tests green and ensure `--list` can show both sbx and docker

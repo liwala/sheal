@@ -55,14 +55,16 @@ export class DockerAdapter implements SandboxAdapter {
       throw new Error(formatDockerError(diffResult.stderr || diffResult.stdout || `docker exec exited with ${diffResult.exitCode}`));
     }
 
+    const home = await this.readHomeDirectory(name, workspace);
     mkdirSync(stagingDir, { recursive: true });
     const diffPath = join(stagingDir, "git.diff");
     writeFileSync(diffPath, diffResult.stdout, "utf-8");
     const artifacts: PullResult["artifacts"] = [{ kind: "git.diff", path: diffPath, sourcePath: workspace }];
     const gaps: string[] = [];
+    const captureContext = { workspace, home };
 
     for (const candidate of ORDERED_CAPTURE_CANDIDATES) {
-      const sourcePath = candidate.sourcePath(workspace);
+      const sourcePath = candidate.sourcePath(captureContext);
       mkdirSync(candidate.ensureDestinationDir(stagingDir), { recursive: true });
       const copyResult = await exec("docker", ["cp", `${name}:${sourcePath}`, candidate.copyDestination(stagingDir)], {
         env: { CI: undefined },
@@ -92,7 +94,7 @@ export class DockerAdapter implements SandboxAdapter {
         containerId: container.containerId,
         image: container.image,
         pulledAt: options.pulledAt ?? new Date().toISOString(),
-        sourcePaths: [workspace],
+        sourcePaths: uniquePaths([workspace, home]),
         gaps,
       },
     };
@@ -116,6 +118,15 @@ export class DockerAdapter implements SandboxAdapter {
       throw new Error(`docker container ${name} did not report a working directory`);
     }
     return workspace;
+  }
+
+  private async readHomeDirectory(name: string, fallback: string): Promise<string> {
+    const result = await exec("docker", ["exec", name, "printenv", "HOME"], {
+      env: { CI: undefined },
+      timeoutMs: 10_000,
+    });
+    const home = result.stdout.trim();
+    return result.exitCode === 0 && home.length > 0 ? home : fallback;
   }
 }
 
@@ -169,4 +180,8 @@ function readString(value: unknown, field: string): string {
 
 function formatDockerError(message: string): string {
   return message.trim() || "docker command failed";
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return [...new Set(paths)];
 }

@@ -26,6 +26,7 @@ describe("sheal pull sbx full capture set", () => {
 
     const sandboxName = "claude-acme-api";
     const workspace = "/workspace/acme/api";
+    const home = "/home/claude";
     const diff = [
       "diff --git a/src/api.ts b/src/api.ts",
       "index 1111111..2222222 100644",
@@ -44,10 +45,12 @@ describe("sheal pull sbx full capture set", () => {
         status: "running",
         workspaces: [workspace],
       }],
+      homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`, `${workspace}/.claude`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
+        [`${home}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
+        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
         [`${workspace}/MEMORY.md`]: "# Memory\n",
         [`${workspace}/.sheal/session.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
@@ -77,6 +80,7 @@ describe("sheal pull sbx full capture set", () => {
 
     const sandboxName = "claude-missing-capture";
     const workspace = "/workspace/acme/missing";
+    const home = "/home/claude";
     const diff = "diff --git a/README.md b/README.md\n";
 
     writeSbxFixture(binDir, {
@@ -86,10 +90,11 @@ describe("sheal pull sbx full capture set", () => {
         status: "stopped",
         workspaces: [workspace],
       }],
+      homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
+        [`${home}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
@@ -124,6 +129,7 @@ describe("sheal pull sbx full capture set", () => {
 
     const sandboxName = "codex-json-gaps";
     const workspace = "/workspace/acme/json";
+    const home = "/home/codex";
     const diff = "diff --git a/package.json b/package.json\n";
 
     writeSbxFixture(binDir, {
@@ -133,10 +139,11 @@ describe("sheal pull sbx full capture set", () => {
         status: "running",
         workspaces: [workspace],
       }],
+      homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{}\n",
+        [`${home}/.claude/settings.json`]: "{}\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
@@ -201,6 +208,7 @@ function writeSbxFixture(
   binDir: string,
   fixture: {
     sandboxes: Array<{ name: string; agent: string; status: string; workspaces: string[] }>;
+    homes: Record<string, string>;
     diffs: Record<string, string>;
     directories?: string[];
     files?: Record<string, string>;
@@ -216,6 +224,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const sandboxes = ${JSON.stringify(fixture.sandboxes)};
+const homes = ${JSON.stringify(fixture.homes)};
 const diffs = ${JSON.stringify(fixture.diffs)};
 const directories = ${JSON.stringify(fixture.directories ?? [])};
 const files = ${JSON.stringify(fixture.files ?? {})};
@@ -228,6 +237,19 @@ if (args.length === 1 && args[0] === "--help") {
 if (args.length === 2 && args[0] === "ls" && args[1] === "--json") {
   process.stdout.write(JSON.stringify({ sandboxes }));
   process.exit(0);
+}
+
+if (
+  args.length === 4 &&
+  args[0] === "exec" &&
+  args[2] === "printenv" &&
+  args[3] === "HOME"
+) {
+  const home = homes[args[1]];
+  if (home) {
+    process.stdout.write(home + "\\n");
+    process.exit(0);
+  }
 }
 
 if (

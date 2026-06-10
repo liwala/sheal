@@ -52,14 +52,16 @@ export class SbxAdapter implements SandboxAdapter {
       throw new Error(formatSbxError(result.stderr || result.stdout || `sbx exec exited with ${result.exitCode}`));
     }
 
+    const home = await this.readHomeDirectory(name, workspace);
     mkdirSync(stagingDir, { recursive: true });
     const diffPath = join(stagingDir, "git.diff");
     writeFileSync(diffPath, result.stdout, "utf-8");
     const artifacts: PullResult["artifacts"] = [{ kind: "git.diff", path: diffPath, sourcePath: workspace }];
     const gaps: string[] = [];
+    const captureContext = { workspace, home };
 
     for (const candidate of ORDERED_CAPTURE_CANDIDATES) {
-      const sourcePath = candidate.sourcePath(workspace);
+      const sourcePath = candidate.sourcePath(captureContext);
       mkdirSync(candidate.ensureDestinationDir(stagingDir), { recursive: true });
       const copyResult = await exec("sbx", ["cp", `${name}:${sourcePath}`, candidate.copyDestination(stagingDir)], {
         env: { CI: undefined },
@@ -87,10 +89,19 @@ export class SbxAdapter implements SandboxAdapter {
         agent: sandbox.agent,
         status: sandbox.status,
         pulledAt: options.pulledAt ?? new Date().toISOString(),
-        sourcePaths: [workspace],
+        sourcePaths: uniquePaths([workspace, home]),
         gaps,
       },
     };
+  }
+
+  private async readHomeDirectory(name: string, fallback: string): Promise<string> {
+    const result = await exec("sbx", ["exec", name, "printenv", "HOME"], {
+      env: { CI: undefined },
+      timeoutMs: 10_000,
+    });
+    const home = result.stdout.trim();
+    return result.exitCode === 0 && home.length > 0 ? home : fallback;
   }
 }
 
@@ -135,4 +146,8 @@ function readStringArray(value: unknown, field: string): string[] {
 
 function formatSbxError(message: string): string {
   return message.trim() || "sbx ls --json failed";
+}
+
+function uniquePaths(paths: string[]): string[] {
+  return [...new Set(paths)];
 }
