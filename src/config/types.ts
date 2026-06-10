@@ -1,5 +1,8 @@
 export interface SelfHealConfig {
   skip?: string[];
+  pull?: {
+    stagingDir?: string;
+  };
   checkers?: {
     git?: { allowDirty?: boolean };
     dependencies?: {
@@ -26,6 +29,9 @@ export interface SelfHealConfig {
 
 export interface ResolvedConfig {
   skip: string[];
+  pull: {
+    stagingDir: string | null;
+  };
   checkers: {
     git: { allowDirty: boolean };
     dependencies: {

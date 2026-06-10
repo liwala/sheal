@@ -1,5 +1,6 @@
 import { availableSandboxAdapters } from "../pull/registry.js";
 import { createPullStage, writePullProvenance } from "../pull/stage.js";
+import { loadConfig } from "../config/loader.js";
 import type { PullResult, SandboxInstance } from "../pull/types.js";
 
 export interface PullOptions {
@@ -14,13 +15,18 @@ interface BackendListing {
 }
 
 export async function runPull(backend: string | undefined, name: string | undefined, opts: PullOptions): Promise<void> {
+  const config = loadConfig(process.cwd());
+
   if (opts.list) {
     await runPullList({ format: opts.format ?? "pretty" });
     return;
   }
 
   if (opts.all) {
-    await runPullAll(backend, name, { format: opts.format ?? "pretty" });
+    await runPullAll(backend, name, {
+      format: opts.format ?? "pretty",
+      stagingRoot: config.pull.stagingDir ?? undefined,
+    });
     return;
   }
 
@@ -40,7 +46,11 @@ export async function runPull(backend: string | undefined, name: string | undefi
       return;
     }
 
-    const stage = createPullStage({ backend, name });
+    const stage = createPullStage({
+      stagingRoot: config.pull.stagingDir ?? undefined,
+      backend,
+      name,
+    });
     const result = await adapter.pull(name, stage.dir, { pulledAt: stage.pulledAt });
     writePullProvenance(stage.dir, result.provenance);
     printPullResult({ backend, name, stagingDir: stage.dir, result, format: opts.format ?? "pretty" });
@@ -54,7 +64,7 @@ export async function runPull(backend: string | undefined, name: string | undefi
 async function runPullAll(
   backend: string | undefined,
   name: string | undefined,
-  opts: { format: string },
+  opts: { format: string; stagingRoot?: string },
 ): Promise<void> {
   if (!backend || name) {
     console.error("Use `sheal pull sbx --all` to pull every sbx sandbox.");
@@ -88,7 +98,7 @@ async function runPullAll(
     }
 
     try {
-      const stage = createPullStage({ backend, name: sandbox.name });
+      const stage = createPullStage({ stagingRoot: opts.stagingRoot, backend, name: sandbox.name });
       const result = await adapter.pull(sandbox.name, stage.dir, { pulledAt: stage.pulledAt });
       writePullProvenance(stage.dir, result.provenance);
       pulled += 1;
