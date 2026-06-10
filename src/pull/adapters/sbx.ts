@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { exec } from "../../utils/exec.js";
+import { ORDERED_CAPTURE_CANDIDATES } from "../capture-set.js";
 import type { PullOptions, PullResult, SandboxAdapter, SandboxInstance } from "../types.js";
 
 interface SbxListOutput {
@@ -54,10 +55,31 @@ export class SbxAdapter implements SandboxAdapter {
     mkdirSync(stagingDir, { recursive: true });
     const diffPath = join(stagingDir, "git.diff");
     writeFileSync(diffPath, result.stdout, "utf-8");
+    const artifacts: PullResult["artifacts"] = [{ kind: "git.diff", path: diffPath, sourcePath: workspace }];
+    const gaps: string[] = [];
+
+    for (const candidate of ORDERED_CAPTURE_CANDIDATES) {
+      const sourcePath = candidate.sourcePath(workspace);
+      mkdirSync(candidate.ensureDestinationDir(stagingDir), { recursive: true });
+      const copyResult = await exec("sbx", ["cp", `${name}:${sourcePath}`, candidate.copyDestination(stagingDir)], {
+        env: { CI: undefined },
+        timeoutMs: 30_000,
+      });
+
+      if (copyResult.exitCode === 0) {
+        artifacts.push({
+          kind: candidate.kind,
+          path: candidate.stagedPath(stagingDir),
+          sourcePath,
+        });
+      } else {
+        gaps.push(sourcePath);
+      }
+    }
 
     return {
-      artifacts: [{ kind: "git.diff", path: diffPath, sourcePath: workspace }],
-      gaps: [],
+      artifacts,
+      gaps,
       provenance: {
         backend: "sbx",
         type: "sbx",
@@ -66,6 +88,7 @@ export class SbxAdapter implements SandboxAdapter {
         status: sandbox.status,
         pulledAt: options.pulledAt ?? new Date().toISOString(),
         sourcePaths: [workspace],
+        gaps,
       },
     };
   }

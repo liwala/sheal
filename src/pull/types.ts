@@ -7,8 +7,10 @@ export interface SandboxInstance {
   workspaceMissing?: boolean;
 }
 
+export type PullArtifactKind = "git.diff" | "agent-artifact" | "session-transcript";
+
 export interface PullArtifact {
-  kind: "git.diff";
+  kind: PullArtifactKind;
   path: string;
   sourcePath: string;
 }
@@ -21,6 +23,7 @@ export interface PullProvenance {
   status: string;
   pulledAt: string;
   sourcePaths: string[];
+  gaps: string[];
 }
 
 export interface PullResult {

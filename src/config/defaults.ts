@@ -2,6 +2,7 @@ import type { ResolvedConfig } from "./types.js";
 
 export const defaultConfig: ResolvedConfig = {
   skip: [],
+  pull: { stagingDir: null },
   checkers: {
     git: { allowDirty: false },
     dependencies: { ecosystems: [] }, // empty = auto-detect

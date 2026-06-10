@@ -1,8 +1,11 @@
 ---
-status: todo
+status: done
+started: 2026-06-10
+closed: 2026-06-10
 type: task
 deliverable: ops
 created: 2026-06-09
+output: src/config/types.ts, src/config/defaults.ts, src/config/loader.ts, src/commands/pull.ts, test/pull-config.test.ts
 ---
 
 # Config setting for staging directory
@@ -10,7 +13,7 @@ created: 2026-06-09
 ## Objective
 
 Make the pull staging location configurable (ADR 0005 §Scope, resolves Q3 for the
-local cut), defaulting to the existing `~/.sheal` convention.
+local cut), defaulting to the existing `.sheal/pulls` convention.
 
 ## What we need to extract / do
 
@@ -18,7 +21,7 @@ TDD order (§1):
 
 1. **Write the failing test** (`test/pull-config.test.ts`): when
    `.self-heal.json` sets `pull.stagingDir`, pull resolves to it; otherwise it
-   defaults to `~/.sheal/pulled/<type>/<name>/<ts>/`. Confirm red.
+   defaults to `.sheal/pulls/<type>/<name>/<ts>/`. Confirm red.
 2. **Implement to green**, matching existing config plumbing (§5):
    - add `pull?: { stagingDir?: string }` to `SelfHealConfig` and the resolved
      shape in `src/config/types.ts`.
