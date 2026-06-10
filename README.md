@@ -183,6 +183,20 @@ sheal export --checkpoint <id>     # Export a specific checkpoint
 sheal export --global              # Export all projects and sessions
 ```
 
+### `sheal pull`
+
+Acquire local sandbox changes into sheal's staging area. The shipped local path
+supports `sbx` sandboxes and captures each sandbox's git diff with provenance.
+
+```bash
+sheal pull --list                  # List available local sbx sandboxes
+sheal pull sbx <name>              # Pull one sandbox's git diff to .sheal/pulls/
+sheal pull sbx --all               # Pull every sbx sandbox with a workspace
+```
+
+Use `sheal pull --list` first to copy the exact sandbox name. Pull output lands
+under `.sheal/pulls/sbx/<name>/<timestamp>/`.
+
 ### `sheal init`
 
 Bootstrap sheal awareness into your project's agent configuration files (CLAUDE.md, .cursorrules, etc.).

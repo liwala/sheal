@@ -33,6 +33,13 @@ export async function runPull(backend: string | undefined, name: string | undefi
       return;
     }
 
+    const sandboxes = await adapter.listInstances();
+    if (!sandboxes.some((sandbox) => sandbox.name === name)) {
+      console.error(`Sandbox "${name}" was not found for backend "${backend}". Run \`sheal pull --list\` to discover sandboxes.`);
+      process.exitCode = 1;
+      return;
+    }
+
     const stage = createPullStage({ backend, name });
     const result = await adapter.pull(name, stage.dir, { pulledAt: stage.pulledAt });
     writePullProvenance(stage.dir, result.provenance);

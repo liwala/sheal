@@ -1,5 +1,6 @@
 ---
-status: todo
+status: done
+closed: 2026-06-09
 type: task
 deliverable: ops
 created: 2026-06-09
@@ -23,8 +24,7 @@ Once D1 + D2 land, reflect the shipped local-first scope in the docs (AGENTS.md
 
 ## Output
 
-Doc edits: `src/index.ts` HOWTO, project docs, ADR 0005 note. none (no new
-tracked artifact file).
+Doc edits: `src/index.ts` HOWTO, `README.md`, ADR 0005 note.
 
 ## Dependencies
 

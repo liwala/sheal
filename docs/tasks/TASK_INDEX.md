@@ -9,12 +9,12 @@
 - [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
 - [x] [T1. Batch pull all sbx sandboxes](t1-batch-pull-all-sbx-sandboxes.md) — `done` → src/commands/pull.ts
 - [ ] [Full capture set with gap logging](pull-full-capture-set.md) — `todo`
-- [ ] [Unknown sandbox name error path](pull-unknown-name-error.md) — `todo`
+- [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
 
 ## ops — Cross-cutting
 
 - [ ] [Config setting for staging directory](pull-staging-config.md) — `todo`
-- [ ] [Docs sync for shipped `sheal pull` scope](pull-docs-sync.md) — `todo`
+- [x] [Docs sync for shipped `sheal pull` scope](pull-docs-sync.md) — `done` → src/index.ts, README.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
 
 ## Open questions
 
