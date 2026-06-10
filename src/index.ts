@@ -108,9 +108,10 @@ Backup & Sync (git-based)
 
 Sandbox Pull
 ────────────
-  sheal pull --list               List available local sbx sandboxes
-  sheal pull sbx <name>           Pull one sbx sandbox's git diff to staging
+  sheal pull --list               List available local sbx sandboxes and Docker containers
+  sheal pull sbx <name>           Pull one sbx sandbox's capture set to staging
   sheal pull sbx --all            Pull every sbx sandbox with a workspace
+  sheal pull docker <name>        Pull one Docker container's capture set
 
 Browsing
 ────────
@@ -391,7 +392,7 @@ program
   .command("pull [backend] [name]")
   .description("Discover and pull changes from agent sandboxes")
   .option("--list", "List available agent sandboxes", false)
-  .option("--all", "Pull all sandboxes for a backend", false)
+  .option("--all", "Pull all sandboxes for a backend (sbx only)", false)
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .action(async (backend: string | undefined, name: string | undefined, opts) => {
     await runPull(backend, name, {

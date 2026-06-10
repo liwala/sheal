@@ -5,6 +5,7 @@ export interface SandboxInstance {
   status: string;
   workspaces: string[];
   workspaceMissing?: boolean;
+  metadata?: Record<string, string>;
 }
 
 export type PullArtifactKind = "git.diff" | "agent-artifact" | "session-transcript";
@@ -21,6 +22,8 @@ export interface PullProvenance {
   name: string;
   agent: string;
   status: string;
+  containerId?: string;
+  image?: string;
   pulledAt: string;
   sourcePaths: string[];
   gaps: string[];

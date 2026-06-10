@@ -186,16 +186,21 @@ sheal export --global              # Export all projects and sessions
 ### `sheal pull`
 
 Acquire local sandbox changes into sheal's staging area. The shipped local path
-supports `sbx` sandboxes and captures each sandbox's git diff with provenance.
+supports `sbx` sandboxes and Docker containers, capturing git diff, agent
+artifacts, memory files, and transcripts when present. Missing optional paths
+are reported as gaps in the pull output and provenance.
 
 ```bash
-sheal pull --list                  # List available local sbx sandboxes
-sheal pull sbx <name>              # Pull one sandbox's git diff to .sheal/pulls/
+sheal pull --list                  # List available sbx sandboxes and Docker containers
+sheal pull sbx <name>              # Pull one sbx sandbox to .sheal/pulls/
 sheal pull sbx --all               # Pull every sbx sandbox with a workspace
+sheal pull docker <name>           # Pull one Docker container selected from --list
 ```
 
-Use `sheal pull --list` first to copy the exact sandbox name. Pull output lands
-under `.sheal/pulls/sbx/<name>/<timestamp>/`.
+Use `sheal pull --list` first to copy the exact sandbox or container name.
+Docker selection is intentionally human-driven, so `sheal pull docker --all` is
+not supported. Pull output lands under
+`.sheal/pulls/<backend>/<name>/<timestamp>/`.
 
 ### `sheal init`
 

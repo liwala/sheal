@@ -140,18 +140,24 @@ deferred until the local path is proven.
 
 ### Implementation note: shipped local slice
 
-As of the first local slice after PR #28, the shipped command surface is narrower
-than the full validation milestone:
+As of the local Docker adapter slice, the shipped command surface covers `sbx`
+and Docker-backed local acquisition:
 
-- `sheal pull --list` discovers local `sbx` sandboxes.
-- `sheal pull sbx <name>` captures one sandbox's git diff into
-  `.sheal/pulls/sbx/<name>/<timestamp>/` with pull-time provenance.
+- `sheal pull --list` discovers local `sbx` sandboxes and Docker containers.
+- `sheal pull sbx <name>` captures one sandbox's git diff, agent artifacts,
+  memory files, and transcript into `.sheal/pulls/sbx/<name>/<timestamp>/`
+  with pull-time provenance and gap logging.
 - `sheal pull sbx --all` captures every listed `sbx` sandbox that has an
   available workspace and skips entries whose workspace is missing.
+- `sheal pull docker <name>` captures one selected Docker container's git diff,
+  agent artifacts, memory files, and transcript into
+  `.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
+  logging.
+- `sheal pull docker --all` is intentionally unsupported; Docker container
+  selection is human-driven from `sheal pull --list`.
 
-Still deferred: the full capture set (memories, self-authored artifacts, and
-transcripts), remote/cloud adapters, staging directory configuration, retention
-and garbage collection, and daemon/checkpointing behavior.
+Still deferred: remote/cloud adapters, retention and garbage collection, and
+daemon/checkpointing behavior.
 
 ## Consequences
 
