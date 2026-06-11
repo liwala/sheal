@@ -48,12 +48,9 @@ describe("sheal pull sbx full capture set", () => {
       }],
       homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${home}/.claude`, `${home}/.claude/projects/${claudeProjectSlug}`, `${workspace}/.claude`],
+      directories: [`${home}/.claude`, `${home}/.claude/projects/${claudeProjectSlug}`],
       files: {
         [`${home}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
-        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
-        [`${workspace}/MEMORY.md`]: "# Memory\n",
         [`${home}/.claude/sessions.jsonl`]: "{\"type\":\"session-summary\",\"content\":\"capture me\"}\n",
         [`${home}/.claude/projects/${claudeProjectSlug}/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"project transcript\"}\n",
       },
@@ -65,10 +62,64 @@ describe("sheal pull sbx full capture set", () => {
     const pullDir = getOnlyPullDir(projectRoot, sandboxName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"model\": \"claude\" }\n");
-    expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
-    expect(readFileSync(join(pullDir, "artifacts", "MEMORY.md"), "utf-8")).toBe("# Memory\n");
+    expect(existsSync(join(pullDir, "artifacts", "AGENTS.md"))).toBe(false);
+    expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
     expect(readFileSync(join(pullDir, "transcript", ".claude", "sessions.jsonl"), "utf-8")).toContain("capture me");
     expect(readFileSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug, "session-1.jsonl"), "utf-8")).toContain("project transcript");
+
+    const provenance = readProvenance(pullDir);
+    expect(provenance.gaps).toEqual([]);
+  });
+
+  it("does not treat missing workspace docs as gaps when agent home dirs exist", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    const sandboxName = "claude-home-only";
+    const workspace = "/workspace/acme/home-only";
+    const home = "/home/claude";
+    const claudeProjectSlug = claudeSlug(workspace);
+    const diff = "diff --git a/src/home.ts b/src/home.ts\n";
+
+    writeSbxFixture(binDir, {
+      sandboxes: [{
+        name: sandboxName,
+        agent: "claude",
+        status: "running",
+        workspaces: [workspace],
+      }],
+      homes: { [sandboxName]: home },
+      diffs: { [sandboxName]: diff },
+      directories: [
+        `${home}/.claude`,
+        `${home}/.claude/projects/${claudeProjectSlug}`,
+        `${home}/.codex`,
+        `${home}/.codex/sessions`,
+      ],
+      files: {
+        [`${home}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
+        [`${home}/.claude/projects/${claudeProjectSlug}/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"claude transcript\"}\n",
+        [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
+        [`${home}/.codex/sessions/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"codex transcript\"}\n",
+      },
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["sbx", sandboxName]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).not.toContain("Gaps:");
+    expect(result.stdout).not.toContain(`${workspace}/AGENTS.md`);
+    expect(result.stdout).not.toContain(`${workspace}/MEMORY.md`);
+    expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
+
+    const pullDir = getOnlyPullDir(projectRoot, sandboxName);
+    expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"model\": \"claude\" }\n");
+    expect(readFileSync(join(pullDir, "artifacts", ".codex", "config.toml"), "utf-8")).toBe("model = \"gpt-5\"\n");
+    expect(readFileSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug, "session-1.jsonl"), "utf-8")).toContain("claude transcript");
+    expect(readFileSync(join(pullDir, "transcript", ".codex", "sessions", "session-1.jsonl"), "utf-8")).toContain("codex transcript");
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([]);
@@ -107,10 +158,7 @@ describe("sheal pull sbx full capture set", () => {
       homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
       directories: agentHomeDirs.map((dir) => `${home}/${dir}`),
-      files: Object.fromEntries([
-        ...agentHomeDirs.map((dir) => [`${home}/${dir}/state.txt`, `${dir}\n`]),
-        [`${workspace}/AGENTS.md`, "# Agents\n"],
-      ]),
+      files: Object.fromEntries(agentHomeDirs.map((dir) => [`${home}/${dir}/state.txt`, `${dir}\n`])),
     });
 
     const result = runShealPull(projectRoot, binDir, ["sbx", sandboxName]);
@@ -122,12 +170,10 @@ describe("sheal pull sbx full capture set", () => {
     }
 
     const provenance = readProvenance(pullDir);
-    expect(provenance.gaps).toEqual([
-      `${workspace}/MEMORY.md`,
-    ]);
+    expect(provenance.gaps).toEqual([]);
   });
 
-  it("logs missing memory and transcript paths as gaps while still exiting zero", () => {
+  it("logs missing agent transcript paths as gaps while still exiting zero", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
     const projectRoot = join(tmp, "project");
     const binDir = join(tmp, "bin");
@@ -152,7 +198,6 @@ describe("sheal pull sbx full capture set", () => {
       directories: [`${home}/.claude`],
       files: {
         [`${home}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
 
@@ -160,20 +205,20 @@ describe("sheal pull sbx full capture set", () => {
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("Gaps:");
-    expect(result.stdout).toContain(`${workspace}/MEMORY.md`);
+    expect(result.stdout).not.toContain(`${workspace}/AGENTS.md`);
+    expect(result.stdout).not.toContain(`${workspace}/MEMORY.md`);
     expect(result.stdout).toContain(`${home}/.claude/projects/${claudeProjectSlug}`);
     expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
 
     const pullDir = getOnlyPullDir(projectRoot, sandboxName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"theme\": \"dark\" }\n");
-    expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
+    expect(existsSync(join(pullDir, "artifacts", "AGENTS.md"))).toBe(false);
     expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
     expect(existsSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug))).toBe(false);
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([
-      `${workspace}/MEMORY.md`,
       `${home}/.claude/projects/${claudeProjectSlug}`,
     ]);
   });
@@ -202,7 +247,6 @@ describe("sheal pull sbx full capture set", () => {
       directories: [`${home}/.codex`],
       files: {
         [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
 
@@ -220,12 +264,10 @@ describe("sheal pull sbx full capture set", () => {
       backend: "sbx",
       name: sandboxName,
       gaps: [
-        `${workspace}/MEMORY.md`,
         `${home}/.codex/sessions`,
       ],
       provenance: {
         gaps: [
-          `${workspace}/MEMORY.md`,
           `${home}/.codex/sessions`,
         ],
       },

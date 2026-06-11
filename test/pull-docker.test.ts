@@ -49,13 +49,10 @@ describe("sheal pull docker <container>", () => {
       workspaces: { [containerName]: workspace },
       homes: { [containerName]: home },
       diffs: { [containerName]: diff },
-      directories: [`${home}/.codex`, `${home}/.codex/sessions`, `${workspace}/.claude`],
+      directories: [`${home}/.codex`, `${home}/.codex/sessions`],
       files: {
         [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
         [`${home}/.codex/sessions/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
-        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
-        [`${workspace}/MEMORY.md`]: "# Memory\n",
       },
     });
 
@@ -67,8 +64,8 @@ describe("sheal pull docker <container>", () => {
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".codex", "config.toml"), "utf-8")).toBe("model = \"gpt-5\"\n");
     expect(existsSync(join(pullDir, "artifacts", ".claude"))).toBe(false);
-    expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
-    expect(readFileSync(join(pullDir, "artifacts", "MEMORY.md"), "utf-8")).toBe("# Memory\n");
+    expect(existsSync(join(pullDir, "artifacts", "AGENTS.md"))).toBe(false);
+    expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
     expect(readFileSync(join(pullDir, "transcript", ".codex", "sessions", "session-1.jsonl"), "utf-8")).toContain("capture me");
 
     const provenance = readProvenance(pullDir);
@@ -86,7 +83,7 @@ describe("sheal pull docker <container>", () => {
     expect(Number.isNaN(Date.parse(provenance.pulledAt as string))).toBe(false);
   });
 
-  it("reports missing optional capture paths as gaps while still exiting zero", () => {
+  it("does not report missing workspace docs as gaps", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-docker-"));
     const projectRoot = join(tmp, "project");
     const binDir = join(tmp, "bin");
@@ -112,27 +109,25 @@ describe("sheal pull docker <container>", () => {
       directories: [`${home}/.claude`],
       files: {
         [`${home}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
 
     const result = runShealPull(projectRoot, binDir, ["docker", containerName]);
 
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain("Gaps:");
-    expect(result.stdout).toContain(`${workspace}/MEMORY.md`);
+    expect(result.stdout).not.toContain("Gaps:");
+    expect(result.stdout).not.toContain(`${workspace}/AGENTS.md`);
+    expect(result.stdout).not.toContain(`${workspace}/MEMORY.md`);
     expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
 
     const pullDir = getOnlyDockerPullDir(projectRoot, containerName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"theme\": \"dark\" }\n");
-    expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
+    expect(existsSync(join(pullDir, "artifacts", "AGENTS.md"))).toBe(false);
     expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
 
     const provenance = readProvenance(pullDir);
-    expect(provenance.gaps).toEqual([
-      `${workspace}/MEMORY.md`,
-    ]);
+    expect(provenance.gaps).toEqual([]);
   });
 
   it("rejects docker --all because Docker container selection is human-driven", () => {

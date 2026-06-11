@@ -187,8 +187,9 @@ sheal export --global              # Export all projects and sessions
 
 Acquire local sandbox changes into sheal's staging area. The shipped local path
 supports `sbx` sandboxes and Docker containers, capturing git diff, agent
-artifacts, memory files, and transcripts when present. Missing optional paths
-are reported as gaps in the pull output and provenance.
+artifacts, and transcripts from runtime home directories when present. Missing
+agent-specific transcript paths are reported as gaps in the pull output and
+provenance.
 Agent home artifacts are discovered by probing supported agent directories under
 the sandbox user's home directory (`$HOME/.claude`, `$HOME/.codex`,
 `$HOME/.copilot`, `$HOME/.cursor`, `$HOME/.docker-agent`, `$HOME/.droid`,
@@ -196,8 +197,8 @@ the sandbox user's home directory (`$HOME/.claude`, `$HOME/.codex`,
 ignored. Transcripts are pulled from known agent home paths such as
 `$HOME/.claude/sessions.jsonl`, `$HOME/.claude/history.jsonl`,
 `$HOME/.claude/projects/<project-slug>/`, and `$HOME/.codex/sessions/` when
-present. Project files such as `AGENTS.md` and `MEMORY.md` are read from the
-sandbox workspace and are reported as gaps when absent.
+present. Workspace files such as `AGENTS.md`, `MEMORY.md`, and
+`.sheal/session.jsonl` are not part of the pull capture contract.
 
 ```bash
 sheal pull --list                  # List available sbx sandboxes and Docker containers

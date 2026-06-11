@@ -26,8 +26,8 @@ pull the selected container end to end.
 - Drive the CLI end to end with a fake `docker` binary for discovery, single
   pull, and the explicit-selection error paths.
 - Implement a Docker adapter that captures the same ordered material as sbx:
-  git diff, runtime-home agent artifacts, workspace memory files, and transcript
-  where present.
+  git diff plus runtime-home agent artifacts and transcripts from `.claude` /
+  `.codex` where present.
 - Stamp Docker provenance with backend/type/name, container identity, status,
   pulled time, source paths, and gaps.
 - Keep sbx tests green and ensure `--list` can show both sbx and docker
@@ -42,7 +42,8 @@ pull the selected container end to end.
   `.sheal/pulls/docker/<name>/<timestamp>/`.
 - `sheal pull docker --all` is rejected or left unsupported unless a later
   explicit allowlist/selection mechanism is added.
-- Missing optional capture paths are reported as gaps, matching sbx behavior.
+- Missing optional runtime-home transcript paths are reported as gaps when the
+  selected runtime identifies the agent, matching sbx behavior.
 - Build and tests are green.
 
 ## Output

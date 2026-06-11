@@ -38,22 +38,6 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     reportMissing: () => false,
   })),
   {
-    kind: "agent-artifact",
-    sourcePath: ({ workspace }) => posix.join(workspace, "AGENTS.md"),
-    copyDestination: (stagingDir) => join(stagingDir, "artifacts", "AGENTS.md"),
-    stagedPath: (stagingDir) => join(stagingDir, "artifacts", "AGENTS.md"),
-    ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "artifacts", "AGENTS.md")),
-    reportMissing: () => true,
-  },
-  {
-    kind: "agent-artifact",
-    sourcePath: ({ workspace }) => posix.join(workspace, "MEMORY.md"),
-    copyDestination: (stagingDir) => join(stagingDir, "artifacts", "MEMORY.md"),
-    stagedPath: (stagingDir) => join(stagingDir, "artifacts", "MEMORY.md"),
-    ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "artifacts", "MEMORY.md")),
-    reportMissing: () => true,
-  },
-  {
     kind: "session-transcript",
     sourcePath: ({ home }) => posix.join(home, ".claude", "sessions.jsonl"),
     copyDestination: (stagingDir) => join(stagingDir, "transcript", ".claude", "sessions.jsonl"),
