@@ -12,6 +12,10 @@
 - [x] [Full capture set with gap logging](pull-full-capture-set.md) — `done` → src/commands/pull.ts, src/pull/adapters/sbx.ts, src/pull/capture-set.ts, test/pull-capture.test.ts
 - [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
 
+## D3 — Raw Session Normalization
+
+- [ ] [T3. Normalize pulled sessions into a raw session registry](t3-normalize-pulled-sessions-into-raw-session-registry.md) — `todo`
+
 ## ops — Cross-cutting
 
 - [x] [Config setting for staging directory](pull-staging-config.md) — `done` → src/config/types.ts, src/config/defaults.ts, src/config/loader.ts, src/commands/pull.ts, test/pull-config.test.ts
