@@ -4,22 +4,23 @@ import type { PullArtifactKind } from "./types.js";
 export interface CaptureCandidate {
   kind: PullArtifactKind;
   sourcePath(context: CaptureContext): string;
-  copyDestination(stagingDir: string): string;
-  stagedPath(stagingDir: string): string;
-  ensureDestinationDir(stagingDir: string): string;
+  copyDestination(stagingDir: string, context: CaptureContext): string;
+  stagedPath(stagingDir: string, context: CaptureContext): string;
+  ensureDestinationDir(stagingDir: string, context: CaptureContext): string;
 }
 
 export interface CaptureContext {
   workspace: string;
   home: string;
+  agent: string;
 }
 
 export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
   {
     kind: "agent-artifact",
-    sourcePath: ({ home }) => posix.join(home, ".claude"),
+    sourcePath: (context) => posix.join(context.home, agentHomeArtifactDir(context.agent)),
     copyDestination: (stagingDir) => join(stagingDir, "artifacts"),
-    stagedPath: (stagingDir) => join(stagingDir, "artifacts", ".claude"),
+    stagedPath: (stagingDir, context) => join(stagingDir, "artifacts", agentHomeArtifactDir(context.agent)),
     ensureDestinationDir: (stagingDir) => join(stagingDir, "artifacts"),
   },
   {
@@ -44,3 +45,12 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "transcript", "session.jsonl")),
   },
 ];
+
+function agentHomeArtifactDir(agent: string): string {
+  switch (agent.toLowerCase()) {
+    case "codex":
+      return ".codex";
+    default:
+      return ".claude";
+  }
+}

@@ -61,12 +61,12 @@ export class DockerAdapter implements SandboxAdapter {
     writeFileSync(diffPath, diffResult.stdout, "utf-8");
     const artifacts: PullResult["artifacts"] = [{ kind: "git.diff", path: diffPath, sourcePath: workspace }];
     const gaps: string[] = [];
-    const captureContext = { workspace, home };
+    const captureContext = { workspace, home, agent: container.agent };
 
     for (const candidate of ORDERED_CAPTURE_CANDIDATES) {
       const sourcePath = candidate.sourcePath(captureContext);
-      mkdirSync(candidate.ensureDestinationDir(stagingDir), { recursive: true });
-      const copyResult = await exec("docker", ["cp", `${name}:${sourcePath}`, candidate.copyDestination(stagingDir)], {
+      mkdirSync(candidate.ensureDestinationDir(stagingDir, captureContext), { recursive: true });
+      const copyResult = await exec("docker", ["cp", `${name}:${sourcePath}`, candidate.copyDestination(stagingDir, captureContext)], {
         env: { CI: undefined },
         timeoutMs: 30_000,
       });
@@ -74,7 +74,7 @@ export class DockerAdapter implements SandboxAdapter {
       if (copyResult.exitCode === 0) {
         artifacts.push({
           kind: candidate.kind,
-          path: candidate.stagedPath(stagingDir),
+          path: candidate.stagedPath(stagingDir, captureContext),
           sourcePath,
         });
       } else {

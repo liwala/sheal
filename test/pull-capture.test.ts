@@ -141,9 +141,9 @@ describe("sheal pull sbx full capture set", () => {
       }],
       homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${home}/.claude`],
+      directories: [`${home}/.codex`],
       files: {
-        [`${home}/.claude/settings.json`]: "{}\n",
+        [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
       },
     });
@@ -173,6 +173,8 @@ describe("sheal pull sbx full capture set", () => {
       },
     });
     expect(typeof payload.stagingDir).toBe("string");
+    expect(readFileSync(join(payload.stagingDir, "artifacts", ".codex", "config.toml"), "utf-8")).toBe("model = \"gpt-5\"\n");
+    expect(existsSync(join(payload.stagingDir, "artifacts", ".claude"))).toBe(false);
   });
 });
 

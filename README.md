@@ -189,8 +189,8 @@ Acquire local sandbox changes into sheal's staging area. The shipped local path
 supports `sbx` sandboxes and Docker containers, capturing git diff, agent
 artifacts, memory files, and transcripts when present. Missing optional paths
 are reported as gaps in the pull output and provenance.
-The `.claude/` artifact is read from the sandbox user's home directory
-(`$HOME/.claude` inside the sandbox/container); project files such as
+Agent home artifacts are read from the sandbox user's home directory
+(`$HOME/.claude` for Claude, `$HOME/.codex` for Codex); project files such as
 `AGENTS.md`, `MEMORY.md`, and `.sheal/session.jsonl` are read from the sandbox
 workspace.
 
