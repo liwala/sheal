@@ -1,10 +1,13 @@
 ---
-status: todo
+status: done
+started: 2026-06-11
+closed: 2026-06-11
 type: task
 id: T3
 deliverable: D3
 created: 2026-06-11
 links: [q2-cross-path-dedup.md, q4-staging-retention-gc.md]
+output: src/sessions/raw-registry.ts, src/commands/pull.ts, packages/agent-sessions/src/claude.ts, packages/agent-sessions/src/codex.ts, test/pull-raw-registry.test.ts, test/native-reader-roots.test.ts
 ---
 
 # T3. Normalize pulled sessions into a raw session registry

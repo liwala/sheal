@@ -145,7 +145,7 @@ and Docker-backed local acquisition:
 
 - `sheal pull --list` discovers local `sbx` sandboxes and Docker containers.
 - `sheal pull sbx <name>` captures one sandbox's git diff plus runtime-home
-  agent artifacts and transcripts into `.sheal/pulls/sbx/<name>/<timestamp>/`
+  agent artifacts and transcripts into `~/.sheal/pulls/sbx/<name>/<timestamp>/`
   with pull-time provenance and gap logging. Runtime home artifacts are
   discovered by probing supported agent directories such as `.claude/`,
   `.codex/`, `.gemini/`, and `.opencode/` under `$HOME` inside the sandbox;
@@ -155,12 +155,19 @@ and Docker-backed local acquisition:
   available workspace and skips entries whose workspace is missing.
 - `sheal pull docker <name>` captures one selected Docker container's git diff
   plus runtime-home agent artifacts and transcripts into
-  `.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
+  `~/.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
   logging. Runtime home artifacts are discovered by probing supported agent
   directories under `$HOME` inside the container; transcripts are pulled from
   known agent home paths when present.
 - `sheal pull docker --all` is intentionally unsupported; Docker container
   selection is human-driven from `sheal pull --list`.
+
+After acquisition, pulled Claude and Codex transcripts are normalized into the
+project-local raw registry at
+`.sheal/sessions/raw/<stable-session-id>/`. Pull staging directories receive an
+`ingested.json` marker when normalization produces raw session records. The
+`pull.stagingDir` config setting remains the override for the acquisition
+staging root.
 
 Still deferred: remote/cloud adapters, retention and garbage collection, and
 daemon/checkpointing behavior.

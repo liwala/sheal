@@ -16,6 +16,9 @@ export {
   listNativeSessionsBySlug,
   loadNativeSessionBySlug,
 } from "./claude.js";
+export type {
+  ClaudeSessionReaderOptions,
+} from "./claude.js";
 
 // OpenAI Codex CLI native sessions
 export {
@@ -29,6 +32,7 @@ export {
 export type {
   CodexProject,
   CodexSessionFile,
+  CodexSessionReaderOptions,
   CodexTranscriptEntry,
 } from "./codex.js";
 

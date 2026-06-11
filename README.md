@@ -202,15 +202,19 @@ present. Workspace files such as `AGENTS.md`, `MEMORY.md`, and
 
 ```bash
 sheal pull --list                  # List available sbx sandboxes and Docker containers
-sheal pull sbx <name>              # Pull one sbx sandbox to .sheal/pulls/
+sheal pull sbx <name>              # Pull one sbx sandbox to ~/.sheal/pulls/
 sheal pull sbx --all               # Pull every sbx sandbox with a workspace
 sheal pull docker <name>           # Pull one Docker container selected from --list
 ```
 
 Use `sheal pull --list` first to copy the exact sandbox or container name.
 Docker selection is intentionally human-driven, so `sheal pull docker --all` is
-not supported. Pull output lands under
-`.sheal/pulls/<backend>/<name>/<timestamp>/`.
+not supported. Pull acquisition output lands under
+`~/.sheal/pulls/<backend>/<name>/<timestamp>/` unless `pull.stagingDir`
+overrides it. Pulled Claude and Codex transcripts are normalized into the
+project-local raw registry at `.sheal/sessions/raw/<stable-session-id>/`; the
+pull staging directory gets an `ingested.json` marker pointing at the raw
+session IDs.
 
 ### `sheal init`
 

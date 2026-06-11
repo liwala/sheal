@@ -15,7 +15,7 @@
 
 ## D3 — Raw Session Normalization
 
-- [ ] [T3. Normalize pulled sessions into a raw session registry](t3-normalize-pulled-sessions-into-raw-session-registry.md) — `todo`
+- [x] [T3. Normalize pulled sessions into a raw session registry](t3-normalize-pulled-sessions-into-raw-session-registry.md) — `done` → src/sessions/raw-registry.ts, src/commands/pull.ts, packages/agent-sessions/src/claude.ts, packages/agent-sessions/src/codex.ts, test/pull-raw-registry.test.ts, test/native-reader-roots.test.ts
 
 ## ops — Cross-cutting
 

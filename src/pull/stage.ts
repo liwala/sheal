@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { PullProvenance } from "./types.js";
 
@@ -7,8 +8,8 @@ export interface PullStage {
   pulledAt: string;
 }
 
-export function defaultPullStagingRoot(projectRoot: string = process.cwd()): string {
-  return join(projectRoot, ".sheal", "pulls");
+export function defaultPullStagingRoot(_projectRoot: string = process.cwd()): string {
+  return join(homedir(), ".sheal", "pulls");
 }
 
 export function createPullStage(params: {
