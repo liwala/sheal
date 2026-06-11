@@ -7,7 +7,7 @@ export interface CaptureCandidate {
   copyDestination(stagingDir: string, context: CaptureContext): string;
   stagedPath(stagingDir: string, context: CaptureContext): string;
   ensureDestinationDir(stagingDir: string, context: CaptureContext): string;
-  reportMissing: boolean;
+  reportMissing(context: CaptureContext): boolean;
 }
 
 export interface CaptureContext {
@@ -35,7 +35,7 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     copyDestination: (stagingDir) => join(stagingDir, "artifacts"),
     stagedPath: (stagingDir) => join(stagingDir, "artifacts", dir),
     ensureDestinationDir: (stagingDir) => join(stagingDir, "artifacts"),
-    reportMissing: false,
+    reportMissing: () => false,
   })),
   {
     kind: "agent-artifact",
@@ -43,7 +43,7 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     copyDestination: (stagingDir) => join(stagingDir, "artifacts", "AGENTS.md"),
     stagedPath: (stagingDir) => join(stagingDir, "artifacts", "AGENTS.md"),
     ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "artifacts", "AGENTS.md")),
-    reportMissing: true,
+    reportMissing: () => true,
   },
   {
     kind: "agent-artifact",
@@ -51,14 +51,47 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     copyDestination: (stagingDir) => join(stagingDir, "artifacts", "MEMORY.md"),
     stagedPath: (stagingDir) => join(stagingDir, "artifacts", "MEMORY.md"),
     ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "artifacts", "MEMORY.md")),
-    reportMissing: true,
+    reportMissing: () => true,
   },
   {
     kind: "session-transcript",
-    sourcePath: ({ workspace }) => posix.join(workspace, ".sheal", "session.jsonl"),
-    copyDestination: (stagingDir) => join(stagingDir, "transcript", "session.jsonl"),
-    stagedPath: (stagingDir) => join(stagingDir, "transcript", "session.jsonl"),
-    ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "transcript", "session.jsonl")),
-    reportMissing: true,
+    sourcePath: ({ home }) => posix.join(home, ".claude", "sessions.jsonl"),
+    copyDestination: (stagingDir) => join(stagingDir, "transcript", ".claude", "sessions.jsonl"),
+    stagedPath: (stagingDir) => join(stagingDir, "transcript", ".claude", "sessions.jsonl"),
+    ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "transcript", ".claude", "sessions.jsonl")),
+    reportMissing: () => false,
+  },
+  {
+    kind: "session-transcript",
+    sourcePath: ({ home }) => posix.join(home, ".claude", "history.jsonl"),
+    copyDestination: (stagingDir) => join(stagingDir, "transcript", ".claude", "history.jsonl"),
+    stagedPath: (stagingDir) => join(stagingDir, "transcript", ".claude", "history.jsonl"),
+    ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "transcript", ".claude", "history.jsonl")),
+    reportMissing: () => false,
+  },
+  {
+    kind: "session-transcript",
+    sourcePath: (context) => posix.join(context.home, ".claude", "projects", claudeProjectSlug(context.workspace)),
+    copyDestination: (stagingDir) => join(stagingDir, "transcript", ".claude", "projects"),
+    stagedPath: (stagingDir, context) => join(stagingDir, "transcript", ".claude", "projects", claudeProjectSlug(context.workspace)),
+    ensureDestinationDir: (stagingDir) => join(stagingDir, "transcript", ".claude", "projects"),
+    reportMissing: (context) => isAgent(context, "claude"),
+  },
+  {
+    kind: "session-transcript",
+    sourcePath: ({ home }) => posix.join(home, ".codex", "sessions"),
+    copyDestination: (stagingDir) => join(stagingDir, "transcript", ".codex"),
+    stagedPath: (stagingDir) => join(stagingDir, "transcript", ".codex", "sessions"),
+    ensureDestinationDir: (stagingDir) => join(stagingDir, "transcript", ".codex"),
+    reportMissing: (context) => isAgent(context, "codex"),
   },
 ];
+
+function claudeProjectSlug(workspace: string): string {
+  return workspace.replace(/[\\/: ]/g, "-");
+}
+
+function isAgent(context: CaptureContext, agent: string): boolean {
+  const normalized = context.agent.toLowerCase().trim().replace(/\s+/g, "-");
+  return normalized === agent || (agent === "claude" && normalized === "claude-code");
+}

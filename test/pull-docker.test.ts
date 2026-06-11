@@ -49,13 +49,13 @@ describe("sheal pull docker <container>", () => {
       workspaces: { [containerName]: workspace },
       homes: { [containerName]: home },
       diffs: { [containerName]: diff },
-      directories: [`${home}/.codex`, `${workspace}/.claude`],
+      directories: [`${home}/.codex`, `${home}/.codex/sessions`, `${workspace}/.claude`],
       files: {
         [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
+        [`${home}/.codex/sessions/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
         [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
         [`${workspace}/MEMORY.md`]: "# Memory\n",
-        [`${workspace}/.sheal/session.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
       },
     });
 
@@ -69,7 +69,7 @@ describe("sheal pull docker <container>", () => {
     expect(existsSync(join(pullDir, "artifacts", ".claude"))).toBe(false);
     expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
     expect(readFileSync(join(pullDir, "artifacts", "MEMORY.md"), "utf-8")).toBe("# Memory\n");
-    expect(readFileSync(join(pullDir, "transcript", "session.jsonl"), "utf-8")).toContain("capture me");
+    expect(readFileSync(join(pullDir, "transcript", ".codex", "sessions", "session-1.jsonl"), "utf-8")).toContain("capture me");
 
     const provenance = readProvenance(pullDir);
     expect(provenance).toMatchObject({
@@ -121,19 +121,17 @@ describe("sheal pull docker <container>", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("Gaps:");
     expect(result.stdout).toContain(`${workspace}/MEMORY.md`);
-    expect(result.stdout).toContain(`${workspace}/.sheal/session.jsonl`);
+    expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
 
     const pullDir = getOnlyDockerPullDir(projectRoot, containerName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"theme\": \"dark\" }\n");
     expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
     expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
-    expect(existsSync(join(pullDir, "transcript", "session.jsonl"))).toBe(false);
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([
       `${workspace}/MEMORY.md`,
-      `${workspace}/.sheal/session.jsonl`,
     ]);
   });
 

@@ -193,9 +193,11 @@ Agent home artifacts are discovered by probing supported agent directories under
 the sandbox user's home directory (`$HOME/.claude`, `$HOME/.codex`,
 `$HOME/.copilot`, `$HOME/.cursor`, `$HOME/.docker-agent`, `$HOME/.droid`,
 `$HOME/.gemini`, `$HOME/.kiro`, and `$HOME/.opencode`). Missing home probes are
-ignored; project files such as `AGENTS.md`, `MEMORY.md`, and
-`.sheal/session.jsonl` are read from the sandbox workspace and are reported as
-gaps when absent.
+ignored. Transcripts are pulled from known agent home paths such as
+`$HOME/.claude/sessions.jsonl`, `$HOME/.claude/history.jsonl`,
+`$HOME/.claude/projects/<project-slug>/`, and `$HOME/.codex/sessions/` when
+present. Project files such as `AGENTS.md` and `MEMORY.md` are read from the
+sandbox workspace and are reported as gaps when absent.
 
 ```bash
 sheal pull --list                  # List available sbx sandboxes and Docker containers

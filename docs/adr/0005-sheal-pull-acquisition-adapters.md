@@ -149,15 +149,18 @@ and Docker-backed local acquisition:
   with pull-time provenance and gap logging. Runtime home artifacts are
   discovered by probing supported agent directories such as `.claude/`,
   `.codex/`, `.gemini/`, and `.opencode/` under `$HOME` inside the sandbox;
-  project-scoped artifacts are read from the workspace.
+  transcripts are pulled from known agent home paths such as
+  `.claude/projects/<project-slug>/` and `.codex/sessions/`; project-scoped
+  artifacts are read from the workspace.
 - `sheal pull sbx --all` captures every listed `sbx` sandbox that has an
   available workspace and skips entries whose workspace is missing.
 - `sheal pull docker <name>` captures one selected Docker container's git diff,
   agent artifacts, memory files, and transcript into
   `.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
   logging. Runtime home artifacts are discovered by probing supported agent
-  directories under `$HOME` inside the container; project-scoped artifacts are
-  read from the workspace.
+  directories under `$HOME` inside the container; transcripts are pulled from
+  known agent home paths when present; project-scoped artifacts are read from the
+  workspace.
 - `sheal pull docker --all` is intentionally unsupported; Docker container
   selection is human-driven from `sheal pull --list`.
 

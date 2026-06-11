@@ -27,6 +27,7 @@ describe("sheal pull sbx full capture set", () => {
     const sandboxName = "claude-acme-api";
     const workspace = "/workspace/acme/api";
     const home = "/home/claude";
+    const claudeProjectSlug = claudeSlug(workspace);
     const diff = [
       "diff --git a/src/api.ts b/src/api.ts",
       "index 1111111..2222222 100644",
@@ -47,13 +48,14 @@ describe("sheal pull sbx full capture set", () => {
       }],
       homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${home}/.claude`, `${workspace}/.claude`],
+      directories: [`${home}/.claude`, `${home}/.claude/projects/${claudeProjectSlug}`, `${workspace}/.claude`],
       files: {
         [`${home}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
         [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
         [`${workspace}/MEMORY.md`]: "# Memory\n",
-        [`${workspace}/.sheal/session.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
+        [`${home}/.claude/sessions.jsonl`]: "{\"type\":\"session-summary\",\"content\":\"capture me\"}\n",
+        [`${home}/.claude/projects/${claudeProjectSlug}/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"project transcript\"}\n",
       },
     });
 
@@ -65,7 +67,8 @@ describe("sheal pull sbx full capture set", () => {
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"model\": \"claude\" }\n");
     expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
     expect(readFileSync(join(pullDir, "artifacts", "MEMORY.md"), "utf-8")).toBe("# Memory\n");
-    expect(readFileSync(join(pullDir, "transcript", "session.jsonl"), "utf-8")).toContain("capture me");
+    expect(readFileSync(join(pullDir, "transcript", ".claude", "sessions.jsonl"), "utf-8")).toContain("capture me");
+    expect(readFileSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug, "session-1.jsonl"), "utf-8")).toContain("project transcript");
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([]);
@@ -121,7 +124,6 @@ describe("sheal pull sbx full capture set", () => {
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([
       `${workspace}/MEMORY.md`,
-      `${workspace}/.sheal/session.jsonl`,
     ]);
   });
 
@@ -135,6 +137,7 @@ describe("sheal pull sbx full capture set", () => {
     const sandboxName = "claude-missing-capture";
     const workspace = "/workspace/acme/missing";
     const home = "/home/claude";
+    const claudeProjectSlug = claudeSlug(workspace);
     const diff = "diff --git a/README.md b/README.md\n";
 
     writeSbxFixture(binDir, {
@@ -158,19 +161,20 @@ describe("sheal pull sbx full capture set", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("Gaps:");
     expect(result.stdout).toContain(`${workspace}/MEMORY.md`);
-    expect(result.stdout).toContain(`${workspace}/.sheal/session.jsonl`);
+    expect(result.stdout).toContain(`${home}/.claude/projects/${claudeProjectSlug}`);
+    expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
 
     const pullDir = getOnlyPullDir(projectRoot, sandboxName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"theme\": \"dark\" }\n");
     expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
     expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
-    expect(existsSync(join(pullDir, "transcript", "session.jsonl"))).toBe(false);
+    expect(existsSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug))).toBe(false);
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([
       `${workspace}/MEMORY.md`,
-      `${workspace}/.sheal/session.jsonl`,
+      `${home}/.claude/projects/${claudeProjectSlug}`,
     ]);
   });
 
@@ -217,12 +221,12 @@ describe("sheal pull sbx full capture set", () => {
       name: sandboxName,
       gaps: [
         `${workspace}/MEMORY.md`,
-        `${workspace}/.sheal/session.jsonl`,
+        `${home}/.codex/sessions`,
       ],
       provenance: {
         gaps: [
           `${workspace}/MEMORY.md`,
-          `${workspace}/.sheal/session.jsonl`,
+          `${home}/.codex/sessions`,
         ],
       },
     });
@@ -258,6 +262,10 @@ function getOnlyPullDir(projectRoot: string, sandboxName: string): string {
 
 function readProvenance(pullDir: string): { gaps?: unknown } {
   return JSON.parse(readFileSync(join(pullDir, "provenance.json"), "utf-8")) as { gaps?: unknown };
+}
+
+function claudeSlug(workspace: string): string {
+  return workspace.replace(/[\\/: ]/g, "-");
 }
 
 function writeSbxFixture(

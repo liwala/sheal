@@ -77,7 +77,7 @@ export class DockerAdapter implements SandboxAdapter {
           path: candidate.stagedPath(stagingDir, captureContext),
           sourcePath,
         });
-      } else if (candidate.reportMissing) {
+      } else if (candidate.reportMissing(captureContext)) {
         gaps.push(sourcePath);
       }
     }
