@@ -71,6 +71,60 @@ describe("sheal pull sbx full capture set", () => {
     expect(provenance.gaps).toEqual([]);
   });
 
+  it("captures supported agent home artifact dirs that exist under sandbox home", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    const sandboxName = "shell-multi-agent-home";
+    const workspace = "/workspace/acme/multi";
+    const home = "/home/agent";
+    const diff = "diff --git a/app.ts b/app.ts\n";
+    const agentHomeDirs = [
+      ".claude",
+      ".codex",
+      ".copilot",
+      ".cursor",
+      ".docker-agent",
+      ".droid",
+      ".gemini",
+      ".kiro",
+      ".opencode",
+    ];
+
+    writeSbxFixture(binDir, {
+      sandboxes: [{
+        name: sandboxName,
+        agent: "shell",
+        status: "running",
+        workspaces: [workspace],
+      }],
+      homes: { [sandboxName]: home },
+      diffs: { [sandboxName]: diff },
+      directories: agentHomeDirs.map((dir) => `${home}/${dir}`),
+      files: Object.fromEntries([
+        ...agentHomeDirs.map((dir) => [`${home}/${dir}/state.txt`, `${dir}\n`]),
+        [`${workspace}/AGENTS.md`, "# Agents\n"],
+      ]),
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["sbx", sandboxName]);
+
+    expect(result.status, result.stderr).toBe(0);
+    const pullDir = getOnlyPullDir(projectRoot, sandboxName);
+    for (const dir of agentHomeDirs) {
+      expect(readFileSync(join(pullDir, "artifacts", dir, "state.txt"), "utf-8")).toBe(`${dir}\n`);
+    }
+
+    const provenance = readProvenance(pullDir);
+    expect(provenance.gaps).toEqual([
+      `${workspace}/MEMORY.md`,
+      `${workspace}/.sheal/session.jsonl`,
+    ]);
+  });
+
   it("logs missing memory and transcript paths as gaps while still exiting zero", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
     const projectRoot = join(tmp, "project");

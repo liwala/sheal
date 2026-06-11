@@ -7,6 +7,7 @@ export interface CaptureCandidate {
   copyDestination(stagingDir: string, context: CaptureContext): string;
   stagedPath(stagingDir: string, context: CaptureContext): string;
   ensureDestinationDir(stagingDir: string, context: CaptureContext): string;
+  reportMissing: boolean;
 }
 
 export interface CaptureContext {
@@ -15,20 +16,34 @@ export interface CaptureContext {
   agent: string;
 }
 
+const SUPPORTED_AGENT_HOME_ARTIFACT_DIRS = [
+  ".claude",
+  ".codex",
+  ".copilot",
+  ".cursor",
+  ".docker-agent",
+  ".droid",
+  ".gemini",
+  ".kiro",
+  ".opencode",
+];
+
 export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
-  {
+  ...SUPPORTED_AGENT_HOME_ARTIFACT_DIRS.map((dir): CaptureCandidate => ({
     kind: "agent-artifact",
-    sourcePath: (context) => posix.join(context.home, agentHomeArtifactDir(context.agent)),
+    sourcePath: ({ home }) => posix.join(home, dir),
     copyDestination: (stagingDir) => join(stagingDir, "artifacts"),
-    stagedPath: (stagingDir, context) => join(stagingDir, "artifacts", agentHomeArtifactDir(context.agent)),
+    stagedPath: (stagingDir) => join(stagingDir, "artifacts", dir),
     ensureDestinationDir: (stagingDir) => join(stagingDir, "artifacts"),
-  },
+    reportMissing: false,
+  })),
   {
     kind: "agent-artifact",
     sourcePath: ({ workspace }) => posix.join(workspace, "AGENTS.md"),
     copyDestination: (stagingDir) => join(stagingDir, "artifacts", "AGENTS.md"),
     stagedPath: (stagingDir) => join(stagingDir, "artifacts", "AGENTS.md"),
     ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "artifacts", "AGENTS.md")),
+    reportMissing: true,
   },
   {
     kind: "agent-artifact",
@@ -36,6 +51,7 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     copyDestination: (stagingDir) => join(stagingDir, "artifacts", "MEMORY.md"),
     stagedPath: (stagingDir) => join(stagingDir, "artifacts", "MEMORY.md"),
     ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "artifacts", "MEMORY.md")),
+    reportMissing: true,
   },
   {
     kind: "session-transcript",
@@ -43,14 +59,6 @@ export const ORDERED_CAPTURE_CANDIDATES: CaptureCandidate[] = [
     copyDestination: (stagingDir) => join(stagingDir, "transcript", "session.jsonl"),
     stagedPath: (stagingDir) => join(stagingDir, "transcript", "session.jsonl"),
     ensureDestinationDir: (stagingDir) => dirname(join(stagingDir, "transcript", "session.jsonl")),
+    reportMissing: true,
   },
 ];
-
-function agentHomeArtifactDir(agent: string): string {
-  switch (agent.toLowerCase()) {
-    case "codex":
-      return ".codex";
-    default:
-      return ".claude";
-  }
-}

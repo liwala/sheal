@@ -49,9 +49,9 @@ describe("sheal pull docker <container>", () => {
       workspaces: { [containerName]: workspace },
       homes: { [containerName]: home },
       diffs: { [containerName]: diff },
-      directories: [`${home}/.claude`, `${workspace}/.claude`],
+      directories: [`${home}/.codex`, `${workspace}/.claude`],
       files: {
-        [`${home}/.claude/settings.json`]: "{ \"model\": \"codex\" }\n",
+        [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
         [`${workspace}/.claude/settings.json`]: "{ \"model\": \"workspace\" }\n",
         [`${workspace}/AGENTS.md`]: "# Agents\n",
         [`${workspace}/MEMORY.md`]: "# Memory\n",
@@ -65,7 +65,8 @@ describe("sheal pull docker <container>", () => {
     expect(result.stdout).toContain(`Pulled docker/${containerName}`);
     const pullDir = getOnlyDockerPullDir(projectRoot, containerName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
-    expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"model\": \"codex\" }\n");
+    expect(readFileSync(join(pullDir, "artifacts", ".codex", "config.toml"), "utf-8")).toBe("model = \"gpt-5\"\n");
+    expect(existsSync(join(pullDir, "artifacts", ".claude"))).toBe(false);
     expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
     expect(readFileSync(join(pullDir, "artifacts", "MEMORY.md"), "utf-8")).toBe("# Memory\n");
     expect(readFileSync(join(pullDir, "transcript", "session.jsonl"), "utf-8")).toContain("capture me");

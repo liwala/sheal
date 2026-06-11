@@ -189,10 +189,13 @@ Acquire local sandbox changes into sheal's staging area. The shipped local path
 supports `sbx` sandboxes and Docker containers, capturing git diff, agent
 artifacts, memory files, and transcripts when present. Missing optional paths
 are reported as gaps in the pull output and provenance.
-Agent home artifacts are read from the sandbox user's home directory
-(`$HOME/.claude` for Claude, `$HOME/.codex` for Codex); project files such as
-`AGENTS.md`, `MEMORY.md`, and `.sheal/session.jsonl` are read from the sandbox
-workspace.
+Agent home artifacts are discovered by probing supported agent directories under
+the sandbox user's home directory (`$HOME/.claude`, `$HOME/.codex`,
+`$HOME/.copilot`, `$HOME/.cursor`, `$HOME/.docker-agent`, `$HOME/.droid`,
+`$HOME/.gemini`, `$HOME/.kiro`, and `$HOME/.opencode`). Missing home probes are
+ignored; project files such as `AGENTS.md`, `MEMORY.md`, and
+`.sheal/session.jsonl` are read from the sandbox workspace and are reported as
+gaps when absent.
 
 ```bash
 sheal pull --list                  # List available sbx sandboxes and Docker containers
