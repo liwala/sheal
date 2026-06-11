@@ -28,12 +28,12 @@ flowchart LR
     Runtime["Runtime pull\nsbx or Docker"]
   end
 
-  Runtime --> Pull["Acquisition staging\n.sheal/pulls/<backend>/<name>/<timestamp>/"]
+  Runtime --> Pull["Acquisition staging\n~/.sheal/pulls/<backend>/<name>/<timestamp>/"]
   Home --> Normalize["Normalize raw session"]
   Given --> Normalize
   Pull --> Normalize
 
-  Normalize --> Raw["Raw session registry\n.sheal/sessions/raw/<stable-session-id>/"]
+  Normalize --> Raw["Project raw session registry\n<projectRoot>/.sheal/sessions/raw/<stable-session-id>/"]
 
   Raw --> Later["Later consolidation / analysis\nretro, ask, digest, browse, learnings"]
   Pull -. "ingested.json records raw session ids" .-> Raw
@@ -47,7 +47,7 @@ and are out of scope for this task.
 ### Raw registry layout
 
 ```text
-.sheal/sessions/raw/<stable-session-id>/
+<projectRoot>/.sheal/sessions/raw/<stable-session-id>/
   manifest.json
   transcript.raw.jsonl
   normalized.json
@@ -74,7 +74,7 @@ the source provides them. `normalized.json` is the durable, tool-readable
     "kind": "pull",
     "backend": "sbx",
     "name": "claude-agent-operating-policy",
-    "pullDir": ".sheal/pulls/sbx/claude-agent-operating-policy/2026-06-11T09-47-18-759Z",
+    "pullDir": "~/.sheal/pulls/sbx/claude-agent-operating-policy/2026-06-11T09-47-18-759Z",
     "transcriptPath": "transcript/.claude/projects/-Users-lu-code-small-projects-agent-operating-policy/7eb5a0b7-660c-4560-9a17-eba2843135dc.jsonl"
   },
   "hashes": {
@@ -113,8 +113,16 @@ auth/token caches, session environment dumps, backups of agent config files, and
 paste/cache directories. Any future artifact ingestion must use an explicit
 allowlist.
 
+### Storage decision
+
+**Answered (2026-06-11, Luisa):** pull acquisition staging is global under
+`~/.sheal/pulls/<backend>/<name>/<timestamp>/`. Normalized raw sessions are
+project-local under `<projectRoot>/.sheal/sessions/raw/<stable-session-id>/`.
+The existing `pull.stagingDir` setting remains the override for non-default pull
+staging roots.
+
 1. **Define the raw session registry contract** under
-   `.sheal/sessions/raw/<stable-session-id>/`:
+   `<projectRoot>/.sheal/sessions/raw/<stable-session-id>/`:
    - `manifest.json` with stable session identity, source path(s), source kind,
      agent, project/workspace, timestamps, content hashes, and provenance.
    - `transcript.raw.jsonl` preserving the original transcript bytes when a raw
@@ -127,9 +135,9 @@ allowlist.
    - the user's normal home directories (`~/.claude`, `~/.codex`);
    - an explicit source root supplied by sheal;
    - pulled staging paths such as
-     `.sheal/pulls/<backend>/<name>/<timestamp>/transcript/...`.
-3. **Normalize pulled sessions** from `.sheal/pulls/` into the raw registry
-   without requiring the original sandbox/container to still exist.
+     `~/.sheal/pulls/<backend>/<name>/<timestamp>/transcript/...`.
+3. **Normalize pulled sessions** from `~/.sheal/pulls/` into the project-local
+   raw registry without requiring the original sandbox/container to still exist.
 4. **Derive stable session IDs** from the transcript's native session id when
    available; otherwise use a deterministic fallback fingerprint over agent,
    project/workspace, transcript content hash, and capture provenance. Repeated
@@ -151,11 +159,11 @@ allowlist.
 ## Done when
 
 - End-to-end tests show a pulled Claude transcript under
-  `.sheal/pulls/<backend>/<name>/<timestamp>/transcript/.claude/projects/<slug>/*.jsonl`
-  is normalized into `.sheal/sessions/raw/<stable-session-id>/`.
+  `~/.sheal/pulls/<backend>/<name>/<timestamp>/transcript/.claude/projects/<slug>/*.jsonl`
+  is normalized into `<projectRoot>/.sheal/sessions/raw/<stable-session-id>/`.
 - End-to-end tests show a pulled Codex transcript under
-  `.sheal/pulls/<backend>/<name>/<timestamp>/transcript/.codex/sessions/` is
-  normalized into the same raw registry shape.
+  `~/.sheal/pulls/<backend>/<name>/<timestamp>/transcript/.codex/sessions/` is
+  normalized into the same project-local raw registry shape.
 - Re-normalizing repeated pulls of the same transcript updates or reuses the
   same raw session record rather than creating duplicate independent evidence.
 - The raw session manifest records pull provenance and source paths.

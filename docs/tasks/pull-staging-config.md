@@ -15,6 +15,11 @@ output: src/config/types.ts, src/config/defaults.ts, src/config/loader.ts, src/c
 Make the pull staging location configurable (ADR 0005 §Scope, resolves Q3 for the
 local cut), defaulting to the existing `.sheal/pulls` convention.
 
+**Superseded default decision (2026-06-11, Luisa):** future pull staging should
+default to `~/.sheal/pulls`, while normalized raw session records remain
+project-local under `<projectRoot>/.sheal/sessions/raw/`. The configurable
+`pull.stagingDir` override still applies.
+
 ## What we need to extract / do
 
 TDD order (§1):
