@@ -19,6 +19,7 @@ import { runDrift } from "./commands/drift.js";
 import { runRules } from "./commands/rules.js";
 import { runAudit } from "./commands/audit.js";
 import { runPull } from "./commands/pull.js";
+import { runSessionsImport } from "./commands/sessions.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -398,6 +399,24 @@ program
     await runPull(backend, name, {
       list: opts.list,
       all: opts.all,
+      format: opts.format,
+    });
+  });
+
+const sessions = program
+  .command("sessions")
+  .description("Manage project-local session registry records");
+
+sessions
+  .command("import")
+  .description("Import live-home or explicit-source Claude/Codex sessions into the raw registry")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--source <path>", "Explicit source root containing .claude and/or .codex")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .action((opts) => {
+    runSessionsImport({
+      projectRoot: opts.project,
+      source: opts.source,
       format: opts.format,
     });
   });

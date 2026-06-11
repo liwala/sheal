@@ -4,12 +4,14 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { basename, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
+import { homedir } from "node:os";
 import {
   codexSessionToCheckpoint,
   parseTranscript,
@@ -28,9 +30,23 @@ export interface NormalizePullStageResult {
   rawSessionIds: string[];
 }
 
+export interface NormalizeSessionSourceOptions {
+  projectRoot: string;
+  sourceRoot?: string;
+}
+
+export interface NormalizeSessionSourceResult {
+  rawSessionIds: string[];
+}
+
 interface TranscriptCandidate {
   agent: "Claude Code" | "Codex";
   path: string;
+}
+
+interface SourceTranscriptCandidate extends TranscriptCandidate {
+  root: string;
+  sourceKind: "live-home" | "explicit-source";
 }
 
 interface CandidateNormalization {
@@ -49,13 +65,19 @@ interface RawSessionManifest {
   projectPath: string;
   createdAt: string;
   updatedAt: string;
-  source: {
-    kind: "pull";
-    backend: string;
-    name: string;
-    pullDir: string;
-    transcriptPath: string;
-  };
+  source:
+    | {
+        kind: "pull";
+        backend: string;
+        name: string;
+        pullDir: string;
+        transcriptPath: string;
+      }
+    | {
+        kind: "live-home" | "explicit-source";
+        root: string;
+        transcriptPath: string;
+      };
   hashes: {
     transcriptRawSha256?: string;
     normalizedSha256: string;
@@ -102,6 +124,28 @@ export function normalizePullStage(options: NormalizePullStageOptions): Normaliz
   return { rawSessionIds: uniqueRawSessionIds };
 }
 
+export function normalizeSessionSource(options: NormalizeSessionSourceOptions): NormalizeSessionSourceResult {
+  const sourceKind = options.sourceRoot ? "explicit-source" : "live-home";
+  const candidates = collectSourceTranscriptCandidates({
+    projectRoot: options.projectRoot,
+    sourceRoot: options.sourceRoot,
+    sourceKind,
+  });
+  const rawSessionIds: string[] = [];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeCandidate(candidate, null);
+    writeSourceRawSessionRecord({
+      projectRoot: options.projectRoot,
+      candidate,
+      normalized,
+    });
+    rawSessionIds.push(normalized.stableSessionId);
+  }
+
+  return { rawSessionIds: [...new Set(rawSessionIds)] };
+}
+
 function collectTranscriptCandidates(pullDir: string): TranscriptCandidate[] {
   const candidates: TranscriptCandidate[] = [];
   const claudeProjectsDir = join(pullDir, "transcript", ".claude", "projects");
@@ -115,6 +159,45 @@ function collectTranscriptCandidates(pullDir: string): TranscriptCandidate[] {
   }
 
   return candidates;
+}
+
+function collectSourceTranscriptCandidates(options: {
+  projectRoot: string;
+  sourceRoot?: string;
+  sourceKind: "live-home" | "explicit-source";
+}): SourceTranscriptCandidate[] {
+  const candidates: SourceTranscriptCandidate[] = [];
+  const claudeRoot = resolveClaudeRoot(options.sourceRoot);
+  const codexRoot = resolveCodexRoot(options.sourceRoot);
+  const claudeProjectDir = claudeProjectDirFor(options.projectRoot, claudeRoot);
+
+  const claudePaths = existsSync(claudeProjectDir)
+    ? collectJsonlFiles(claudeProjectDir)
+    : collectClaudeJsonlFilesByProjectCwd(claudeRoot, options.projectRoot);
+
+  for (const path of claudePaths) {
+    candidates.push({
+      agent: "Claude Code",
+      path,
+      root: claudeRoot,
+      sourceKind: options.sourceKind,
+    });
+  }
+
+  for (const path of collectJsonlFiles(join(codexRoot, "sessions"))) {
+    const content = readFileSync(path, "utf-8");
+    const meta = extractCodexMeta(path, content, null);
+    if (samePath(meta.cwd, options.projectRoot)) {
+      candidates.push({
+        agent: "Codex",
+        path,
+        root: codexRoot,
+        sourceKind: options.sourceKind,
+      });
+    }
+  }
+
+  return candidates.sort((a, b) => a.path.localeCompare(b.path));
 }
 
 function normalizeCandidate(
@@ -271,6 +354,49 @@ function writeRawSessionRecord(params: {
   writeFileSync(join(rawDir, "manifest.json"), jsonWithTrailingNewline(manifest), "utf-8");
 }
 
+function writeSourceRawSessionRecord(params: {
+  projectRoot: string;
+  candidate: SourceTranscriptCandidate;
+  normalized: CandidateNormalization;
+}): void {
+  const rawDir = join(params.projectRoot, ".sheal", "sessions", "raw", params.normalized.stableSessionId);
+  mkdirSync(rawDir, { recursive: true });
+
+  const transcriptRaw = readFileSync(params.candidate.path, "utf-8");
+  writeFileSync(join(rawDir, "transcript.raw.jsonl"), transcriptRaw, "utf-8");
+  rmSync(join(rawDir, "git.diff"), { force: true });
+  rmSync(join(rawDir, "provenance.json"), { force: true });
+
+  const normalizedJson = jsonWithTrailingNewline(params.normalized.checkpoint);
+  writeFileSync(join(rawDir, "normalized.json"), normalizedJson, "utf-8");
+
+  const existingManifest = readJsonIfExists<RawSessionManifest>(join(rawDir, "manifest.json"));
+  const now = new Date().toISOString();
+  const manifest: RawSessionManifest = {
+    schemaVersion: 1,
+    stableSessionId: params.normalized.stableSessionId,
+    nativeSessionId: params.normalized.nativeSessionId,
+    agent: params.normalized.agent,
+    projectPath: params.normalized.projectPath,
+    createdAt: existingManifest?.createdAt ?? now,
+    updatedAt: now,
+    source: {
+      kind: params.candidate.sourceKind,
+      root: params.candidate.root,
+      transcriptPath: relative(params.candidate.root, params.candidate.path),
+    },
+    hashes: {
+      transcriptRawSha256: sha256(transcriptRaw),
+      normalizedSha256: sha256(normalizedJson),
+    },
+    provenance: {
+      sourcePaths: [params.candidate.path],
+      gaps: [],
+    },
+  };
+  writeFileSync(join(rawDir, "manifest.json"), jsonWithTrailingNewline(manifest), "utf-8");
+}
+
 function collectJsonlFiles(root: string): string[] {
   if (!existsSync(root)) return [];
   const files: string[] = [];
@@ -295,6 +421,57 @@ function collectJsonlFiles(root: string): string[] {
 
   visit(root);
   return files.sort();
+}
+
+function resolveClaudeRoot(sourceRoot?: string): string {
+  if (!sourceRoot) return join(homedir(), ".claude");
+  const root = resolve(sourceRoot);
+  if (existsSync(join(root, "projects"))) return root;
+  if (existsSync(join(root, ".claude", "projects"))) return join(root, ".claude");
+  return root;
+}
+
+function resolveCodexRoot(sourceRoot?: string): string {
+  if (!sourceRoot) return join(homedir(), ".codex");
+  const root = resolve(sourceRoot);
+  if (basename(root) === "sessions") return dirname(root);
+  if (existsSync(join(root, "sessions"))) return root;
+  if (existsSync(join(root, ".codex", "sessions"))) return join(root, ".codex");
+  return root;
+}
+
+function claudeProjectDirFor(projectRoot: string, claudeRoot: string): string {
+  const slug = resolve(projectRoot).replace(/[\\/: ]/g, "-");
+  const dir = join(claudeRoot, "projects", slug);
+  if (existsSync(dir)) return dir;
+
+  const lowerSlug = slug.charAt(0).toLowerCase() + slug.slice(1);
+  if (lowerSlug !== slug) {
+    const lowerDir = join(claudeRoot, "projects", lowerSlug);
+    if (existsSync(lowerDir)) return lowerDir;
+  }
+
+  return dir;
+}
+
+function collectClaudeJsonlFilesByProjectCwd(claudeRoot: string, projectRoot: string): string[] {
+  return collectJsonlFiles(join(claudeRoot, "projects")).filter((path) => {
+    const content = readFileSync(path, "utf-8");
+    const cwd = extractFirstTopLevelString(content, "cwd");
+    return cwd ? samePath(cwd, projectRoot) : false;
+  });
+}
+
+function samePath(a: string, b: string): boolean {
+  return a.length > 0 && canonicalPath(a) === canonicalPath(b);
+}
+
+function canonicalPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
 }
 
 function extractClaudeSessionId(content: string): string | null {
