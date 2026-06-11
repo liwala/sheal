@@ -16,7 +16,7 @@
 ## D3 — Raw Session Normalization
 
 - [x] [T3. Normalize pulled sessions into a raw session registry](t3-normalize-pulled-sessions-into-raw-session-registry.md) — `done` → src/sessions/raw-registry.ts, src/commands/pull.ts, packages/agent-sessions/src/claude.ts, packages/agent-sessions/src/codex.ts, test/pull-raw-registry.test.ts, test/native-reader-roots.test.ts
-- [ ] [T5. Normalize live-home sessions into the raw session registry](t5-normalize-live-home-sessions-into-raw-session-registry.md) — `doing`
+- [x] [T5. Normalize live-home sessions into the raw session registry](t5-normalize-live-home-sessions-into-raw-session-registry.md) — `done` → src/sessions/raw-registry.ts, src/commands/sessions.ts, src/sessions/inventory.ts, src/browse/views/SessionList.tsx, src/commands/retro.ts, src/index.ts, test/live-home-raw-registry.test.ts, test/session-inventory.test.ts, test/retro-command.test.ts, README.md
 
 ## ops — Cross-cutting
 

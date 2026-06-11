@@ -1,11 +1,13 @@
 ---
-status: doing
+status: done
 started: 2026-06-11
+closed: 2026-06-11
 type: task
 id: T5
 deliverable: D3
 created: 2026-06-11
 links: [t3-normalize-pulled-sessions-into-raw-session-registry.md, q2-cross-path-dedup.md]
+output: src/sessions/raw-registry.ts, src/commands/sessions.ts, src/sessions/inventory.ts, src/browse/views/SessionList.tsx, src/commands/retro.ts, src/index.ts, test/live-home-raw-registry.test.ts, test/session-inventory.test.ts, test/retro-command.test.ts, README.md
 ---
 
 # T5. Normalize live-home sessions into the raw session registry
