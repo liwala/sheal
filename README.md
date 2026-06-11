@@ -171,7 +171,26 @@ sheal browse -p myproject          # Pre-filter by project name
 sheal browse --agent codex         # Pre-filter by agent
 ```
 
-Supports Claude Code, Codex, Amp, and Entire.io sessions.
+Supports Claude Code, Codex, Amp, and Entire.io sessions. Claude and Codex
+sessions that are visible in the live home directories but not yet present in
+`.sheal/sessions/raw/` are marked as not backed up, and the sessions view offers
+to add them to the registry.
+
+### `sheal sessions import`
+
+Import Claude Code and Codex transcripts from live home directories, or from an
+explicit source root, into the current project's raw session registry.
+
+```bash
+sheal sessions import              # Import from ~/.claude and ~/.codex
+sheal sessions import --source /tmp/agent-home
+sheal sessions import --format json
+```
+
+Imported sessions are written to
+`.sheal/sessions/raw/<stable-session-id>/` with `manifest.json`,
+`transcript.raw.jsonl`, and `normalized.json`. Live-home and explicit-source
+imports do not create pull staging `ingested.json` markers.
 
 ### `sheal export`
 

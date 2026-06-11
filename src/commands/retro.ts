@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { createInterface } from "node:readline/promises";
 import {
   getAmpThreadProjectPath,
   hasAmpSessions,
@@ -31,6 +32,9 @@ import {
 import { detectProjectTags } from "../learn/detect.js";
 import type { LearningFile } from "../learn/types.js";
 import type { Retrospective, Learning } from "../retro/types.js";
+import { normalizeSessionSource } from "../sessions/raw-registry.js";
+import { listProjectSessionInventory } from "../sessions/inventory.js";
+import type { SessionInventoryItem } from "../sessions/inventory.js";
 
 export interface RetroOptions {
   format: string;
@@ -55,6 +59,18 @@ interface RetroSessionCandidate {
   id: string;
   createdAt: string;
   title?: string;
+}
+
+type RetroRegistryImportOfferResult = "not-needed" | "declined" | "imported";
+
+export interface RetroRegistryImportOfferOptions {
+  projectRoot: string;
+  checkpoint: Checkpoint;
+  format?: string;
+  inventory?: SessionInventoryItem[];
+  confirmImport?: (message: string) => Promise<boolean>;
+  importSessions?: () => { rawSessionIds: string[] };
+  notify?: (message: string) => void;
 }
 
 /**
@@ -130,6 +146,12 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   const checkpoint = await loadSession(repoPath, options.checkpointId);
   if (!checkpoint) return;
 
+  await handleRetroRegistryImportOffer({
+    projectRoot: repoPath,
+    checkpoint,
+    format: options.format,
+  });
+
   const skipReason = shouldSkipSession(checkpoint);
   if (skipReason) {
     const id = checkpoint.root.checkpointId.slice(0, 12);
@@ -174,6 +196,61 @@ export async function runRetro(options: RetroOptions): Promise<void> {
     console.log(JSON.stringify(clean, null, 2));
   } else {
     printRetro(retro, cached);
+  }
+}
+
+export async function handleRetroRegistryImportOffer(
+  options: RetroRegistryImportOfferOptions,
+): Promise<RetroRegistryImportOfferResult> {
+  if (options.format === "json") return "not-needed";
+
+  const session = options.checkpoint.sessions[0];
+  const sessionId = session?.metadata.sessionId ?? options.checkpoint.root.checkpointId;
+  const agent = session?.metadata.agent;
+  if (agent !== "Claude Code" && agent !== "Codex") return "not-needed";
+
+  const inventory = options.inventory ?? listProjectSessionInventory(options.projectRoot);
+  const item = inventory.find((candidate) =>
+    candidate.sessionId === sessionId &&
+    candidate.agent === agent &&
+    candidate.registryStatus === "live-home-only",
+  );
+  if (!item) return "not-needed";
+
+  const notify = options.notify ?? ((message: string) => console.log(message));
+  const confirmImport = options.confirmImport ?? confirmRegistryImport;
+  const importSessions = options.importSessions ?? (() => normalizeSessionSource({ projectRoot: options.projectRoot }));
+  const wantsImport = await confirmImport(`${agent} session ${sessionId} is not backed up in the sheal registry yet. Add it before analysis?`);
+
+  if (!wantsImport) {
+    notify("Continuing with the live-home session without adding it to the registry.");
+    return "declined";
+  }
+
+  const result = importSessions();
+  if (result.rawSessionIds.includes(item.rawSessionId)) {
+    notify("Added session to .sheal/sessions/raw/.");
+  } else {
+    notify("Ran registry import, but this session was not added.");
+  }
+  return "imported";
+}
+
+async function confirmRegistryImport(message: string): Promise<boolean> {
+  if (!process.stdin.isTTY) {
+    console.log(chalk.yellow(message));
+    return false;
+  }
+
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  try {
+    const answer = await rl.question(`${message} [y/N] `);
+    return /^y(?:es)?$/i.test(answer.trim());
+  } finally {
+    rl.close();
   }
 }
 

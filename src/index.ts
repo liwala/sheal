@@ -122,6 +122,7 @@ Browsing
   sheal browse learnings          Browse learnings
   sheal browse digests            Browse digest reports
   sheal export                    Export session data as JSON (for piping)
+  sheal sessions import           Add live Claude/Codex sessions to raw registry
   sheal graph                     Cross-session knowledge graph
   sheal drift                     Detect when learnings aren't being applied
 
