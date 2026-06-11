@@ -5,7 +5,7 @@ owner: Luisa
 created: 2026-06-09
 ---
 
-# Q2. How do we dedup a session captured by more than one path (ADR 0005 Q5, ADR 0004 Q2)?
+# Q2. How do we dedup a session captured by more than one path (ADR 0005 cross-path dedup, ADR 0004 Q2)?
 
 **Why it matters:** once remote adapters exist, one session can be captured both
 by a local pull and via its cloud PR. ADR 0001 derives a pattern's `confidence`
