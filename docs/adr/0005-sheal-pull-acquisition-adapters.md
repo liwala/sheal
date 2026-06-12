@@ -210,9 +210,11 @@ Still deferred as implementation work:
 - **Checkpointing/daemon.** Fully destroyed environments need a host-side
   checkpointing path, but interval, capture set, and runtime opt-in behavior
   remain follow-up design work.
-- **Dedup across capture paths.** Once remote adapters exist, a session captured
-  both by local pull and via its cloud PR must count once (ties to ADR 0004 Q2).
-  Moot while local-only, but tracked as the remaining open task question.
+- **Dedup across capture paths.** Q2 is answered in
+  `docs/tasks/q2-cross-path-dedup.md`: remote/cloud captures must link by
+  authoritative aliases, while PR/branch/commit facts remain correlation hints.
+  Alias-aware raw-registry implementation remains deferred until before the
+  first remote/cloud source writes raw session records.
 
 ## First step (validation milestone)
 

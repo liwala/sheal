@@ -145,9 +145,10 @@ staging roots.
    available; otherwise use a deterministic fallback fingerprint over agent,
    project/workspace, transcript content hash, and capture provenance. Repeated
    pulls of the same transcript should resolve to the same raw session record.
-5. **Keep Q2 open for cross-source aliases**: stable raw IDs solve local repeated
-   pulls, but remote/cloud sources may still need an alias or highest-fidelity
-   merge rule when their IDs do not match local transcript IDs.
+5. **Defer cross-source aliases to Q2/T6**: stable raw IDs solve local repeated
+   pulls. Q2 later answered the remote/cloud alias contract; T6 tracks the
+   alias-aware implementation needed when source IDs do not match local
+   transcript IDs.
 6. **Mark pull staging as ingested, not analyzed** after successful
    normalization, for example with an `ingested.json` marker pointing to the raw
    session IDs produced. This marker enables later retention/GC without implying

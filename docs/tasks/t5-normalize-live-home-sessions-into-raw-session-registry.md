@@ -46,8 +46,8 @@ make registry coverage visible before analysis happens.
   prompt the user to add that session to the registry before continuing. A
   declined prompt should continue with today's live-home behavior rather than
   blocking analysis.
-- Keep Q2 open for future cross-source aliasing between live-home, pull, and
-  remote/cloud sources.
+- Leave cross-source aliasing between live-home, pull, and remote/cloud sources
+  to Q2/T6. Q2 now records the alias contract; T6 tracks implementation.
 - Do not wire `ask`, `digest`, or learning generation to consume the raw
   registry in this task. `browse` and `retro` changes are limited to visibility,
   backup status, and import prompts.
