@@ -1,5 +1,4 @@
 import {
-  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -17,7 +16,7 @@ import {
   parseTranscript,
 } from "@liwala/agent-sessions";
 import type { Checkpoint, CodexSessionFile, Session, SessionEntry, TokenUsage } from "@liwala/agent-sessions";
-import type { PullProvenance } from "../pull/types.js";
+import type { PullCorrelationHint, PullProvenance } from "../pull/types.js";
 
 export interface NormalizePullStageOptions {
   projectRoot: string;
@@ -57,6 +56,46 @@ interface CandidateNormalization {
   checkpoint: Checkpoint;
 }
 
+type RawSessionSource =
+  | {
+      kind: "pull";
+      backend: string;
+      name: string;
+      pullDir: string;
+      transcriptPath?: string;
+    }
+  | {
+      kind: "live-home" | "explicit-source";
+      root: string;
+      transcriptPath: string;
+    };
+
+type RawSessionFidelity = "git-only" | "transcript-only" | "transcript+diff";
+
+interface RawSessionHashes {
+  transcriptRawSha256?: string;
+  normalizedSha256?: string;
+  gitDiffSha256?: string;
+}
+
+interface RawSessionProvenance {
+  sourcePaths: string[];
+  gaps: string[];
+}
+
+interface RawSessionCapture {
+  id: string;
+  capturedAt: string;
+  source: RawSessionSource;
+  fidelity: RawSessionFidelity;
+  hashes: RawSessionHashes;
+  provenance: RawSessionProvenance;
+  aliases: string[];
+  correlationHints: PullCorrelationHint[];
+  needsLink: boolean;
+  primary: boolean;
+}
+
 interface RawSessionManifest {
   schemaVersion: 1;
   stableSessionId: string;
@@ -65,28 +104,28 @@ interface RawSessionManifest {
   projectPath: string;
   createdAt: string;
   updatedAt: string;
-  source:
-    | {
-        kind: "pull";
-        backend: string;
-        name: string;
-        pullDir: string;
-        transcriptPath: string;
-      }
-    | {
-        kind: "live-home" | "explicit-source";
-        root: string;
-        transcriptPath: string;
-      };
-  hashes: {
-    transcriptRawSha256?: string;
-    normalizedSha256: string;
-    gitDiffSha256?: string;
+  source: RawSessionSource;
+  hashes: RawSessionHashes;
+  provenance: RawSessionProvenance;
+  identity?: {
+    canonicalSessionId: string;
+    authoritativeAliases: string[];
+    correlationHints: PullCorrelationHint[];
+    needsLink: boolean;
   };
-  provenance: {
-    sourcePaths: string[];
-    gaps: string[];
-  };
+  captures?: RawSessionCapture[];
+}
+
+interface PendingRawSessionCapture {
+  stableSessionId: string;
+  nativeSessionId: string;
+  agent: string;
+  projectPath: string;
+  capture: RawSessionCapture;
+  transcriptRaw?: string;
+  normalizedJson?: string;
+  gitDiff?: string;
+  provenanceJson?: string;
 }
 
 export function normalizePullStage(options: NormalizePullStageOptions): NormalizePullStageResult {
@@ -96,7 +135,7 @@ export function normalizePullStage(options: NormalizePullStageOptions): Normaliz
 
   for (const candidate of candidates) {
     const normalized = normalizeCandidate(candidate, provenance);
-    writeRawSessionRecord({
+    const rawSessionId = writeRawSessionRecord({
       projectRoot: options.projectRoot,
       pullDir: options.pullDir,
       backend: options.backend,
@@ -105,7 +144,20 @@ export function normalizePullStage(options: NormalizePullStageOptions): Normaliz
       normalized,
       provenance,
     });
-    rawSessionIds.push(normalized.stableSessionId);
+    rawSessionIds.push(rawSessionId);
+  }
+
+  if (candidates.length === 0) {
+    const rawSessionId = writeGitOnlyPullRecord({
+      projectRoot: options.projectRoot,
+      pullDir: options.pullDir,
+      backend: options.backend,
+      name: options.name,
+      provenance,
+    });
+    if (rawSessionId) {
+      rawSessionIds.push(rawSessionId);
+    }
   }
 
   const uniqueRawSessionIds = [...new Set(rawSessionIds)];
@@ -135,12 +187,12 @@ export function normalizeSessionSource(options: NormalizeSessionSourceOptions): 
 
   for (const candidate of candidates) {
     const normalized = normalizeCandidate(candidate, null);
-    writeSourceRawSessionRecord({
+    const rawSessionId = writeSourceRawSessionRecord({
       projectRoot: options.projectRoot,
       candidate,
       normalized,
     });
-    rawSessionIds.push(normalized.stableSessionId);
+    rawSessionIds.push(rawSessionId);
   }
 
   return { rawSessionIds: [...new Set(rawSessionIds)] };
@@ -295,45 +347,24 @@ function writeRawSessionRecord(params: {
   candidate: TranscriptCandidate;
   normalized: CandidateNormalization;
   provenance: PullProvenance | null;
-}): void {
-  const rawDir = join(params.projectRoot, ".sheal", "sessions", "raw", params.normalized.stableSessionId);
-  mkdirSync(rawDir, { recursive: true });
-
+}): string {
   const transcriptRaw = readFileSync(params.candidate.path, "utf-8");
-  const transcriptRawPath = join(rawDir, "transcript.raw.jsonl");
-  writeFileSync(transcriptRawPath, transcriptRaw, "utf-8");
-
   const gitDiffPath = join(params.pullDir, "git.diff");
   const stagedProvenancePath = join(params.pullDir, "provenance.json");
-  const rawGitDiffPath = join(rawDir, "git.diff");
-  const rawProvenancePath = join(rawDir, "provenance.json");
   const gitDiff = existsSync(gitDiffPath) ? readFileSync(gitDiffPath, "utf-8") : null;
-
-  if (gitDiff !== null) {
-    copyFileSync(gitDiffPath, rawGitDiffPath);
-  } else {
-    rmSync(rawGitDiffPath, { force: true });
-  }
-
-  if (existsSync(stagedProvenancePath)) {
-    copyFileSync(stagedProvenancePath, rawProvenancePath);
-  } else {
-    rmSync(rawProvenancePath, { force: true });
-  }
-
+  const provenanceJson = existsSync(stagedProvenancePath) ? readFileSync(stagedProvenancePath, "utf-8") : undefined;
+  const aliases = authoritativeAliasesForTranscript(params.normalized.agent, params.normalized.nativeSessionId, transcriptRaw);
+  const stableSessionId = resolveCanonicalSessionId(params.projectRoot, params.normalized.stableSessionId, aliases);
+  applyStableSessionId(params.normalized.checkpoint, stableSessionId, params.normalized.nativeSessionId);
   const normalizedJson = jsonWithTrailingNewline(params.normalized.checkpoint);
-  writeFileSync(join(rawDir, "normalized.json"), normalizedJson, "utf-8");
-
-  const existingManifest = readJsonIfExists<RawSessionManifest>(join(rawDir, "manifest.json"));
   const now = new Date().toISOString();
-  const manifest: RawSessionManifest = {
-    schemaVersion: 1,
-    stableSessionId: params.normalized.stableSessionId,
-    nativeSessionId: params.normalized.nativeSessionId,
-    agent: params.normalized.agent,
-    projectPath: params.normalized.projectPath,
-    createdAt: existingManifest?.createdAt ?? now,
-    updatedAt: now,
+  const hashes: RawSessionHashes = {
+    transcriptRawSha256: sha256(transcriptRaw),
+    normalizedSha256: sha256(normalizedJson),
+    ...(gitDiff !== null ? { gitDiffSha256: sha256(gitDiff) } : {}),
+  };
+  const capture = buildCapture({
+    capturedAt: now,
     source: {
       kind: "pull",
       backend: params.backend,
@@ -341,50 +372,51 @@ function writeRawSessionRecord(params: {
       pullDir: params.pullDir,
       transcriptPath: relative(params.pullDir, params.candidate.path),
     },
-    hashes: {
-      transcriptRawSha256: sha256(transcriptRaw),
-      normalizedSha256: sha256(normalizedJson),
-      ...(gitDiff !== null ? { gitDiffSha256: sha256(gitDiff) } : {}),
-    },
+    fidelity: gitDiff !== null ? "transcript+diff" : "transcript-only",
+    hashes,
     provenance: {
       sourcePaths: params.provenance?.sourcePaths ?? [],
       gaps: params.provenance?.gaps ?? [],
     },
-  };
-  writeFileSync(join(rawDir, "manifest.json"), jsonWithTrailingNewline(manifest), "utf-8");
+    aliases,
+    correlationHints: correlationHintsFromProvenance(params.provenance),
+  });
+
+  persistRawSessionCapture({
+    projectRoot: params.projectRoot,
+    stableSessionId,
+    nativeSessionId: params.normalized.nativeSessionId,
+    agent: params.normalized.agent,
+    projectPath: params.normalized.projectPath,
+    capture,
+    transcriptRaw,
+    normalizedJson,
+    ...(gitDiff !== null ? { gitDiff } : {}),
+    ...(provenanceJson ? { provenanceJson } : {}),
+  });
+
+  return stableSessionId;
 }
 
 function writeSourceRawSessionRecord(params: {
   projectRoot: string;
   candidate: SourceTranscriptCandidate;
   normalized: CandidateNormalization;
-}): void {
-  const rawDir = join(params.projectRoot, ".sheal", "sessions", "raw", params.normalized.stableSessionId);
-  mkdirSync(rawDir, { recursive: true });
-
+}): string {
   const transcriptRaw = readFileSync(params.candidate.path, "utf-8");
-  writeFileSync(join(rawDir, "transcript.raw.jsonl"), transcriptRaw, "utf-8");
-  rmSync(join(rawDir, "git.diff"), { force: true });
-  rmSync(join(rawDir, "provenance.json"), { force: true });
-
+  const aliases = authoritativeAliasesForTranscript(params.normalized.agent, params.normalized.nativeSessionId, transcriptRaw);
+  const stableSessionId = resolveCanonicalSessionId(params.projectRoot, params.normalized.stableSessionId, aliases);
+  applyStableSessionId(params.normalized.checkpoint, stableSessionId, params.normalized.nativeSessionId);
   const normalizedJson = jsonWithTrailingNewline(params.normalized.checkpoint);
-  writeFileSync(join(rawDir, "normalized.json"), normalizedJson, "utf-8");
-
-  const existingManifest = readJsonIfExists<RawSessionManifest>(join(rawDir, "manifest.json"));
   const now = new Date().toISOString();
-  const manifest: RawSessionManifest = {
-    schemaVersion: 1,
-    stableSessionId: params.normalized.stableSessionId,
-    nativeSessionId: params.normalized.nativeSessionId,
-    agent: params.normalized.agent,
-    projectPath: params.normalized.projectPath,
-    createdAt: existingManifest?.createdAt ?? now,
-    updatedAt: now,
+  const capture = buildCapture({
+    capturedAt: now,
     source: {
       kind: params.candidate.sourceKind,
       root: params.candidate.root,
       transcriptPath: relative(params.candidate.root, params.candidate.path),
     },
+    fidelity: "transcript-only",
     hashes: {
       transcriptRawSha256: sha256(transcriptRaw),
       normalizedSha256: sha256(normalizedJson),
@@ -393,8 +425,325 @@ function writeSourceRawSessionRecord(params: {
       sourcePaths: [params.candidate.path],
       gaps: [],
     },
+    aliases,
+    correlationHints: [],
+  });
+
+  persistRawSessionCapture({
+    projectRoot: params.projectRoot,
+    stableSessionId,
+    nativeSessionId: params.normalized.nativeSessionId,
+    agent: params.normalized.agent,
+    projectPath: params.normalized.projectPath,
+    capture,
+    transcriptRaw,
+    normalizedJson,
+  });
+
+  return stableSessionId;
+}
+
+function writeGitOnlyPullRecord(params: {
+  projectRoot: string;
+  pullDir: string;
+  backend: string;
+  name: string;
+  provenance: PullProvenance | null;
+}): string | null {
+  const gitDiffPath = join(params.pullDir, "git.diff");
+  if (!existsSync(gitDiffPath)) return null;
+
+  const gitDiff = readFileSync(gitDiffPath, "utf-8");
+  const stagedProvenancePath = join(params.pullDir, "provenance.json");
+  const provenanceJson = existsSync(stagedProvenancePath) ? readFileSync(stagedProvenancePath, "utf-8") : undefined;
+  const stableSessionId = `unlinked:${sha256([
+    params.backend,
+    params.name,
+    params.pullDir,
+    sha256(gitDiff),
+    ...(params.provenance?.sourcePaths ?? []),
+  ].join("\0")).slice(0, 32)}`;
+  const now = new Date().toISOString();
+  const capture = buildCapture({
+    capturedAt: now,
+    source: {
+      kind: "pull",
+      backend: params.backend,
+      name: params.name,
+      pullDir: params.pullDir,
+    },
+    fidelity: "git-only",
+    hashes: {
+      gitDiffSha256: sha256(gitDiff),
+    },
+    provenance: {
+      sourcePaths: params.provenance?.sourcePaths ?? [],
+      gaps: params.provenance?.gaps ?? [],
+    },
+    aliases: [],
+    correlationHints: correlationHintsFromProvenance(params.provenance),
+  });
+
+  persistRawSessionCapture({
+    projectRoot: params.projectRoot,
+    stableSessionId,
+    nativeSessionId: stableSessionId,
+    agent: params.provenance?.agent ?? params.backend,
+    projectPath: params.provenance?.sourcePaths[0] ?? "",
+    capture,
+    gitDiff,
+    ...(provenanceJson ? { provenanceJson } : {}),
+  });
+
+  return stableSessionId;
+}
+
+function persistRawSessionCapture(params: PendingRawSessionCapture & { projectRoot: string }): void {
+  const rawDir = join(params.projectRoot, ".sheal", "sessions", "raw", params.stableSessionId);
+  mkdirSync(rawDir, { recursive: true });
+
+  const manifestPath = join(rawDir, "manifest.json");
+  const existingManifest = readJsonIfExists<RawSessionManifest>(manifestPath);
+  const existingCaptures = capturesFromManifest(existingManifest);
+  const captures = [...existingCaptures, params.capture];
+  const primaryIndex = selectPrimaryCaptureIndex(captures);
+  const capturesWithPrimary = captures.map((capture, index) => ({
+    ...capture,
+    primary: index === primaryIndex,
+  }));
+  const primaryCapture = capturesWithPrimary[primaryIndex];
+  if (!primaryCapture) {
+    throw new Error(`raw session ${params.stableSessionId} has no primary capture`);
+  }
+
+  if (params.capture.id === primaryCapture.id) {
+    writePrimaryRawMaterial(rawDir, params);
+  }
+
+  const authoritativeAliases = uniqueStrings([
+    ...(existingManifest?.identity?.authoritativeAliases ?? []),
+    ...capturesWithPrimary.flatMap((capture) => capture.aliases),
+  ]);
+  const correlationHints = uniqueHints([
+    ...(existingManifest?.identity?.correlationHints ?? []),
+    ...capturesWithPrimary.flatMap((capture) => capture.correlationHints),
+  ]);
+  const now = new Date().toISOString();
+  const manifest: RawSessionManifest = {
+    schemaVersion: 1,
+    stableSessionId: params.stableSessionId,
+    nativeSessionId: existingManifest?.nativeSessionId ?? params.nativeSessionId,
+    agent: existingManifest?.agent ?? params.agent,
+    projectPath: existingManifest?.projectPath || params.projectPath,
+    createdAt: existingManifest?.createdAt ?? now,
+    updatedAt: now,
+    source: primaryCapture.source,
+    hashes: primaryCapture.hashes,
+    provenance: primaryCapture.provenance,
+    identity: {
+      canonicalSessionId: params.stableSessionId,
+      authoritativeAliases,
+      correlationHints,
+      needsLink: authoritativeAliases.length === 0,
+    },
+    captures: capturesWithPrimary,
   };
-  writeFileSync(join(rawDir, "manifest.json"), jsonWithTrailingNewline(manifest), "utf-8");
+
+  writeFileSync(manifestPath, jsonWithTrailingNewline(manifest), "utf-8");
+}
+
+function writePrimaryRawMaterial(rawDir: string, capture: PendingRawSessionCapture): void {
+  if (capture.transcriptRaw !== undefined) {
+    writeFileSync(join(rawDir, "transcript.raw.jsonl"), capture.transcriptRaw, "utf-8");
+  } else {
+    rmSync(join(rawDir, "transcript.raw.jsonl"), { force: true });
+  }
+
+  if (capture.normalizedJson !== undefined) {
+    writeFileSync(join(rawDir, "normalized.json"), capture.normalizedJson, "utf-8");
+  } else {
+    rmSync(join(rawDir, "normalized.json"), { force: true });
+  }
+
+  if (capture.gitDiff !== undefined) {
+    writeFileSync(join(rawDir, "git.diff"), capture.gitDiff, "utf-8");
+  } else {
+    rmSync(join(rawDir, "git.diff"), { force: true });
+  }
+
+  if (capture.provenanceJson !== undefined) {
+    writeFileSync(join(rawDir, "provenance.json"), capture.provenanceJson, "utf-8");
+  } else {
+    rmSync(join(rawDir, "provenance.json"), { force: true });
+  }
+}
+
+function buildCapture(params: {
+  capturedAt: string;
+  source: RawSessionSource;
+  fidelity: RawSessionFidelity;
+  hashes: RawSessionHashes;
+  provenance: RawSessionProvenance;
+  aliases: string[];
+  correlationHints: PullCorrelationHint[];
+}): RawSessionCapture {
+  const aliases = uniqueStrings(params.aliases);
+  const correlationHints = uniqueHints(params.correlationHints);
+  return {
+    id: `capture:${sha256([
+      params.capturedAt,
+      params.fidelity,
+      JSON.stringify(params.source),
+      JSON.stringify(params.hashes),
+    ].join("\0")).slice(0, 24)}`,
+    capturedAt: params.capturedAt,
+    source: params.source,
+    fidelity: params.fidelity,
+    hashes: params.hashes,
+    provenance: params.provenance,
+    aliases,
+    correlationHints,
+    needsLink: aliases.length === 0,
+    primary: false,
+  };
+}
+
+function capturesFromManifest(manifest: RawSessionManifest | null): RawSessionCapture[] {
+  if (!manifest) return [];
+  if (Array.isArray(manifest.captures)) {
+    return manifest.captures;
+  }
+
+  const aliases = aliasesFromManifest(manifest);
+  return [{
+    id: `capture:${sha256([
+      manifest.createdAt,
+      JSON.stringify(manifest.source),
+      JSON.stringify(manifest.hashes),
+    ].join("\0")).slice(0, 24)}`,
+    capturedAt: manifest.createdAt,
+    source: manifest.source,
+    fidelity: fidelityFromHashes(manifest.hashes),
+    hashes: manifest.hashes,
+    provenance: manifest.provenance,
+    aliases,
+    correlationHints: manifest.identity?.correlationHints ?? [],
+    needsLink: aliases.length === 0,
+    primary: true,
+  }];
+}
+
+function selectPrimaryCaptureIndex(captures: RawSessionCapture[]): number {
+  let primaryIndex = captures.findIndex((capture) => capture.primary);
+  if (primaryIndex < 0) primaryIndex = 0;
+  let primaryRank = fidelityRank(captures[primaryIndex]?.fidelity ?? "git-only");
+
+  captures.forEach((capture, index) => {
+    const rank = fidelityRank(capture.fidelity);
+    if (rank > primaryRank) {
+      primaryIndex = index;
+      primaryRank = rank;
+    }
+  });
+
+  return primaryIndex;
+}
+
+function fidelityFromHashes(hashes: RawSessionHashes): RawSessionFidelity {
+  if (hashes.transcriptRawSha256 && hashes.gitDiffSha256) return "transcript+diff";
+  if (hashes.transcriptRawSha256) return "transcript-only";
+  return "git-only";
+}
+
+function fidelityRank(fidelity: RawSessionFidelity): number {
+  switch (fidelity) {
+    case "transcript+diff":
+      return 3;
+    case "transcript-only":
+      return 2;
+    case "git-only":
+      return 1;
+  }
+}
+
+function resolveCanonicalSessionId(projectRoot: string, preferredStableSessionId: string, aliases: string[]): string {
+  if (aliases.length === 0) return preferredStableSessionId;
+
+  const rawRoot = join(projectRoot, ".sheal", "sessions", "raw");
+  if (!existsSync(rawRoot)) return preferredStableSessionId;
+
+  const aliasSet = new Set(aliases);
+  for (const entry of readdirSync(rawRoot).sort()) {
+    const manifest = readJsonIfExists<RawSessionManifest>(join(rawRoot, entry, "manifest.json"));
+    if (!manifest) continue;
+    if (aliasesFromManifest(manifest).some((alias) => aliasSet.has(alias))) {
+      return manifest.stableSessionId;
+    }
+  }
+
+  return preferredStableSessionId;
+}
+
+function aliasesFromManifest(manifest: RawSessionManifest): string[] {
+  const aliases = manifest.identity?.authoritativeAliases ?? [];
+  if (aliases.length > 0) return aliases;
+
+  return uniqueStrings([
+    ...authoritativeAliasesForNativeSession(manifest.agent, manifest.nativeSessionId),
+    ...(manifest.hashes.transcriptRawSha256 ? [`transcript-sha256:${manifest.hashes.transcriptRawSha256}`] : []),
+  ]);
+}
+
+function authoritativeAliasesForTranscript(
+  agent: "Claude Code" | "Codex",
+  nativeSessionId: string,
+  transcriptRaw: string,
+): string[] {
+  return uniqueStrings([
+    ...authoritativeAliasesForNativeSession(agent, nativeSessionId),
+    `transcript-sha256:${sha256(transcriptRaw)}`,
+  ]);
+}
+
+function authoritativeAliasesForNativeSession(agent: string, nativeSessionId: string): string[] {
+  if (!nativeSessionId) return [];
+  return [`agent-session:${agentSlug(agent)}:${nativeSessionId}`];
+}
+
+function agentSlug(agent: string): string {
+  return agent.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function correlationHintsFromProvenance(provenance: PullProvenance | null): PullCorrelationHint[] {
+  return uniqueHints([
+    ...(provenance?.correlationHints ?? []),
+    ...correlationHintsFromMetadata(provenance?.metadata),
+  ]);
+}
+
+function correlationHintsFromMetadata(metadata: Record<string, string> | undefined): PullCorrelationHint[] {
+  if (!metadata) return [];
+  return uniqueHints([
+    metadata.prUrl ? { kind: "pr-url", value: metadata.prUrl } : null,
+    metadata.pullRequestUrl ? { kind: "pr-url", value: metadata.pullRequestUrl } : null,
+    metadata.branch ? { kind: "branch", value: metadata.branch } : null,
+    metadata.commit ? { kind: "commit", value: metadata.commit } : null,
+    metadata.commitSha ? { kind: "commit", value: metadata.commitSha } : null,
+  ].filter((hint): hint is PullCorrelationHint => hint !== null));
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))];
+}
+
+function uniqueHints(hints: PullCorrelationHint[]): PullCorrelationHint[] {
+  const seen = new Set<string>();
+  return hints.filter((hint) => {
+    const key = `${hint.kind}\0${hint.value}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function collectJsonlFiles(root: string): string[] {

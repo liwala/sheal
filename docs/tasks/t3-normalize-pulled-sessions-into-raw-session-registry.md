@@ -58,9 +58,11 @@ and are out of scope for this task.
   provenance.json
 ```
 
-`transcript.raw.jsonl`, `git.diff`, and `provenance.json` are present only when
-the source provides them. `normalized.json` is the durable, tool-readable
-`@liwala/agent-sessions` checkpoint representation.
+`transcript.raw.jsonl` and `normalized.json` are present when the selected
+primary capture includes a transcript. `git.diff` and `provenance.json` are
+present when the primary capture provides them. Git/PR-only captures can create
+a `needs-link` raw record with `manifest.json`, `git.diff`, and provenance but
+without transcript-backed normalized session material.
 
 ### `manifest.json` shape
 
@@ -88,9 +90,69 @@ the source provides them. `normalized.json` is the durable, tool-readable
   "provenance": {
     "sourcePaths": [],
     "gaps": []
-  }
+  },
+  "identity": {
+    "canonicalSessionId": "claude:7eb5a0b7-660c-4560-9a17-eba2843135dc",
+    "authoritativeAliases": [
+      "agent-session:claude-code:7eb5a0b7-660c-4560-9a17-eba2843135dc",
+      "transcript-sha256:hex"
+    ],
+    "correlationHints": [
+      { "kind": "pr-url", "value": "https://github.com/org/repo/pull/123" },
+      { "kind": "branch", "value": "feature/session-capture" },
+      { "kind": "commit", "value": "abc123" }
+    ],
+    "needsLink": false
+  },
+  "captures": [
+    {
+      "id": "capture:hex",
+      "capturedAt": "2026-06-11T09:31:34.548Z",
+      "source": {
+        "kind": "pull",
+        "backend": "sbx",
+        "name": "claude-agent-operating-policy",
+        "pullDir": "~/.sheal/pulls/sbx/claude-agent-operating-policy/2026-06-11T09-47-18-759Z",
+        "transcriptPath": "transcript/.claude/projects/-Users-lu-code-small-projects-agent-operating-policy/7eb5a0b7-660c-4560-9a17-eba2843135dc.jsonl"
+      },
+      "fidelity": "transcript+diff",
+      "hashes": {
+        "transcriptRawSha256": "hex",
+        "normalizedSha256": "hex",
+        "gitDiffSha256": "hex"
+      },
+      "provenance": {
+        "sourcePaths": [],
+        "gaps": []
+      },
+      "aliases": [
+        "agent-session:claude-code:7eb5a0b7-660c-4560-9a17-eba2843135dc",
+        "transcript-sha256:hex"
+      ],
+      "correlationHints": [],
+      "needsLink": false,
+      "primary": true
+    }
+  ]
 }
 ```
+
+The top-level `source`, `hashes`, and `provenance` fields mirror the current
+primary capture for compatibility. The full `captures[]` array preserves every
+capture path that has been normalized into the canonical raw session.
+
+Automatic dedup uses only authoritative aliases: native agent session IDs,
+provider run/session IDs supplied by future adapters, explicit adapter aliases,
+or exact transcript hashes. PR URLs, branch names, commits, project paths, and
+time windows are correlation hints only; they must not merge records by
+themselves. A capture with no authoritative alias is marked `needsLink: true`
+and remains visible but unlinked until a richer capture or human decision links
+it.
+
+Primary material is selected by fidelity: `transcript+diff` beats
+`transcript-only`, which beats `git-only`. A lower-fidelity capture can add
+provenance to `captures[]`, but it must not overwrite higher-fidelity
+`transcript.raw.jsonl`, `normalized.json`, or `git.diff` material.
 
 ### Pull ingestion marker
 

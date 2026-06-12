@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -92,6 +93,29 @@ describe("sheal sessions import raw session registry", () => {
       rawSessionIds: [stableSessionId],
     });
     expect(readdirSync(join(projectRoot, ".sheal", "sessions", "raw"))).toEqual([stableSessionId]);
+
+    const repeatedManifest = readJson(join(rawDir, "manifest.json")) as any;
+    expect(repeatedManifest.identity).toMatchObject({
+      canonicalSessionId: stableSessionId,
+      authoritativeAliases: expect.arrayContaining([
+        `agent-session:claude-code:${sessionId}`,
+        `transcript-sha256:${sha256(transcript)}`,
+      ]),
+      needsLink: false,
+    });
+    expect(repeatedManifest.captures).toHaveLength(2);
+    expect(repeatedManifest.captures).toEqual([
+      expect.objectContaining({
+        fidelity: "transcript-only",
+        needsLink: false,
+        source: expect.objectContaining({ kind: "live-home" }),
+      }),
+      expect.objectContaining({
+        fidelity: "transcript-only",
+        needsLink: false,
+        source: expect.objectContaining({ kind: "live-home" }),
+      }),
+    ]);
   });
 
   it("normalizes live-home Codex transcripts into the project raw session registry", () => {
@@ -333,4 +357,8 @@ function codexTranscript(params: { sessionId: string; cwd: string; prompt: strin
       },
     }),
   ].join("\n") + "\n";
+}
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
 }

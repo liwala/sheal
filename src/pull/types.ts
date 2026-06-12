@@ -16,6 +16,11 @@ export interface PullArtifact {
   sourcePath: string;
 }
 
+export interface PullCorrelationHint {
+  kind: "pr-url" | "branch" | "commit";
+  value: string;
+}
+
 export interface PullProvenance {
   backend: string;
   type: string;
@@ -24,6 +29,8 @@ export interface PullProvenance {
   status: string;
   containerId?: string;
   image?: string;
+  metadata?: Record<string, string>;
+  correlationHints?: PullCorrelationHint[];
   pulledAt: string;
   sourcePaths: string[];
   gaps: string[];

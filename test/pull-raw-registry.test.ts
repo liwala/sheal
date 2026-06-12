@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { delimiter, join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -111,6 +112,39 @@ describe("sheal pull raw session registry", () => {
     expect(second.status, second.stderr).toBe(0);
     expect(readdirSync(join(projectRoot, ".sheal", "sessions", "raw"))).toEqual([stableSessionId]);
 
+    const repeatedManifest = readJson(join(rawDir, "manifest.json")) as any;
+    expect(repeatedManifest.identity).toMatchObject({
+      canonicalSessionId: stableSessionId,
+      authoritativeAliases: expect.arrayContaining([
+        `agent-session:claude-code:${sessionId}`,
+        `transcript-sha256:${sha256(transcript)}`,
+      ]),
+      needsLink: false,
+    });
+    expect(repeatedManifest.captures).toHaveLength(2);
+    expect(repeatedManifest.captures).toEqual([
+      expect.objectContaining({
+        fidelity: "transcript+diff",
+        needsLink: false,
+        primary: expect.any(Boolean),
+        source: expect.objectContaining({
+          kind: "pull",
+          backend: "sbx",
+          name: sandboxName,
+        }),
+      }),
+      expect.objectContaining({
+        fidelity: "transcript+diff",
+        needsLink: false,
+        primary: expect.any(Boolean),
+        source: expect.objectContaining({
+          kind: "pull",
+          backend: "sbx",
+          name: sandboxName,
+        }),
+      }),
+    ]);
+
     const pullDirs = getPullDirs(join(homeDir, ".sheal", "pulls"), "sbx", sandboxName);
     expect(pullDirs).toHaveLength(2);
     for (const pullDir of pullDirs) {
@@ -193,12 +227,190 @@ describe("sheal pull raw session registry", () => {
       "session.env",
     ]));
   });
+
+  it("collapses shared authoritative aliases while preserving the highest-fidelity raw material", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-raw-alias-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const homeDir = join(tmp, "home");
+    const sourceRoot = join(tmp, "source");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    mkdirSync(homeDir, { recursive: true });
+
+    const sandboxName = "claude-high-fidelity";
+    const sessionId = "7b40e00a-4903-4666-ab28-76820351c3a6";
+    const stableSessionId = `claude:${sessionId}`;
+    const workspace = projectRoot;
+    const sandboxHome = "/home/claude";
+    const projectSlug = claudeSlug(workspace);
+    const pulledTranscript = claudeTranscript({
+      sessionId,
+      cwd: workspace,
+      prompt: "high fidelity pulled transcript",
+    });
+    const lowerFidelityTranscript = claudeTranscript({
+      sessionId,
+      cwd: workspace,
+      prompt: "lower fidelity explicit transcript",
+    });
+    const diff = "diff --git a/src/high.ts b/src/high.ts\n+export const high = true;\n";
+
+    writeSbxFixture(binDir, {
+      sandboxes: [{ name: sandboxName, agent: "claude", status: "running", workspaces: [workspace] }],
+      homes: { [sandboxName]: sandboxHome },
+      diffs: { [sandboxName]: diff },
+      directories: [`${sandboxHome}/.claude`, `${sandboxHome}/.claude/projects/${projectSlug}`],
+      files: {
+        [`${sandboxHome}/.claude/projects/${projectSlug}/${sessionId}.jsonl`]: pulledTranscript,
+      },
+    });
+
+    const pull = runSheal(projectRoot, binDir, homeDir, ["pull", "sbx", sandboxName]);
+    expect(pull.status, pull.stderr).toBe(0);
+
+    const explicitClaudeRoot = join(sourceRoot, ".claude");
+    mkdirSync(join(explicitClaudeRoot, "projects", projectSlug), { recursive: true });
+    writeFileSync(
+      join(explicitClaudeRoot, "projects", projectSlug, `${sessionId}.jsonl`),
+      lowerFidelityTranscript,
+      "utf-8",
+    );
+
+    const imported = runSheal(projectRoot, binDir, homeDir, ["sessions", "import", "--source", sourceRoot, "--format", "json"]);
+    expect(imported.status, imported.stderr).toBe(0);
+    expect(JSON.parse(imported.stdout)).toMatchObject({
+      imported: 1,
+      rawSessionIds: [stableSessionId],
+    });
+
+    const rawRoot = join(projectRoot, ".sheal", "sessions", "raw");
+    expect(readdirSync(rawRoot)).toEqual([stableSessionId]);
+
+    const rawDir = join(rawRoot, stableSessionId);
+    expect(readFileSync(join(rawDir, "transcript.raw.jsonl"), "utf-8")).toBe(pulledTranscript);
+    expect(readFileSync(join(rawDir, "git.diff"), "utf-8")).toBe(diff);
+
+    const normalized = readJson(join(rawDir, "normalized.json")) as any;
+    expect(normalized.sessions[0].prompts).toEqual(["high fidelity pulled transcript"]);
+
+    const manifest = readJson(join(rawDir, "manifest.json")) as any;
+    expect(manifest.hashes.transcriptRawSha256).toBe(sha256(pulledTranscript));
+    expect(manifest.hashes.gitDiffSha256).toBe(sha256(diff));
+    expect(manifest.identity).toMatchObject({
+      canonicalSessionId: stableSessionId,
+      authoritativeAliases: expect.arrayContaining([
+        `agent-session:claude-code:${sessionId}`,
+        `transcript-sha256:${sha256(pulledTranscript)}`,
+        `transcript-sha256:${sha256(lowerFidelityTranscript)}`,
+      ]),
+      needsLink: false,
+    });
+    expect(manifest.captures).toHaveLength(2);
+    expect(manifest.captures).toEqual([
+      expect.objectContaining({
+        fidelity: "transcript+diff",
+        primary: true,
+        needsLink: false,
+        hashes: expect.objectContaining({
+          transcriptRawSha256: sha256(pulledTranscript),
+          gitDiffSha256: sha256(diff),
+        }),
+        source: expect.objectContaining({
+          kind: "pull",
+          backend: "sbx",
+          name: sandboxName,
+        }),
+      }),
+      expect.objectContaining({
+        fidelity: "transcript-only",
+        primary: false,
+        needsLink: false,
+        hashes: expect.objectContaining({
+          transcriptRawSha256: sha256(lowerFidelityTranscript),
+        }),
+        source: expect.objectContaining({
+          kind: "explicit-source",
+          root: explicitClaudeRoot,
+          transcriptPath: join("projects", projectSlug, `${sessionId}.jsonl`),
+        }),
+      }),
+    ]);
+  });
+
+  it("does not dedup git-only captures that only share PR branch and commit hints", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-raw-hints-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const homeDir = join(tmp, "home");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    mkdirSync(homeDir, { recursive: true });
+
+    const prUrl = "https://github.com/liwala/sheal/pull/123";
+    const branch = "feature/alias-aware-dedup";
+    const commit = "abc123def456";
+    const hints = { prUrl, branch, commit };
+
+    writeSbxFixture(binDir, {
+      sandboxes: [
+        { name: "git-only-a", agent: "remote", status: "stopped", workspaces: [projectRoot], metadata: hints },
+        { name: "git-only-b", agent: "remote", status: "stopped", workspaces: [projectRoot], metadata: hints },
+      ],
+      homes: {
+        "git-only-a": "/home/remote-a",
+        "git-only-b": "/home/remote-b",
+      },
+      diffs: {
+        "git-only-a": "diff --git a/a.ts b/a.ts\n+export const a = true;\n",
+        "git-only-b": "diff --git a/b.ts b/b.ts\n+export const b = true;\n",
+      },
+    });
+
+    const result = runSheal(projectRoot, binDir, homeDir, ["pull", "sbx", "--all", "--format", "json"]);
+    expect(result.status, result.stderr).toBe(0);
+
+    const rawRoot = join(projectRoot, ".sheal", "sessions", "raw");
+    const rawSessionIds = readdirSync(rawRoot).sort();
+    expect(rawSessionIds).toHaveLength(2);
+
+    const manifests = rawSessionIds.map((rawSessionId) => readJson(join(rawRoot, rawSessionId, "manifest.json")) as any);
+    expect(new Set(manifests.map((manifest) => manifest.stableSessionId)).size).toBe(2);
+    expect(manifests.map((manifest) => manifest.source.name).sort()).toEqual(["git-only-a", "git-only-b"]);
+
+    for (const manifest of manifests) {
+      expect(manifest.identity).toMatchObject({
+        canonicalSessionId: manifest.stableSessionId,
+        authoritativeAliases: [],
+        correlationHints: expect.arrayContaining([
+          { kind: "pr-url", value: prUrl },
+          { kind: "branch", value: branch },
+          { kind: "commit", value: commit },
+        ]),
+        needsLink: true,
+      });
+      expect(manifest.captures).toEqual([
+        expect.objectContaining({
+          fidelity: "git-only",
+          primary: true,
+          needsLink: true,
+          source: expect.objectContaining({
+            kind: "pull",
+            backend: "sbx",
+          }),
+        }),
+      ]);
+      expect(existsSync(join(rawRoot, manifest.stableSessionId, "transcript.raw.jsonl"))).toBe(false);
+      expect(existsSync(join(rawRoot, manifest.stableSessionId, "normalized.json"))).toBe(false);
+      expect(readFileSync(join(rawRoot, manifest.stableSessionId, "git.diff"), "utf-8")).toContain("diff --git");
+    }
+  });
 });
 
-function runShealPull(projectRoot: string, binDir: string, homeDir: string, args: string[]) {
+function runSheal(projectRoot: string, binDir: string, homeDir: string, args: string[]) {
   return spawnSync(
     process.execPath,
-    ["--import", tsxLoader, join(repoRoot, "src", "index.ts"), "pull", ...args],
+    ["--import", tsxLoader, join(repoRoot, "src", "index.ts"), ...args],
     {
       cwd: projectRoot,
       env: {
@@ -210,6 +422,10 @@ function runShealPull(projectRoot: string, binDir: string, homeDir: string, args
       encoding: "utf-8",
     },
   );
+}
+
+function runShealPull(projectRoot: string, binDir: string, homeDir: string, args: string[]) {
+  return runSheal(projectRoot, binDir, homeDir, ["pull", ...args]);
 }
 
 function getOnlyPullDir(stagingRoot: string, backend: string, sandboxName: string): string {
@@ -248,7 +464,8 @@ function claudeSlug(workspace: string): string {
   return workspace.replace(/[\\/: ]/g, "-");
 }
 
-function claudeTranscript(params: { sessionId: string; cwd: string }): string {
+function claudeTranscript(params: { sessionId: string; cwd: string; prompt?: string }): string {
+  const prompt = params.prompt ?? "normalize pulled Claude transcript";
   return [
     JSON.stringify({
       type: "user",
@@ -258,7 +475,7 @@ function claudeTranscript(params: { sessionId: string; cwd: string }): string {
       cwd: params.cwd,
       message: {
         role: "user",
-        content: [{ type: "text", text: "normalize pulled Claude transcript" }],
+        content: [{ type: "text", text: prompt }],
       },
     }),
     JSON.stringify({
@@ -315,7 +532,13 @@ function codexTranscript(params: { sessionId: string; cwd: string }): string {
 function writeSbxFixture(
   binDir: string,
   fixture: {
-    sandboxes: Array<{ name: string; agent: string; status: string; workspaces: string[] }>;
+    sandboxes: Array<{
+      name: string;
+      agent: string;
+      status: string;
+      workspaces: string[];
+      metadata?: Record<string, string>;
+    }>;
     homes: Record<string, string>;
     diffs: Record<string, string>;
     directories?: string[];
@@ -411,4 +634,8 @@ process.exit(99);
     "utf-8",
   );
   chmodSync(sbxPath, 0o755);
+}
+
+function sha256(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
 }

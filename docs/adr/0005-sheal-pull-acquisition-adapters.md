@@ -213,8 +213,9 @@ Still deferred as implementation work:
 - **Dedup across capture paths.** Q2 is answered in
   `docs/tasks/q2-cross-path-dedup.md`: remote/cloud captures must link by
   authoritative aliases, while PR/branch/commit facts remain correlation hints.
-  Alias-aware raw-registry implementation remains deferred until before the
-  first remote/cloud source writes raw session records.
+  The raw registry now records canonical identity, capture history, fidelity,
+  and `needs-link` state before the first remote/cloud source writes raw
+  session records.
 
 ## First step (validation milestone)
 

@@ -1,10 +1,13 @@
 ---
-status: todo
+status: done
+started: 2026-06-12
+closed: 2026-06-12
 type: task
 id: T6
 deliverable: D3
 created: 2026-06-12
 links: [q2-cross-path-dedup.md]
+output: src/sessions/raw-registry.ts, src/pull/types.ts, src/pull/adapters/sbx.ts, test/pull-raw-registry.test.ts, test/live-home-raw-registry.test.ts, docs/tasks/t3-normalize-pulled-sessions-into-raw-session-registry.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
 ---
 
 # T6. Add raw session alias-aware dedup
