@@ -395,11 +395,13 @@ program
   .description("Discover and pull changes from agent sandboxes")
   .option("--list", "List available agent sandboxes", false)
   .option("--all", "Pull all sandboxes for a backend (sbx only)", false)
+  .option("--gc", "Remove expired pull staging directories", false)
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .action(async (backend: string | undefined, name: string | undefined, opts) => {
     await runPull(backend, name, {
       list: opts.list,
       all: opts.all,
+      gc: opts.gc,
       format: opts.format,
     });
   });

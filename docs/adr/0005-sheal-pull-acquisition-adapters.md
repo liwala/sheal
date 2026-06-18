@@ -167,10 +167,12 @@ project-local raw registry at
 `.sheal/sessions/raw/<stable-session-id>/`. Pull staging directories receive an
 `ingested.json` marker when normalization produces raw session records. The
 `pull.stagingDir` config setting remains the override for the acquisition
-staging root.
+staging root. `pull.stagingRetentionDays` enables `sheal pull --gc`, which
+removes timestamped pull staging directories older than the configured window
+without deleting project-local raw registry records.
 
-Still deferred: remote/cloud adapters, retention and garbage collection, and
-daemon/checkpointing behavior.
+Still deferred: remote/cloud adapters, consumed/consolidated signalling for
+staging retention, and daemon/checkpointing behavior.
 
 ## Consequences
 
@@ -205,8 +207,10 @@ Still deferred as implementation work:
 - **Remote/cloud adapters.** Which concrete types are remote-only, and the
   fallback chain (vendor API → webhook → git/PR) when an API is unavailable in a
   headless run.
-- **Staging retention/GC.** Retention should be configurable; the default window
-  and any later consumed/consolidated signalling still need implementation.
+- **Staging retention/GC.** Time-based retention is configurable with
+  `pull.stagingRetentionDays` and runs through `sheal pull --gc`; later
+  consumed/consolidated signalling still needs implementation once
+  consolidation reads from staging.
 - **Checkpointing/daemon.** Fully destroyed environments need a host-side
   checkpointing path, but interval, capture set, and runtime opt-in behavior
   remain follow-up design work.

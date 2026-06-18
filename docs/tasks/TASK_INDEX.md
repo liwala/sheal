@@ -23,6 +23,7 @@
 
 - [x] [Config setting for staging directory](pull-staging-config.md) — `done` → src/config/types.ts, src/config/defaults.ts, src/config/loader.ts, src/commands/pull.ts, test/pull-config.test.ts
 - [x] [Docs sync for shipped `sheal pull` scope](pull-docs-sync.md) — `done` → src/index.ts, README.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
+- [x] [T7. Configurable pull staging retention/GC](t7-configurable-pull-staging-retention-gc.md) — `done` → src/config/types.ts, src/config/defaults.ts, src/pull/stage.ts, src/commands/pull.ts, src/index.ts, test/pull-retention.test.ts, docs/tasks/q4-staging-retention-gc.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
 
 ## Open questions
 
