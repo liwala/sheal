@@ -222,6 +222,7 @@ present. Workspace files such as `AGENTS.md`, `MEMORY.md`, and
 ```bash
 sheal pull --list                  # List available sbx sandboxes and Docker containers
 sheal pull sbx <name>              # Pull one sbx sandbox to ~/.sheal/pulls/
+sheal pull sbx <name> --checkpoint # Write a checkpoint stage without registry import
 sheal pull sbx --all               # Pull every sbx sandbox with a workspace
 sheal pull docker <name>           # Pull one Docker container selected from --list
 ```
@@ -234,6 +235,13 @@ overrides it. Pulled Claude and Codex transcripts are normalized into the
 project-local raw registry at `.sheal/sessions/raw/<stable-session-id>/`; the
 pull staging directory gets an `ingested.json` marker pointing at the raw
 session IDs.
+
+Use `--checkpoint` with `sheal pull <backend> <name>` for a manual mid-session
+capture before teardown. Checkpoint mode uses the same local adapter capture set
+and staging root, writes `checkpoint.json`, stamps provenance with
+`captureKind: "checkpoint"`, and does not normalize transcripts into the raw
+registry or write an `ingested.json` marker. Long-running daemon scheduling is a
+future layer over this manual checkpoint primitive.
 
 ### `sheal init`
 

@@ -21,12 +21,15 @@ export interface PullCorrelationHint {
   value: string;
 }
 
+export type PullCaptureKind = "checkpoint" | "pull";
+
 export interface PullProvenance {
   backend: string;
   type: string;
   name: string;
   agent: string;
   status: string;
+  captureKind?: PullCaptureKind;
   containerId?: string;
   image?: string;
   metadata?: Record<string, string>;

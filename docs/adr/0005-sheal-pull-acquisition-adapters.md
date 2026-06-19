@@ -161,6 +161,11 @@ and Docker-backed local acquisition:
   known agent home paths when present.
 - `sheal pull docker --all` is intentionally unsupported; Docker container
   selection is human-driven from `sheal pull --list`.
+- `sheal pull <backend> <name> --checkpoint` performs a manual mid-session
+  checkpoint for a selected reachable local runtime. It uses the same adapter
+  capture set and staging root as pull, writes `checkpoint.json`, stamps
+  provenance with `captureKind: "checkpoint"`, and leaves the stage unnormalized
+  for future consolidation/daemon work.
 
 After acquisition, pulled Claude and Codex transcripts are normalized into the
 project-local raw registry at
@@ -172,7 +177,8 @@ removes timestamped pull staging directories older than the configured window
 without deleting project-local raw registry records.
 
 Still deferred: remote/cloud adapters, consumed/consolidated signalling for
-staging retention, and daemon/checkpointing behavior.
+staging retention, and daemon interval scheduling over the manual checkpoint
+primitive.
 
 ## Consequences
 
@@ -211,9 +217,10 @@ Still deferred as implementation work:
   `pull.stagingRetentionDays` and runs through `sheal pull --gc`; later
   consumed/consolidated signalling still needs implementation once
   consolidation reads from staging.
-- **Checkpointing/daemon.** Fully destroyed environments need a host-side
-  checkpointing path, but interval, capture set, and runtime opt-in behavior
-  remain follow-up design work.
+- **Checkpointing/daemon.** Manual checkpointing exists for a selected reachable
+  local runtime through `sheal pull <backend> <name> --checkpoint`; interval
+  scheduling, daemon lifecycle, and runtime opt-in policy remain follow-up
+  design work.
 - **Dedup across capture paths.** Q2 is answered in
   `docs/tasks/q2-cross-path-dedup.md`: remote/cloud captures must link by
   authoritative aliases, while PR/branch/commit facts remain correlation hints.

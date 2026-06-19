@@ -1,5 +1,5 @@
 import { availableSandboxAdapters } from "../pull/registry.js";
-import { createPullStage, defaultPullStagingRoot, gcPullStages, writePullProvenance } from "../pull/stage.js";
+import { createPullStage, defaultPullStagingRoot, gcPullStages, writePullCheckpoint, writePullProvenance } from "../pull/stage.js";
 import { loadConfig } from "../config/loader.js";
 import { normalizePullStage } from "../sessions/raw-registry.js";
 import type { PullResult, SandboxInstance } from "../pull/types.js";
@@ -8,6 +8,7 @@ export interface PullOptions {
   list?: boolean;
   all?: boolean;
   gc?: boolean;
+  checkpoint?: boolean;
   format?: string;
 }
 
@@ -20,6 +21,11 @@ export async function runPull(backend: string | undefined, name: string | undefi
   const config = loadConfig(process.cwd());
 
   if (opts.gc) {
+    if (opts.checkpoint) {
+      console.error("Use --checkpoint with `sheal pull <backend> <name>`, not with --gc.");
+      process.exitCode = 1;
+      return;
+    }
     runPullGc({
       format: opts.format ?? "pretty",
       stagingRoot: config.pull.stagingDir ?? defaultPullStagingRoot(),
@@ -29,11 +35,21 @@ export async function runPull(backend: string | undefined, name: string | undefi
   }
 
   if (opts.list) {
+    if (opts.checkpoint) {
+      console.error("Use --checkpoint with `sheal pull <backend> <name>`, not with --list.");
+      process.exitCode = 1;
+      return;
+    }
     await runPullList({ format: opts.format ?? "pretty" });
     return;
   }
 
   if (opts.all) {
+    if (opts.checkpoint) {
+      console.error("Use --checkpoint with `sheal pull <backend> <name>`, not with --all.");
+      process.exitCode = 1;
+      return;
+    }
     await runPullAll(backend, name, {
       format: opts.format ?? "pretty",
       stagingRoot: config.pull.stagingDir ?? undefined,
@@ -64,6 +80,17 @@ export async function runPull(backend: string | undefined, name: string | undefi
       name,
     });
     const result = await adapter.pull(name, stage.dir, { pulledAt: stage.pulledAt });
+    if (opts.checkpoint) {
+      const checkpointResult: PullResult = {
+        ...result,
+        provenance: { ...result.provenance, captureKind: "checkpoint" },
+      };
+      writePullCheckpoint(stage.dir, { backend, name, capturedAt: stage.pulledAt });
+      writePullProvenance(stage.dir, checkpointResult.provenance);
+      printPullResult({ backend, name, stagingDir: stage.dir, result: checkpointResult, format: opts.format ?? "pretty", checkpoint: true });
+      return;
+    }
+
     writePullProvenance(stage.dir, result.provenance);
     normalizePullStage({
       projectRoot: process.cwd(),
@@ -248,6 +275,7 @@ interface PullCommandResult {
   backend: string;
   name: string;
   stagingDir: string;
+  checkpoint?: true;
   artifacts: PullResult["artifacts"];
   gaps: string[];
   provenance: PullResult["provenance"];
@@ -258,11 +286,13 @@ function buildPullCommandResult(params: {
   name: string;
   stagingDir: string;
   result: PullResult;
+  checkpoint?: boolean;
 }): PullCommandResult {
   return {
     backend: params.backend,
     name: params.name,
     stagingDir: params.stagingDir,
+    ...(params.checkpoint ? { checkpoint: true } : {}),
     artifacts: params.result.artifacts,
     gaps: params.result.gaps,
     provenance: params.result.provenance,
@@ -275,6 +305,7 @@ function printPullResult(params: {
   stagingDir: string;
   result: PullResult;
   format: string;
+  checkpoint?: boolean;
 }): void {
   const output = buildPullCommandResult(params);
 
@@ -283,7 +314,7 @@ function printPullResult(params: {
     return;
   }
 
-  console.log(`Pulled ${params.backend}/${params.name} to ${params.stagingDir}`);
+  console.log(`${params.checkpoint ? "Checkpointed" : "Pulled"} ${params.backend}/${params.name} to ${params.stagingDir}`);
   if (params.result.gaps.length > 0) {
     console.log("Gaps:");
     for (const gap of params.result.gaps) {
