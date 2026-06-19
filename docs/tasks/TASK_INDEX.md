@@ -13,6 +13,7 @@
 - [x] [Full capture set with gap logging](pull-full-capture-set.md) — `done` → src/commands/pull.ts, src/pull/adapters/sbx.ts, src/pull/capture-set.ts, test/pull-capture.test.ts
 - [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
 - [x] [T8. Manual checkpoint mode for pull acquisition](t8-manual-checkpoint-mode-for-pull-acquisition.md) — `done` → src/commands/pull.ts, src/index.ts, src/pull/stage.ts, src/pull/types.ts, test/pull-checkpoint.test.ts, README.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
+- [x] [T9. Opt-in checkpoint runner](t9-opt-in-checkpoint-runner.md) — `done` → src/commands/pull.ts, src/index.ts, src/config/types.ts, src/config/defaults.ts, test/pull-checkpoint.test.ts, README.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
 
 ## D3 — Raw Session Normalization
 

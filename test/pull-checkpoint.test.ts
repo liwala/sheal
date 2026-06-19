@@ -88,6 +88,150 @@ describe("sheal pull checkpoint mode", () => {
     expect(existsSync(join(pullDir, "ingested.json"))).toBe(false);
     expect(existsSync(join(projectRoot, ".sheal", "sessions", "raw"))).toBe(false);
   });
+
+  it("runs configured checkpoint targets once without checkpointing unconfigured sandboxes", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-checkpoint-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const stagingRoot = join(tmp, "pulls");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    const configuredName = "codex-configured-checkpoint";
+    const ignoredName = "codex-not-configured";
+    const configuredWorkspace = "/workspace/acme/configured";
+    const ignoredWorkspace = "/workspace/acme/ignored";
+    const configuredHome = "/home/configured";
+    const ignoredHome = "/home/ignored";
+    const configuredDiff = "diff --git a/src/configured.ts b/src/configured.ts\n";
+    const ignoredDiff = "diff --git a/src/ignored.ts b/src/ignored.ts\n";
+
+    writeFileSync(
+      join(projectRoot, ".self-heal.json"),
+      `${JSON.stringify({
+        pull: {
+          stagingDir: stagingRoot,
+          checkpointTargets: [{ backend: "sbx", name: configuredName }],
+        },
+      }, null, 2)}\n`,
+      "utf-8",
+    );
+    writeSbxFixture(binDir, {
+      sandboxes: [
+        {
+          name: configuredName,
+          agent: "codex",
+          status: "running",
+          workspaces: [configuredWorkspace],
+        },
+        {
+          name: ignoredName,
+          agent: "codex",
+          status: "running",
+          workspaces: [ignoredWorkspace],
+        },
+      ],
+      homes: {
+        [configuredName]: configuredHome,
+        [ignoredName]: ignoredHome,
+      },
+      diffs: {
+        [configuredName]: configuredDiff,
+        [ignoredName]: ignoredDiff,
+      },
+      directories: [`${configuredHome}/.codex`, `${ignoredHome}/.codex`],
+      files: {
+        [`${configuredHome}/.codex/config.toml`]: "model = \"gpt-5\"\n",
+        [`${ignoredHome}/.codex/config.toml`]: "model = \"ignore-me\"\n",
+      },
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["--checkpoint-run", "--format", "json"]);
+
+    expect(result.status, result.stderr).toBe(0);
+    const payload = JSON.parse(result.stdout) as {
+      checkpointed?: unknown;
+      failed?: unknown;
+      results?: Array<{
+        backend?: unknown;
+        name?: unknown;
+        checkpoint?: unknown;
+        stagingDir?: unknown;
+        gaps?: unknown;
+        provenance?: { captureKind?: unknown; gaps?: unknown };
+      }>;
+    };
+    expect(payload).toMatchObject({
+      checkpointed: 1,
+      failed: 0,
+      results: [{
+        backend: "sbx",
+        name: configuredName,
+        checkpoint: true,
+        gaps: [`${configuredHome}/.codex/sessions`],
+        provenance: {
+          captureKind: "checkpoint",
+          gaps: [`${configuredHome}/.codex/sessions`],
+        },
+      }],
+    });
+    expect(payload.results).toHaveLength(1);
+
+    const configuredDir = getOnlyPullDir(stagingRoot, configuredName);
+    expect(payload.results?.[0]?.stagingDir).toBe(configuredDir);
+    expect(readFileSync(join(configuredDir, "git.diff"), "utf-8")).toBe(configuredDiff);
+    expect(readJson(join(configuredDir, "checkpoint.json"))).toMatchObject({
+      schemaVersion: 1,
+      kind: "checkpoint",
+      backend: "sbx",
+      name: configuredName,
+      captureSet: "pull-adapter",
+    });
+    expect(readJson(join(configuredDir, "provenance.json"))).toMatchObject({
+      backend: "sbx",
+      name: configuredName,
+      captureKind: "checkpoint",
+      gaps: [`${configuredHome}/.codex/sessions`],
+    });
+    expect(existsSync(join(configuredDir, "ingested.json"))).toBe(false);
+    expect(existsSync(join(projectRoot, ".sheal", "sessions", "raw"))).toBe(false);
+    expect(existsSync(join(stagingRoot, "sbx", ignoredName))).toBe(false);
+  });
+
+  it("rejects checkpoint runner requests combined with --all", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-checkpoint-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const stagingRoot = join(tmp, "pulls");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(
+      join(projectRoot, ".self-heal.json"),
+      `${JSON.stringify({
+        pull: {
+          stagingDir: stagingRoot,
+          checkpointTargets: [{ backend: "sbx", name: "codex-configured-checkpoint" }],
+        },
+      }, null, 2)}\n`,
+      "utf-8",
+    );
+    writeSbxFixture(binDir, {
+      sandboxes: [{
+        name: "codex-configured-checkpoint",
+        agent: "codex",
+        status: "running",
+        workspaces: ["/workspace/acme/configured"],
+      }],
+      homes: { "codex-configured-checkpoint": "/home/configured" },
+      diffs: { "codex-configured-checkpoint": "diff --git a/src/configured.ts b/src/configured.ts\n" },
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["--checkpoint-run", "--all", "--format", "json"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Use --checkpoint-run without --all");
+    expect(existsSync(stagingRoot)).toBe(false);
+  });
 });
 
 function runShealPull(projectRoot: string, binDir: string, args: string[]) {
