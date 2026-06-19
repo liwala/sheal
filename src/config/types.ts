@@ -9,6 +9,7 @@ export interface SelfHealConfig {
     stagingDir?: string;
     stagingRetentionDays?: number;
     checkpointTargets?: PullCheckpointTarget[];
+    checkpointAllowAllBackends?: string[];
   };
   checkers?: {
     git?: { allowDirty?: boolean };
@@ -40,6 +41,7 @@ export interface ResolvedConfig {
     stagingDir: string | null;
     stagingRetentionDays: number | null;
     checkpointTargets: PullCheckpointTarget[];
+    checkpointAllowAllBackends: string[];
   };
   checkers: {
     git: { allowDirty: boolean };

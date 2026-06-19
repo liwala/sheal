@@ -224,6 +224,7 @@ sheal pull --list                  # List available sbx sandboxes and Docker con
 sheal pull sbx <name>              # Pull one sbx sandbox to ~/.sheal/pulls/
 sheal pull sbx <name> --checkpoint # Write a checkpoint stage without registry import
 sheal pull --checkpoint-run        # Run configured checkpoint targets once
+sheal pull sbx --all --checkpoint  # Checkpoint all sbx sandboxes when allowed
 sheal pull sbx --all               # Pull every sbx sandbox with a workspace
 sheal pull docker <name>           # Pull one Docker container selected from --list
 ```
@@ -260,6 +261,22 @@ configured local targets:
 The runner never implies `--all`: only `pull.checkpointTargets` are
 checkpointed, unconfigured sandboxes are ignored, and checkpoint stages still do
 not import into the raw registry.
+
+Use `sheal pull sbx --all --checkpoint` only when the project explicitly allows
+checkpoint-all for the `sbx` backend:
+
+```json
+{
+  "pull": {
+    "checkpointAllowAllBackends": ["sbx"]
+  }
+}
+```
+
+This checkpoints every listed `sbx` sandbox with an available workspace and
+skips missing workspaces, matching `sheal pull sbx --all`. Docker checkpoint-all
+remains unsupported; use `pull.checkpointTargets` plus `sheal pull
+--checkpoint-run` for selected Docker containers.
 
 ### `sheal init`
 

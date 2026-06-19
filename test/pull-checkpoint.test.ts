@@ -232,6 +232,212 @@ describe("sheal pull checkpoint mode", () => {
     expect(result.stderr).toContain("Use --checkpoint-run without --all");
     expect(existsSync(stagingRoot)).toBe(false);
   });
+
+  it("rejects sbx checkpoint-all without an explicit allow-all gate", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-checkpoint-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const stagingRoot = join(tmp, "pulls");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(
+      join(projectRoot, ".self-heal.json"),
+      `${JSON.stringify({ pull: { stagingDir: stagingRoot } }, null, 2)}\n`,
+      "utf-8",
+    );
+    writeSbxFixture(binDir, {
+      sandboxes: [{
+        name: "codex-visible",
+        agent: "codex",
+        status: "running",
+        workspaces: ["/workspace/acme/visible"],
+      }],
+      homes: { "codex-visible": "/home/codex" },
+      diffs: { "codex-visible": "diff --git a/src/visible.ts b/src/visible.ts\n" },
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["sbx", "--all", "--checkpoint", "--format", "json"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Set pull.checkpointAllowAllBackends to include \"sbx\"");
+    expect(existsSync(stagingRoot)).toBe(false);
+  });
+
+  it("checkpoints every eligible sbx sandbox with an explicit allow-all gate", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-checkpoint-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const stagingRoot = join(tmp, "pulls");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    const firstName = "codex-first";
+    const secondName = "codex-second";
+    const missingName = "codex-missing-workspace";
+    const firstWorkspace = "/workspace/acme/first";
+    const secondWorkspace = "/workspace/acme/second";
+    const firstHome = "/home/first";
+    const secondHome = "/home/second";
+    const firstDiff = "diff --git a/src/first.ts b/src/first.ts\n";
+    const secondDiff = "diff --git a/src/second.ts b/src/second.ts\n";
+
+    writeFileSync(
+      join(projectRoot, ".self-heal.json"),
+      `${JSON.stringify({
+        pull: {
+          stagingDir: stagingRoot,
+          checkpointAllowAllBackends: ["sbx"],
+        },
+      }, null, 2)}\n`,
+      "utf-8",
+    );
+    writeSbxFixture(binDir, {
+      sandboxes: [
+        {
+          name: firstName,
+          agent: "codex",
+          status: "running",
+          workspaces: [firstWorkspace],
+        },
+        {
+          name: secondName,
+          agent: "codex",
+          status: "running",
+          workspaces: [secondWorkspace],
+        },
+        {
+          name: missingName,
+          agent: "codex",
+          status: "stopped",
+          workspaces: ["/workspace/acme/missing"],
+          workspace_missing: true,
+        },
+      ],
+      homes: {
+        [firstName]: firstHome,
+        [secondName]: secondHome,
+        [missingName]: "/home/missing",
+      },
+      diffs: {
+        [firstName]: firstDiff,
+        [secondName]: secondDiff,
+      },
+      directories: [`${firstHome}/.codex`, `${secondHome}/.codex`],
+      files: {
+        [`${firstHome}/.codex/config.toml`]: "model = \"gpt-5\"\n",
+        [`${secondHome}/.codex/config.toml`]: "model = \"gpt-5\"\n",
+      },
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["sbx", "--all", "--checkpoint", "--format", "json"]);
+
+    expect(result.status, result.stderr).toBe(0);
+    const payload = JSON.parse(result.stdout) as {
+      checkpointed?: unknown;
+      skipped?: unknown;
+      failed?: unknown;
+      results?: Array<{
+        backend?: unknown;
+        name?: unknown;
+        checkpoint?: unknown;
+        stagingDir?: unknown;
+        gaps?: unknown;
+        provenance?: { captureKind?: unknown; gaps?: unknown };
+      }>;
+      skippedSandboxes?: Array<{ backend?: unknown; name?: unknown; reason?: unknown }>;
+    };
+    expect(payload).toMatchObject({
+      checkpointed: 2,
+      skipped: 1,
+      failed: 0,
+      results: [
+        {
+          backend: "sbx",
+          name: firstName,
+          checkpoint: true,
+          gaps: [`${firstHome}/.codex/sessions`],
+          provenance: {
+            captureKind: "checkpoint",
+            gaps: [`${firstHome}/.codex/sessions`],
+          },
+        },
+        {
+          backend: "sbx",
+          name: secondName,
+          checkpoint: true,
+          gaps: [`${secondHome}/.codex/sessions`],
+          provenance: {
+            captureKind: "checkpoint",
+            gaps: [`${secondHome}/.codex/sessions`],
+          },
+        },
+      ],
+      skippedSandboxes: [{ backend: "sbx", name: missingName, reason: "missing workspace" }],
+    });
+    expect(payload.results).toHaveLength(2);
+
+    const firstDir = getOnlyPullDir(stagingRoot, firstName);
+    const secondDir = getOnlyPullDir(stagingRoot, secondName);
+    expect(payload.results?.[0]?.stagingDir).toBe(firstDir);
+    expect(payload.results?.[1]?.stagingDir).toBe(secondDir);
+    expect(readFileSync(join(firstDir, "git.diff"), "utf-8")).toBe(firstDiff);
+    expect(readFileSync(join(secondDir, "git.diff"), "utf-8")).toBe(secondDiff);
+    expect(readJson(join(firstDir, "checkpoint.json"))).toMatchObject({
+      schemaVersion: 1,
+      kind: "checkpoint",
+      backend: "sbx",
+      name: firstName,
+      captureSet: "pull-adapter",
+    });
+    expect(readJson(join(secondDir, "checkpoint.json"))).toMatchObject({
+      schemaVersion: 1,
+      kind: "checkpoint",
+      backend: "sbx",
+      name: secondName,
+      captureSet: "pull-adapter",
+    });
+    expect(readJson(join(firstDir, "provenance.json"))).toMatchObject({
+      backend: "sbx",
+      name: firstName,
+      captureKind: "checkpoint",
+      gaps: [`${firstHome}/.codex/sessions`],
+    });
+    expect(readJson(join(secondDir, "provenance.json"))).toMatchObject({
+      backend: "sbx",
+      name: secondName,
+      captureKind: "checkpoint",
+      gaps: [`${secondHome}/.codex/sessions`],
+    });
+    expect(existsSync(join(firstDir, "ingested.json"))).toBe(false);
+    expect(existsSync(join(secondDir, "ingested.json"))).toBe(false);
+    expect(existsSync(join(stagingRoot, "sbx", missingName))).toBe(false);
+    expect(existsSync(join(projectRoot, ".sheal", "sessions", "raw"))).toBe(false);
+  });
+
+  it("keeps docker checkpoint-all unsupported", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-checkpoint-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    const stagingRoot = join(tmp, "pulls");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(
+      join(projectRoot, ".self-heal.json"),
+      `${JSON.stringify({
+        pull: {
+          stagingDir: stagingRoot,
+          checkpointAllowAllBackends: ["sbx", "docker"],
+        },
+      }, null, 2)}\n`,
+      "utf-8",
+    );
+
+    const result = runShealPull(projectRoot, binDir, ["docker", "--all", "--checkpoint", "--format", "json"]);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("sheal pull docker --all --checkpoint is not supported");
+    expect(existsSync(stagingRoot)).toBe(false);
+  });
 });
 
 function runShealPull(projectRoot: string, binDir: string, args: string[]) {
@@ -266,7 +472,7 @@ function readJson(path: string): unknown {
 function writeSbxFixture(
   binDir: string,
   fixture: {
-    sandboxes: Array<{ name: string; agent: string; status: string; workspaces: string[] }>;
+    sandboxes: Array<{ name: string; agent: string; status: string; workspaces: string[]; workspace_missing?: boolean }>;
     homes: Record<string, string>;
     diffs: Record<string, string>;
     directories?: string[];

@@ -67,14 +67,27 @@ export async function runPull(backend: string | undefined, name: string | undefi
 
   if (opts.all) {
     if (opts.checkpoint) {
-      console.error("Use --checkpoint with `sheal pull <backend> <name>`, not with --all.");
-      process.exitCode = 1;
-      return;
+      if (backend === "docker") {
+        console.error("sheal pull docker --all --checkpoint is not supported; use pull.checkpointTargets with `sheal pull --checkpoint-run` for selected containers.");
+        process.exitCode = 1;
+        return;
+      }
+      if (!backend) {
+        console.error("Use `sheal pull sbx --all --checkpoint` with an explicitly allowed backend.");
+        process.exitCode = 1;
+        return;
+      }
+      if (!config.pull.checkpointAllowAllBackends.includes(backend)) {
+        console.error(`Set pull.checkpointAllowAllBackends to include "${backend}" before using \`sheal pull ${backend} --all --checkpoint\`.`);
+        process.exitCode = 1;
+        return;
+      }
     }
     await runPullAll(backend, name, {
       format: opts.format ?? "pretty",
       stagingRoot: config.pull.stagingDir ?? undefined,
       projectRoot: process.cwd(),
+      checkpoint: opts.checkpoint === true,
     });
     return;
   }
@@ -252,16 +265,18 @@ function runPullGc(opts: { format: string; stagingRoot: string; retentionDays: n
 async function runPullAll(
   backend: string | undefined,
   name: string | undefined,
-  opts: { format: string; stagingRoot?: string; projectRoot: string },
+  opts: { format: string; stagingRoot?: string; projectRoot: string; checkpoint?: boolean },
 ): Promise<void> {
   if (!backend || name) {
-    console.error("Use `sheal pull sbx --all` to pull every sbx sandbox.");
+    console.error(`Use \`sheal pull sbx --all${opts.checkpoint ? " --checkpoint" : ""}\` to ${opts.checkpoint ? "checkpoint" : "pull"} every sbx sandbox.`);
     process.exitCode = 1;
     return;
   }
 
   if (backend === "docker") {
-    console.error("sheal pull docker --all is not supported; use `sheal pull --list` and then `sheal pull docker <container>`.");
+    console.error(opts.checkpoint
+      ? "sheal pull docker --all --checkpoint is not supported; use pull.checkpointTargets with `sheal pull --checkpoint-run` for selected containers."
+      : "sheal pull docker --all is not supported; use `sheal pull --list` and then `sheal pull docker <container>`.");
     process.exitCode = 1;
     return;
   }
@@ -274,7 +289,7 @@ async function runPullAll(
     return;
   }
 
-  let pulled = 0;
+  let completed = 0;
   let skipped = 0;
   let failed = 0;
   const results: PullCommandResult[] = [];
@@ -292,19 +307,13 @@ async function runPullAll(
     }
 
     try {
-      const stage = createPullStage({ stagingRoot: opts.stagingRoot, backend, name: sandbox.name });
-      const result = await adapter.pull(sandbox.name, stage.dir, { pulledAt: stage.pulledAt });
-      writePullProvenance(stage.dir, result.provenance);
-      normalizePullStage({
-        projectRoot: opts.projectRoot,
-        pullDir: stage.dir,
-        backend,
-        name: sandbox.name,
-      });
-      pulled += 1;
-      results.push(buildPullCommandResult({ backend, name: sandbox.name, stagingDir: stage.dir, result }));
+      const commandResult = opts.checkpoint
+        ? await checkpointTarget({ adapter, backend, name: sandbox.name, stagingRoot: opts.stagingRoot })
+        : await pullTarget({ adapter, backend, name: sandbox.name, stagingRoot: opts.stagingRoot, projectRoot: opts.projectRoot });
+      completed += 1;
+      results.push(commandResult);
       if (opts.format !== "json") {
-        printPullResult({ backend, name: sandbox.name, stagingDir: stage.dir, result, format: opts.format });
+        printPullCommandResult(commandResult, opts.format);
       }
     } catch (error) {
       failed += 1;
@@ -316,13 +325,40 @@ async function runPullAll(
   }
 
   if (opts.format === "json") {
-    console.log(JSON.stringify({ pulled, skipped, failed, results, skippedSandboxes, failures }, null, 2));
+    const output = opts.checkpoint
+      ? { checkpointed: completed, skipped, failed, results, skippedSandboxes, failures }
+      : { pulled: completed, skipped, failed, results, skippedSandboxes, failures };
+    console.log(JSON.stringify(output, null, 2));
   } else {
-    console.log(`Summary: pulled ${pulled}, skipped ${skipped}, failed ${failed}`);
+    console.log(`Summary: ${opts.checkpoint ? "checkpointed" : "pulled"} ${completed}, skipped ${skipped}, failed ${failed}`);
   }
-  if (pulled === 0 && failed > 0) {
+  if (completed === 0 && failed > 0) {
     process.exitCode = 1;
   }
+}
+
+async function pullTarget(params: {
+  adapter: SandboxAdapter;
+  backend: string;
+  name: string;
+  stagingRoot?: string;
+  projectRoot: string;
+}): Promise<PullCommandResult> {
+  const stage = createPullStage({ stagingRoot: params.stagingRoot, backend: params.backend, name: params.name });
+  const result = await params.adapter.pull(params.name, stage.dir, { pulledAt: stage.pulledAt });
+  writePullProvenance(stage.dir, result.provenance);
+  normalizePullStage({
+    projectRoot: params.projectRoot,
+    pullDir: stage.dir,
+    backend: params.backend,
+    name: params.name,
+  });
+  return buildPullCommandResult({
+    backend: params.backend,
+    name: params.name,
+    stagingDir: stage.dir,
+    result,
+  });
 }
 
 export async function runPullList(opts: { format?: string } = {}): Promise<void> {

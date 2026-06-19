@@ -114,6 +114,8 @@ Sandbox Pull
   sheal pull sbx <name> --checkpoint
                                   Write a checkpoint stage without registry import
   sheal pull --checkpoint-run     Run configured checkpoint targets once
+  sheal pull sbx --all --checkpoint
+                                  Checkpoint all sbx sandboxes when allowed
   sheal pull sbx --all            Pull every sbx sandbox with a workspace
   sheal pull docker <name>        Pull one Docker container's capture set
 

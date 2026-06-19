@@ -170,6 +170,10 @@ and Docker-backed local acquisition:
   explicit `pull.checkpointTargets` config list. The runner does not infer
   `--all`; unconfigured sandboxes remain untouched even when their backend is
   listable.
+- `sheal pull sbx --all --checkpoint` performs checkpoint-all only when
+  `pull.checkpointAllowAllBackends` includes `sbx`. It checkpoints every listed
+  `sbx` sandbox with an available workspace and skips missing workspaces, while
+  Docker checkpoint-all remains unsupported.
 
 After acquisition, pulled Claude and Codex transcripts are normalized into the
 project-local raw registry at
@@ -224,7 +228,9 @@ Still deferred as implementation work:
 - **Checkpointing/daemon.** Manual checkpointing exists for a selected reachable
   local runtime through `sheal pull <backend> <name> --checkpoint`, and
   `sheal pull --checkpoint-run` runs the explicit `pull.checkpointTargets` list
-  once. Interval scheduling and daemon lifecycle remain follow-up design work.
+  once. `sheal pull sbx --all --checkpoint` is available only through the
+  explicit `pull.checkpointAllowAllBackends` gate. Interval scheduling and daemon
+  lifecycle remain follow-up design work.
 - **Dedup across capture paths.** Q2 is answered in
   `docs/tasks/q2-cross-path-dedup.md`: remote/cloud captures must link by
   authoritative aliases, while PR/branch/commit facts remain correlation hints.
