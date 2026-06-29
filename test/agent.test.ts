@@ -1,15 +1,29 @@
 import { afterEach, beforeEach, describe, it, expect } from "vitest";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { delimiter, join } from "node:path";
+import { tmpdir } from "node:os";
 import { defaultAgentTimeoutMs, detectAgentCli } from "../src/retro/agent.js";
 
 describe("detectAgentCli", () => {
-  it("returns a CLI for Claude Code agent", async () => {
-    const cli = await detectAgentCli("Claude Code");
-    // claude CLI should be available in this environment
-    if (cli) {
-      expect(cli.command).toBe("claude");
-      expect(cli.args).toContain("-p");
-      expect(cli.stdinPrompt).toBe(true);
+  let tmp: string | undefined;
+  const originalPath = process.env.PATH;
+
+  afterEach(() => {
+    process.env.PATH = originalPath;
+    if (tmp) {
+      rmSync(tmp, { recursive: true, force: true });
+      tmp = undefined;
     }
+  });
+
+  it("returns a CLI for Claude Code agent", async () => {
+    prependFakeCommand("claude");
+
+    const cli = await detectAgentCli("Claude Code");
+
+    expect(cli?.command).toBe("claude");
+    expect(cli?.args).toContain("-p");
+    expect(cli?.stdinPrompt).toBe(true);
   });
 
   it("returns null for unknown agent when no fallback available", async () => {
@@ -19,10 +33,10 @@ describe("detectAgentCli", () => {
   });
 
   it("resolves bare CLI names (--agent=claude)", async () => {
+    prependFakeCommand("claude");
+
     const cli = await detectAgentCli("claude");
-    if (cli) {
-      expect(cli.command).toBe("claude");
-    }
+    expect(cli?.command).toBe("claude");
   });
 
   it("falls back when session agent CLI is unavailable", async () => {
@@ -32,6 +46,14 @@ describe("detectAgentCli", () => {
       expect(Array.isArray(cli.args)).toBe(true);
     }
   });
+
+  function prependFakeCommand(command: string): void {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-agent-test-"));
+    const commandPath = join(tmp, command);
+    writeFileSync(commandPath, "#!/bin/sh\nexit 0\n");
+    chmodSync(commandPath, 0o755);
+    process.env.PATH = `${tmp}${delimiter}${originalPath ?? ""}`;
+  }
 });
 
 describe("defaultAgentTimeoutMs", () => {
