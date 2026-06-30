@@ -1,0 +1,7 @@
+{
+  "checkers": {
+    "tests": {
+      "timeoutMs": 30000
+    }
+  }
+}
