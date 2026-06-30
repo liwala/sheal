@@ -111,6 +111,8 @@ Sandbox Pull
 ────────────
   sheal pull --list               List available local sbx sandboxes and Docker containers
   sheal pull sbx <name>           Pull one sbx sandbox's capture set to staging
+  sheal pull sbx <name> --checkpoint
+                                  Write a checkpoint stage without registry import
   sheal pull sbx --all            Pull every sbx sandbox with a workspace
   sheal pull docker <name>        Pull one Docker container's capture set
 
@@ -396,12 +398,14 @@ program
   .option("--list", "List available agent sandboxes", false)
   .option("--all", "Pull all sandboxes for a backend (sbx only)", false)
   .option("--gc", "Remove expired pull staging directories", false)
+  .option("--checkpoint", "Write a checkpoint stage without raw-registry normalization", false)
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .action(async (backend: string | undefined, name: string | undefined, opts) => {
     await runPull(backend, name, {
       list: opts.list,
       all: opts.all,
       gc: opts.gc,
+      checkpoint: opts.checkpoint,
       format: opts.format,
     });
   });

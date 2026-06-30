@@ -18,6 +18,15 @@ export interface PullStagingGcResult {
   skipped: string[];
 }
 
+export interface PullCheckpoint {
+  schemaVersion: 1;
+  kind: "checkpoint";
+  backend: string;
+  name: string;
+  capturedAt: string;
+  captureSet: "pull-adapter";
+}
+
 export function defaultPullStagingRoot(_projectRoot: string = process.cwd()): string {
   return join(homedir(), ".sheal", "pulls");
 }
@@ -42,6 +51,23 @@ export function createPullStage(params: {
 
 export function writePullProvenance(stagingDir: string, provenance: PullProvenance): void {
   writeFileSync(join(stagingDir, "provenance.json"), `${JSON.stringify(provenance, null, 2)}\n`, "utf-8");
+}
+
+export function writePullCheckpoint(stagingDir: string, params: {
+  backend: string;
+  name: string;
+  capturedAt: string;
+}): PullCheckpoint {
+  const checkpoint: PullCheckpoint = {
+    schemaVersion: 1,
+    kind: "checkpoint",
+    backend: params.backend,
+    name: params.name,
+    capturedAt: params.capturedAt,
+    captureSet: "pull-adapter",
+  };
+  writeFileSync(join(stagingDir, "checkpoint.json"), `${JSON.stringify(checkpoint, null, 2)}\n`, "utf-8");
+  return checkpoint;
 }
 
 export function gcPullStages(params: {
