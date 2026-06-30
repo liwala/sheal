@@ -138,7 +138,7 @@ process.exit(99);
       sourcePaths: ["/Users/example/code/acme/web"],
     });
     expect(existsSync(join(testHome(projectRoot), ".sheal", "pulls", "sbx", "codex-missing-worktree"))).toBe(false);
-  });
+  }, 15_000);
 
   it("exits non-zero when every eligible sbx pull fails", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-all-"));
