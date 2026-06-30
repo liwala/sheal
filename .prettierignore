@@ -1,0 +1,7 @@
+.claude/
+.git/
+.sheal/
+coverage/
+dist/
+node_modules/
+packages/*/dist/
