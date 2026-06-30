@@ -140,23 +140,30 @@ deferred until the local path is proven.
 
 ### Implementation note: shipped local slice
 
-As of the current local slice, the shipped command surface is narrower than the
-full validation milestone but covers the `sbx` path end to end:
+As of the local Docker adapter slice, the shipped command surface covers `sbx`
+and Docker-backed local acquisition:
 
-- `sheal pull --list` discovers local `sbx` sandboxes.
-- `sheal pull sbx <name>` captures one sandbox's available material into
-  `.sheal/pulls/sbx/<name>/<timestamp>/` with pull-time provenance.
+- `sheal pull --list` discovers local `sbx` sandboxes and Docker containers.
+- `sheal pull sbx <name>` captures one sandbox's git diff plus runtime-home
+  agent artifacts and transcripts into `.sheal/pulls/sbx/<name>/<timestamp>/`
+  with pull-time provenance and gap logging. Runtime home artifacts are
+  discovered by probing supported agent directories such as `.claude/`,
+  `.codex/`, `.gemini/`, and `.opencode/` under `$HOME` inside the sandbox;
+  transcripts are pulled from known agent home paths such as
+  `.claude/projects/<project-slug>/` and `.codex/sessions/`.
 - `sheal pull sbx --all` captures every listed `sbx` sandbox that has an
   available workspace and skips entries whose workspace is missing.
-- Pull now captures the ordered minimal set from D5 — git diff, agent artifacts
-  and memory files, then transcript where present — and records missing optional
-  sources as gaps.
-- `pull.stagingDir` configures the staging root; the default remains
-  `.sheal/pulls`.
+- `sheal pull docker <name>` captures one selected Docker container's git diff
+  plus runtime-home agent artifacts and transcripts into
+  `.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
+  logging. Runtime home artifacts are discovered by probing supported agent
+  directories under `$HOME` inside the container; transcripts are pulled from
+  known agent home paths when present.
+- `sheal pull docker --all` is intentionally unsupported; Docker container
+  selection is human-driven from `sheal pull --list`.
 
-Still deferred: the raw Docker adapter (the next implementation slice),
-remote/cloud adapters, retention parameter/garbage collection implementation,
-and daemon/checkpointing behavior.
+Still deferred: remote/cloud adapters, retention and garbage collection, and
+daemon/checkpointing behavior.
 
 ## Consequences
 
@@ -184,8 +191,8 @@ and daemon/checkpointing behavior.
 ## Tracked decision state
 
 Resolved for the local-first cut (see § Scope and `docs/tasks/`): discovery
-(`--list`), staging folder + setting, runtime-native access, sbx-first backend
-scope, raw Docker as the next backend, and the direction that checkpointing
+(`--list`), staging folder + setting, runtime-native access, sbx and Docker
+backend scope, Docker container selection, and the direction that checkpointing
 belongs in a later daemon/mid-session design. Remaining/deferred:
 
 - **Remote/cloud tier (deferred).** Which concrete types are

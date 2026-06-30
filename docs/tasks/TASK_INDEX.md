@@ -8,9 +8,14 @@
 
 - [x] [Thin pull: capture git diff to staging with provenance](pull-thin-diff.md) — `done` → src/commands/pull.ts
 - [x] [T1. Batch pull all sbx sandboxes](t1-batch-pull-all-sbx-sandboxes.md) — `done` → src/commands/pull.ts
-- [ ] [T2. Docker pull adapter end-to-end alongside sbx](t2-docker-pull-adapter-end-to-end.md) — `todo`
+- [x] [T2. Docker pull adapter end-to-end alongside sbx](t2-docker-pull-adapter-end-to-end.md) — `done` → src/pull/adapters/docker.ts, src/pull/registry.ts, src/commands/pull.ts, test/pull-docker.test.ts, test/pull-list.test.ts
+- [x] [T4. Fix pull capture to use agent home dirs](t4-fix-pull-capture-to-use-agent-home-dirs.md) — `done` → src/pull/capture-set.ts, test/pull-capture.test.ts, test/pull-docker.test.ts, README.md, docs/adr/0005-sheal-pull-acquisition-adapters.md
 - [x] [Full capture set with gap logging](pull-full-capture-set.md) — `done` → src/commands/pull.ts, src/pull/adapters/sbx.ts, src/pull/capture-set.ts, test/pull-capture.test.ts
 - [x] [Unknown sandbox name error path](pull-unknown-name-error.md) — `done` → src/commands/pull.ts, test/pull-errors.test.ts
+
+## D3 — Raw Session Normalization
+
+- [ ] [T3. Normalize pulled sessions into a raw session registry](t3-normalize-pulled-sessions-into-raw-session-registry.md) — `todo`
 
 ## ops — Cross-cutting
 

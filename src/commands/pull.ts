@@ -57,7 +57,7 @@ export async function runPull(backend: string | undefined, name: string | undefi
     return;
   }
 
-  console.error("Specify --list, or use `sheal pull sbx <name>`.");
+  console.error("Specify --list, or use `sheal pull <backend> <name>`.");
   process.exitCode = 1;
 }
 
@@ -68,6 +68,12 @@ async function runPullAll(
 ): Promise<void> {
   if (!backend || name) {
     console.error("Use `sheal pull sbx --all` to pull every sbx sandbox.");
+    process.exitCode = 1;
+    return;
+  }
+
+  if (backend === "docker") {
+    console.error("sheal pull docker --all is not supported; use `sheal pull --list` and then `sheal pull docker <container>`.");
     process.exitCode = 1;
     return;
   }
@@ -146,7 +152,7 @@ export async function runPullList(opts: { format?: string } = {}): Promise<void>
 
 function formatPullList(listings: BackendListing[]): string {
   if (listings.length === 0) {
-    return "No sandbox backends found. Install sbx to list agent sandboxes.";
+    return "No sandbox backends found. Install sbx or Docker to list local sandboxes.";
   }
 
   const lines: string[] = [];
@@ -163,15 +169,25 @@ function formatPullList(listings: BackendListing[]): string {
     lines.push(`  ${"name".padEnd(nameWidth)}  ${"agent".padEnd(agentWidth)}  ${"status".padEnd(statusWidth)}  workspaces`);
 
     for (const sandbox of listing.sandboxes) {
-      const workspace = sandbox.workspaces.join(", ");
+      const workspace = sandbox.workspaces.length > 0 ? sandbox.workspaces.join(", ") : "-";
       const missing = sandbox.workspaceMissing ? " workspace_missing" : "";
+      const metadata = formatSandboxMetadata(sandbox.metadata);
       lines.push(
-        `  ${sandbox.name.padEnd(nameWidth)}  ${sandbox.agent.padEnd(agentWidth)}  ${sandbox.status.padEnd(statusWidth)}  ${workspace}${missing}`,
+        `  ${sandbox.name.padEnd(nameWidth)}  ${sandbox.agent.padEnd(agentWidth)}  ${sandbox.status.padEnd(statusWidth)}  ${workspace}${missing}${metadata}`,
       );
     }
   }
 
   return lines.join("\n");
+}
+
+function formatSandboxMetadata(metadata: Record<string, string> | undefined): string {
+  if (!metadata) {
+    return "";
+  }
+
+  const entries = Object.entries(metadata).map(([key, value]) => `${key}=${value}`);
+  return entries.length > 0 ? ` ${entries.join(" ")}` : "";
 }
 
 function hasAvailableWorkspace(sandbox: SandboxInstance): boolean {

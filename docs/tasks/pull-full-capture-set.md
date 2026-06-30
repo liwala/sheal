@@ -22,11 +22,11 @@ failing.
 TDD order (§1):
 
 1. **Write failing tests** (`test/pull-capture.test.ts`):
-   - a container with diff + a `.claude/` dir + `AGENTS.md`/`MEMORY.md` →
-     all land in staging, `gaps[]` empty.
-   - a container missing the transcript / memory paths → those are listed in
-     `provenance.json` `gaps[]`, and the pull still exits `0` (graceful
-     degradation, ADR D5 "logs the gap" — never a silent partial).
+   - a container with diff + `$HOME/.claude/` / `$HOME/.codex/` evidence → all
+     runtime-home evidence lands in staging, `gaps[]` empty.
+   - a container missing an agent-specific runtime-home transcript path → that
+     path is listed in `provenance.json` `gaps[]`, and the pull still exits `0`
+     (graceful degradation, ADR D5 "logs the gap" — never a silent partial).
      Confirm red.
 2. **Implement to green**:
    - define the ordered candidate path list to copy out (workdir git diff,

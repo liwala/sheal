@@ -26,6 +26,8 @@ describe("sheal pull sbx full capture set", () => {
 
     const sandboxName = "claude-acme-api";
     const workspace = "/workspace/acme/api";
+    const home = "/home/claude";
+    const claudeProjectSlug = claudeSlug(workspace);
     const diff = [
       "diff --git a/src/api.ts b/src/api.ts",
       "index 1111111..2222222 100644",
@@ -44,13 +46,13 @@ describe("sheal pull sbx full capture set", () => {
         status: "running",
         workspaces: [workspace],
       }],
+      homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`, `${home}/.claude/projects/${claudeProjectSlug}`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
-        [`${workspace}/MEMORY.md`]: "# Memory\n",
-        [`${workspace}/.sheal/session.jsonl`]: "{\"type\":\"user\",\"content\":\"capture me\"}\n",
+        [`${home}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
+        [`${home}/.claude/sessions.jsonl`]: "{\"type\":\"session-summary\",\"content\":\"capture me\"}\n",
+        [`${home}/.claude/projects/${claudeProjectSlug}/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"project transcript\"}\n",
       },
     });
 
@@ -60,15 +62,118 @@ describe("sheal pull sbx full capture set", () => {
     const pullDir = getOnlyPullDir(projectRoot, sandboxName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"model\": \"claude\" }\n");
-    expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
-    expect(readFileSync(join(pullDir, "artifacts", "MEMORY.md"), "utf-8")).toBe("# Memory\n");
-    expect(readFileSync(join(pullDir, "transcript", "session.jsonl"), "utf-8")).toContain("capture me");
+    expect(existsSync(join(pullDir, "artifacts", "AGENTS.md"))).toBe(false);
+    expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
+    expect(readFileSync(join(pullDir, "transcript", ".claude", "sessions.jsonl"), "utf-8")).toContain("capture me");
+    expect(readFileSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug, "session-1.jsonl"), "utf-8")).toContain("project transcript");
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([]);
   });
 
-  it("logs missing memory and transcript paths as gaps while still exiting zero", () => {
+  it("does not treat missing workspace docs as gaps when agent home dirs exist", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    const sandboxName = "claude-home-only";
+    const workspace = "/workspace/acme/home-only";
+    const home = "/home/claude";
+    const claudeProjectSlug = claudeSlug(workspace);
+    const diff = "diff --git a/src/home.ts b/src/home.ts\n";
+
+    writeSbxFixture(binDir, {
+      sandboxes: [{
+        name: sandboxName,
+        agent: "claude",
+        status: "running",
+        workspaces: [workspace],
+      }],
+      homes: { [sandboxName]: home },
+      diffs: { [sandboxName]: diff },
+      directories: [
+        `${home}/.claude`,
+        `${home}/.claude/projects/${claudeProjectSlug}`,
+        `${home}/.codex`,
+        `${home}/.codex/sessions`,
+      ],
+      files: {
+        [`${home}/.claude/settings.json`]: "{ \"model\": \"claude\" }\n",
+        [`${home}/.claude/projects/${claudeProjectSlug}/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"claude transcript\"}\n",
+        [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
+        [`${home}/.codex/sessions/session-1.jsonl`]: "{\"type\":\"user\",\"content\":\"codex transcript\"}\n",
+      },
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["sbx", sandboxName]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).not.toContain("Gaps:");
+    expect(result.stdout).not.toContain(`${workspace}/AGENTS.md`);
+    expect(result.stdout).not.toContain(`${workspace}/MEMORY.md`);
+    expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
+
+    const pullDir = getOnlyPullDir(projectRoot, sandboxName);
+    expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"model\": \"claude\" }\n");
+    expect(readFileSync(join(pullDir, "artifacts", ".codex", "config.toml"), "utf-8")).toBe("model = \"gpt-5\"\n");
+    expect(readFileSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug, "session-1.jsonl"), "utf-8")).toContain("claude transcript");
+    expect(readFileSync(join(pullDir, "transcript", ".codex", "sessions", "session-1.jsonl"), "utf-8")).toContain("codex transcript");
+
+    const provenance = readProvenance(pullDir);
+    expect(provenance.gaps).toEqual([]);
+  });
+
+  it("captures supported agent home artifact dirs that exist under sandbox home", () => {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
+    const projectRoot = join(tmp, "project");
+    const binDir = join(tmp, "bin");
+    mkdirSync(projectRoot, { recursive: true });
+    mkdirSync(binDir, { recursive: true });
+
+    const sandboxName = "shell-multi-agent-home";
+    const workspace = "/workspace/acme/multi";
+    const home = "/home/agent";
+    const diff = "diff --git a/app.ts b/app.ts\n";
+    const agentHomeDirs = [
+      ".claude",
+      ".codex",
+      ".copilot",
+      ".cursor",
+      ".docker-agent",
+      ".droid",
+      ".gemini",
+      ".kiro",
+      ".opencode",
+    ];
+
+    writeSbxFixture(binDir, {
+      sandboxes: [{
+        name: sandboxName,
+        agent: "shell",
+        status: "running",
+        workspaces: [workspace],
+      }],
+      homes: { [sandboxName]: home },
+      diffs: { [sandboxName]: diff },
+      directories: agentHomeDirs.map((dir) => `${home}/${dir}`),
+      files: Object.fromEntries(agentHomeDirs.map((dir) => [`${home}/${dir}/state.txt`, `${dir}\n`])),
+    });
+
+    const result = runShealPull(projectRoot, binDir, ["sbx", sandboxName]);
+
+    expect(result.status, result.stderr).toBe(0);
+    const pullDir = getOnlyPullDir(projectRoot, sandboxName);
+    for (const dir of agentHomeDirs) {
+      expect(readFileSync(join(pullDir, "artifacts", dir, "state.txt"), "utf-8")).toBe(`${dir}\n`);
+    }
+
+    const provenance = readProvenance(pullDir);
+    expect(provenance.gaps).toEqual([]);
+  });
+
+  it("logs missing agent transcript paths as gaps while still exiting zero", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-capture-"));
     const projectRoot = join(tmp, "project");
     const binDir = join(tmp, "bin");
@@ -77,6 +182,8 @@ describe("sheal pull sbx full capture set", () => {
 
     const sandboxName = "claude-missing-capture";
     const workspace = "/workspace/acme/missing";
+    const home = "/home/claude";
+    const claudeProjectSlug = claudeSlug(workspace);
     const diff = "diff --git a/README.md b/README.md\n";
 
     writeSbxFixture(binDir, {
@@ -86,11 +193,11 @@ describe("sheal pull sbx full capture set", () => {
         status: "stopped",
         workspaces: [workspace],
       }],
+      homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.claude`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
+        [`${home}/.claude/settings.json`]: "{ \"theme\": \"dark\" }\n",
       },
     });
 
@@ -98,20 +205,21 @@ describe("sheal pull sbx full capture set", () => {
 
     expect(result.status, result.stderr).toBe(0);
     expect(result.stdout).toContain("Gaps:");
-    expect(result.stdout).toContain(`${workspace}/MEMORY.md`);
-    expect(result.stdout).toContain(`${workspace}/.sheal/session.jsonl`);
+    expect(result.stdout).not.toContain(`${workspace}/AGENTS.md`);
+    expect(result.stdout).not.toContain(`${workspace}/MEMORY.md`);
+    expect(result.stdout).toContain(`${home}/.claude/projects/${claudeProjectSlug}`);
+    expect(result.stdout).not.toContain(`${workspace}/.sheal/session.jsonl`);
 
     const pullDir = getOnlyPullDir(projectRoot, sandboxName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
     expect(readFileSync(join(pullDir, "artifacts", ".claude", "settings.json"), "utf-8")).toBe("{ \"theme\": \"dark\" }\n");
-    expect(readFileSync(join(pullDir, "artifacts", "AGENTS.md"), "utf-8")).toBe("# Agents\n");
+    expect(existsSync(join(pullDir, "artifacts", "AGENTS.md"))).toBe(false);
     expect(existsSync(join(pullDir, "artifacts", "MEMORY.md"))).toBe(false);
-    expect(existsSync(join(pullDir, "transcript", "session.jsonl"))).toBe(false);
+    expect(existsSync(join(pullDir, "transcript", ".claude", "projects", claudeProjectSlug))).toBe(false);
 
     const provenance = readProvenance(pullDir);
     expect(provenance.gaps).toEqual([
-      `${workspace}/MEMORY.md`,
-      `${workspace}/.sheal/session.jsonl`,
+      `${home}/.claude/projects/${claudeProjectSlug}`,
     ]);
   });
 
@@ -124,6 +232,7 @@ describe("sheal pull sbx full capture set", () => {
 
     const sandboxName = "codex-json-gaps";
     const workspace = "/workspace/acme/json";
+    const home = "/home/codex";
     const diff = "diff --git a/package.json b/package.json\n";
 
     writeSbxFixture(binDir, {
@@ -133,11 +242,11 @@ describe("sheal pull sbx full capture set", () => {
         status: "running",
         workspaces: [workspace],
       }],
+      homes: { [sandboxName]: home },
       diffs: { [sandboxName]: diff },
-      directories: [`${workspace}/.claude`],
+      directories: [`${home}/.codex`],
       files: {
-        [`${workspace}/.claude/settings.json`]: "{}\n",
-        [`${workspace}/AGENTS.md`]: "# Agents\n",
+        [`${home}/.codex/config.toml`]: "model = \"gpt-5\"\n",
       },
     });
 
@@ -155,17 +264,17 @@ describe("sheal pull sbx full capture set", () => {
       backend: "sbx",
       name: sandboxName,
       gaps: [
-        `${workspace}/MEMORY.md`,
-        `${workspace}/.sheal/session.jsonl`,
+        `${home}/.codex/sessions`,
       ],
       provenance: {
         gaps: [
-          `${workspace}/MEMORY.md`,
-          `${workspace}/.sheal/session.jsonl`,
+          `${home}/.codex/sessions`,
         ],
       },
     });
     expect(typeof payload.stagingDir).toBe("string");
+    expect(readFileSync(join(payload.stagingDir, "artifacts", ".codex", "config.toml"), "utf-8")).toBe("model = \"gpt-5\"\n");
+    expect(existsSync(join(payload.stagingDir, "artifacts", ".claude"))).toBe(false);
   });
 });
 
@@ -197,10 +306,15 @@ function readProvenance(pullDir: string): { gaps?: unknown } {
   return JSON.parse(readFileSync(join(pullDir, "provenance.json"), "utf-8")) as { gaps?: unknown };
 }
 
+function claudeSlug(workspace: string): string {
+  return workspace.replace(/[\\/: ]/g, "-");
+}
+
 function writeSbxFixture(
   binDir: string,
   fixture: {
     sandboxes: Array<{ name: string; agent: string; status: string; workspaces: string[] }>;
+    homes: Record<string, string>;
     diffs: Record<string, string>;
     directories?: string[];
     files?: Record<string, string>;
@@ -216,6 +330,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 const args = process.argv.slice(2);
 const sandboxes = ${JSON.stringify(fixture.sandboxes)};
+const homes = ${JSON.stringify(fixture.homes)};
 const diffs = ${JSON.stringify(fixture.diffs)};
 const directories = ${JSON.stringify(fixture.directories ?? [])};
 const files = ${JSON.stringify(fixture.files ?? {})};
@@ -228,6 +343,19 @@ if (args.length === 1 && args[0] === "--help") {
 if (args.length === 2 && args[0] === "ls" && args[1] === "--json") {
   process.stdout.write(JSON.stringify({ sandboxes }));
   process.exit(0);
+}
+
+if (
+  args.length === 4 &&
+  args[0] === "exec" &&
+  args[2] === "printenv" &&
+  args[3] === "HOME"
+) {
+  const home = homes[args[1]];
+  if (home) {
+    process.stdout.write(home + "\\n");
+    process.exit(0);
+  }
 }
 
 if (

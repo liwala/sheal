@@ -16,9 +16,8 @@ leave a recent footprint even after a crash.
 - Interval checkpointing (daemon) → survives crashes; new long-running process,
   state, and scheduling to own.
 
-**Still open:** checkpoint interval, what a checkpoint captures vs. a full pull,
-and whether the daemon is opt-in per runtime. Start simple per ADR; revisit if
-lost-on-crash sessions prove common.
+**Follow-up implementation detail:** checkpoint interval, what a checkpoint
+captures vs. a full pull, and whether the daemon is opt-in per runtime.
 
 **Answered (2026-06-10, Luisa):** yes, crashed/destroyed environments do need
 daemon or mid-session checkpointing. The concrete checkpoint interval, capture
