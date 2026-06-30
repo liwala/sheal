@@ -14,6 +14,7 @@ interface SbxSandbox {
   status?: unknown;
   workspaces?: unknown;
   workspace_missing?: unknown;
+  metadata?: unknown;
 }
 
 export class SbxAdapter implements SandboxAdapter {
@@ -88,6 +89,8 @@ export class SbxAdapter implements SandboxAdapter {
         name: sandbox.name,
         agent: sandbox.agent,
         status: sandbox.status,
+        ...(sandbox.metadata ? { metadata: sandbox.metadata } : {}),
+        ...(sandbox.metadata ? { correlationHints: correlationHintsFromMetadata(sandbox.metadata) } : {}),
         pulledAt: options.pulledAt ?? new Date().toISOString(),
         sourcePaths: uniquePaths([workspace, home]),
         gaps,
@@ -119,6 +122,7 @@ function normalizeSbxSandbox(sandbox: SbxSandbox, index: number): SandboxInstanc
   const agent = readString(sandbox.agent, `sandboxes[${index}].agent`);
   const status = readString(sandbox.status, `sandboxes[${index}].status`);
   const workspaces = readStringArray(sandbox.workspaces, `sandboxes[${index}].workspaces`);
+  const metadata = readOptionalStringRecord(sandbox.metadata, `sandboxes[${index}].metadata`);
 
   return {
     backend: "sbx",
@@ -127,6 +131,7 @@ function normalizeSbxSandbox(sandbox: SbxSandbox, index: number): SandboxInstanc
     status,
     workspaces,
     workspaceMissing: sandbox.workspace_missing === true,
+    ...(metadata ? { metadata } : {}),
   };
 }
 
@@ -144,10 +149,54 @@ function readStringArray(value: unknown, field: string): string[] {
   return value;
 }
 
+function readOptionalStringRecord(value: unknown, field: string): Record<string, string> | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`sbx ls --json field ${field} must be an object with string values`);
+  }
+
+  const entries = Object.entries(value);
+  if (entries.some(([, item]) => typeof item !== "string")) {
+    throw new Error(`sbx ls --json field ${field} must be an object with string values`);
+  }
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
 function formatSbxError(message: string): string {
   return message.trim() || "sbx ls --json failed";
 }
 
 function uniquePaths(paths: string[]): string[] {
   return [...new Set(paths)];
+}
+
+function correlationHintsFromMetadata(metadata: Record<string, string>) {
+  const hints = [
+    hintFromMetadata(metadata, "prUrl", "pr-url"),
+    hintFromMetadata(metadata, "pullRequestUrl", "pr-url"),
+    hintFromMetadata(metadata, "branch", "branch"),
+    hintFromMetadata(metadata, "commit", "commit"),
+    hintFromMetadata(metadata, "commitSha", "commit"),
+  ].filter((hint): hint is { kind: "pr-url" | "branch" | "commit"; value: string } => hint !== null);
+
+  return uniqueHints(hints);
+}
+
+function hintFromMetadata(
+  metadata: Record<string, string>,
+  key: string,
+  kind: "pr-url" | "branch" | "commit",
+): { kind: "pr-url" | "branch" | "commit"; value: string } | null {
+  const value = metadata[key];
+  return value ? { kind, value } : null;
+}
+
+function uniqueHints<T extends { kind: string; value: string }>(hints: T[]): T[] {
+  const seen = new Set<string>();
+  return hints.filter((hint) => {
+    const key = `${hint.kind}\0${hint.value}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

@@ -19,6 +19,7 @@ import { runDrift } from "./commands/drift.js";
 import { runRules } from "./commands/rules.js";
 import { runAudit } from "./commands/audit.js";
 import { runPull } from "./commands/pull.js";
+import { runSessionsImport } from "./commands/sessions.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -110,6 +111,9 @@ Sandbox Pull
 ────────────
   sheal pull --list               List available local sbx sandboxes and Docker containers
   sheal pull sbx <name>           Pull one sbx sandbox's capture set to staging
+  sheal pull sbx <name> --checkpoint
+                                  Write a checkpoint stage without registry import
+  sheal pull --checkpoint-run     Run configured checkpoint targets once
   sheal pull sbx --all            Pull every sbx sandbox with a workspace
   sheal pull docker <name>        Pull one Docker container's capture set
 
@@ -121,6 +125,7 @@ Browsing
   sheal browse learnings          Browse learnings
   sheal browse digests            Browse digest reports
   sheal export                    Export session data as JSON (for piping)
+  sheal sessions import           Add live Claude/Codex sessions to raw registry
   sheal graph                     Cross-session knowledge graph
   sheal drift                     Detect when learnings aren't being applied
 
@@ -393,11 +398,35 @@ program
   .description("Discover and pull changes from agent sandboxes")
   .option("--list", "List available agent sandboxes", false)
   .option("--all", "Pull all sandboxes for a backend (sbx only)", false)
+  .option("--gc", "Remove expired pull staging directories", false)
+  .option("--checkpoint", "Write a checkpoint stage without raw-registry normalization", false)
+  .option("--checkpoint-run", "Run configured checkpoint targets once", false)
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .action(async (backend: string | undefined, name: string | undefined, opts) => {
     await runPull(backend, name, {
       list: opts.list,
       all: opts.all,
+      gc: opts.gc,
+      checkpoint: opts.checkpoint,
+      checkpointRun: opts.checkpointRun,
+      format: opts.format,
+    });
+  });
+
+const sessions = program
+  .command("sessions")
+  .description("Manage project-local session registry records");
+
+sessions
+  .command("import")
+  .description("Import live-home or explicit-source Claude/Codex sessions into the raw registry")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--source <path>", "Explicit source root containing .claude and/or .codex")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .action((opts) => {
+    runSessionsImport({
+      projectRoot: opts.project,
+      source: opts.source,
       format: opts.format,
     });
   });

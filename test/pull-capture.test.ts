@@ -286,6 +286,7 @@ function runShealPull(projectRoot: string, binDir: string, args: string[]) {
       cwd: projectRoot,
       env: {
         ...process.env,
+        HOME: testHome(projectRoot),
         PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
         NO_COLOR: "1",
       },
@@ -295,11 +296,15 @@ function runShealPull(projectRoot: string, binDir: string, args: string[]) {
 }
 
 function getOnlyPullDir(projectRoot: string, sandboxName: string): string {
-  const stagingRoot = join(projectRoot, ".sheal", "pulls", "sbx", sandboxName);
+  const stagingRoot = join(testHome(projectRoot), ".sheal", "pulls", "sbx", sandboxName);
   expect(existsSync(stagingRoot)).toBe(true);
   const timestamps = readdirSync(stagingRoot);
   expect(timestamps).toHaveLength(1);
   return join(stagingRoot, timestamps[0]);
+}
+
+function testHome(projectRoot: string): string {
+  return join(projectRoot, ".home");
 }
 
 function readProvenance(pullDir: string): { gaps?: unknown } {

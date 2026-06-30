@@ -16,14 +16,24 @@ export interface PullArtifact {
   sourcePath: string;
 }
 
+export interface PullCorrelationHint {
+  kind: "pr-url" | "branch" | "commit";
+  value: string;
+}
+
+export type PullCaptureKind = "checkpoint" | "pull";
+
 export interface PullProvenance {
   backend: string;
   type: string;
   name: string;
   agent: string;
   status: string;
+  captureKind?: PullCaptureKind;
   containerId?: string;
   image?: string;
+  metadata?: Record<string, string>;
+  correlationHints?: PullCorrelationHint[];
   pulledAt: string;
   sourcePaths: string[];
   gaps: string[];

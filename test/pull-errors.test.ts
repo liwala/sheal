@@ -41,7 +41,7 @@ describe("sheal pull error paths", () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(missingSandbox);
     expect(result.stderr).toContain("sheal pull --list");
-    expect(existsSync(join(projectRoot, ".sheal", "pulls", "sbx", missingSandbox))).toBe(false);
+    expect(existsSync(join(testHome(projectRoot), ".sheal", "pulls", "sbx", missingSandbox))).toBe(false);
   });
 
   it("passes sandbox names with shell metacharacters as a single sbx exec argument", () => {
@@ -79,7 +79,7 @@ describe("sheal pull error paths", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(existsSync(join(projectRoot, "injected"))).toBe(false);
 
-    const stagingRoot = join(projectRoot, ".sheal", "pulls", "sbx", sandboxName);
+    const stagingRoot = join(testHome(projectRoot), ".sheal", "pulls", "sbx", sandboxName);
     expect(existsSync(stagingRoot)).toBe(true);
     const execLog = JSON.parse(readFileSync(join(tmp, "exec-args.json"), "utf-8")) as string[];
     expect(execLog[0]).toBe(sandboxName);
@@ -94,12 +94,17 @@ function runShealPull(projectRoot: string, binDir: string, args: string[]) {
       cwd: projectRoot,
       env: {
         ...process.env,
+        HOME: testHome(projectRoot),
         PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
         NO_COLOR: "1",
       },
       encoding: "utf-8",
     },
   );
+}
+
+function testHome(projectRoot: string): string {
+  return join(projectRoot, ".home");
 }
 
 function writeSbxFixture(

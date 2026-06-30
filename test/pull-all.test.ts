@@ -113,6 +113,7 @@ process.exit(99);
         cwd: projectRoot,
         env: {
           ...process.env,
+          HOME: testHome(projectRoot),
           PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
           NO_COLOR: "1",
         },
@@ -136,8 +137,8 @@ process.exit(99);
       status: "stopped",
       sourcePaths: ["/Users/example/code/acme/web"],
     });
-    expect(existsSync(join(projectRoot, ".sheal", "pulls", "sbx", "codex-missing-worktree"))).toBe(false);
-  });
+    expect(existsSync(join(testHome(projectRoot), ".sheal", "pulls", "sbx", "codex-missing-worktree"))).toBe(false);
+  }, 15_000);
 
   it("exits non-zero when every eligible sbx pull fails", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-all-"));
@@ -187,6 +188,7 @@ process.exit(99);
         cwd: projectRoot,
         env: {
           ...process.env,
+          HOME: testHome(projectRoot),
           PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
           NO_COLOR: "1",
         },
@@ -213,6 +215,7 @@ process.exit(99);
         cwd: projectRoot,
         env: {
           ...process.env,
+          HOME: testHome(projectRoot),
           PATH: binDir,
           NO_COLOR: "1",
         },
@@ -231,7 +234,7 @@ function assertPulledSandbox(
   diff: string,
   expected: { agent: string; status: string; sourcePaths: string[] },
 ): void {
-  const stagingRoot = join(projectRoot, ".sheal", "pulls", "sbx", sandboxName);
+  const stagingRoot = join(testHome(projectRoot), ".sheal", "pulls", "sbx", sandboxName);
   expect(existsSync(stagingRoot)).toBe(true);
   const timestamps = readdirSync(stagingRoot);
   expect(timestamps).toHaveLength(1);
@@ -258,4 +261,8 @@ function assertPulledSandbox(
   });
   expect(typeof provenance.pulledAt).toBe("string");
   expect(Number.isNaN(Date.parse(provenance.pulledAt as string))).toBe(false);
+}
+
+function testHome(projectRoot: string): string {
+  return join(projectRoot, ".home");
 }

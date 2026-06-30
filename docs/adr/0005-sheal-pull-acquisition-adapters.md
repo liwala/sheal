@@ -145,7 +145,7 @@ and Docker-backed local acquisition:
 
 - `sheal pull --list` discovers local `sbx` sandboxes and Docker containers.
 - `sheal pull sbx <name>` captures one sandbox's git diff plus runtime-home
-  agent artifacts and transcripts into `.sheal/pulls/sbx/<name>/<timestamp>/`
+  agent artifacts and transcripts into `~/.sheal/pulls/sbx/<name>/<timestamp>/`
   with pull-time provenance and gap logging. Runtime home artifacts are
   discovered by probing supported agent directories such as `.claude/`,
   `.codex/`, `.gemini/`, and `.opencode/` under `$HOME` inside the sandbox;
@@ -155,15 +155,34 @@ and Docker-backed local acquisition:
   available workspace and skips entries whose workspace is missing.
 - `sheal pull docker <name>` captures one selected Docker container's git diff
   plus runtime-home agent artifacts and transcripts into
-  `.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
+  `~/.sheal/pulls/docker/<name>/<timestamp>/` with container provenance and gap
   logging. Runtime home artifacts are discovered by probing supported agent
   directories under `$HOME` inside the container; transcripts are pulled from
   known agent home paths when present.
 - `sheal pull docker --all` is intentionally unsupported; Docker container
   selection is human-driven from `sheal pull --list`.
+- `sheal pull <backend> <name> --checkpoint` performs a manual mid-session
+  checkpoint for a selected reachable local runtime. It uses the same adapter
+  capture set and staging root as pull, writes `checkpoint.json`, stamps
+  provenance with `captureKind: "checkpoint"`, and leaves the stage unnormalized
+  for future consolidation/daemon work.
+- `sheal pull --checkpoint-run` performs one host-side checkpoint pass over the
+  explicit `pull.checkpointTargets` config list. The runner does not infer
+  `--all`; unconfigured sandboxes remain untouched even when their backend is
+  listable.
 
-Still deferred: remote/cloud adapters, retention and garbage collection, and
-daemon/checkpointing behavior.
+After acquisition, pulled Claude and Codex transcripts are normalized into the
+project-local raw registry at
+`.sheal/sessions/raw/<stable-session-id>/`. Pull staging directories receive an
+`ingested.json` marker when normalization produces raw session records. The
+`pull.stagingDir` config setting remains the override for the acquisition
+staging root. `pull.stagingRetentionDays` enables `sheal pull --gc`, which
+removes timestamped pull staging directories older than the configured window
+without deleting project-local raw registry records.
+
+Still deferred: remote/cloud adapters, consumed/consolidated signalling for
+staging retention, and daemon interval scheduling over the opt-in checkpoint
+runner.
 
 ## Consequences
 
@@ -195,18 +214,23 @@ Resolved for the local-first cut (see § Scope and `docs/tasks/`): discovery
 backend scope, Docker container selection, and the direction that checkpointing
 belongs in a later daemon/mid-session design. Remaining/deferred:
 
-- **Remote/cloud tier (deferred).** Which concrete types are
-  remote-only, and the fallback chain (vendor API → webhook → git/PR) when an
-  API is unavailable in a headless run. Out of scope until local is proven.
-- **Retention/GC implementation.** Retention is parameterized rather than
-  hard-coded; consumed/consolidated signalling can wait until consolidation
-  reads from staging.
-- **Q2 cross-path dedup (still open).** Once remote adapters exist, a session
-  captured both by local pull and via its cloud PR must count once. This is the
-  same unresolved identity problem as ADR 0004 Q2 and is tracked in
-  `docs/tasks/q2-cross-path-dedup.md`.
-- **Checkpointing/daemon design.** Interval, what a checkpoint captures vs. a
-  full pull, and whether the daemon is opt-in per runtime.
+- **Remote/cloud adapters.** Which concrete types are remote-only, and the
+  fallback chain (vendor API → webhook → git/PR) when an API is unavailable in a
+  headless run.
+- **Staging retention/GC.** Time-based retention is configurable with
+  `pull.stagingRetentionDays` and runs through `sheal pull --gc`; later
+  consumed/consolidated signalling still needs implementation once
+  consolidation reads from staging.
+- **Checkpointing/daemon.** Manual checkpointing exists for a selected reachable
+  local runtime through `sheal pull <backend> <name> --checkpoint`, and
+  `sheal pull --checkpoint-run` runs the explicit `pull.checkpointTargets` list
+  once. Interval scheduling and daemon lifecycle remain follow-up design work.
+- **Dedup across capture paths.** Q2 is answered in
+  `docs/tasks/q2-cross-path-dedup.md`: remote/cloud captures must link by
+  authoritative aliases, while PR/branch/commit facts remain correlation hints.
+  The raw registry now records canonical identity, capture history, fidelity,
+  and `needs-link` state before the first remote/cloud source writes raw
+  session records.
 
 ## First step (validation milestone)
 
