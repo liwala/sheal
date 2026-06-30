@@ -3,8 +3,8 @@
 **Status:** Proposed
 **Date:** 2026-06-09
 **Authors:** Luisa Lima (with brainstorming assistance from Claude)
-**Builds on:** ADR 0001 (Layer 0 — the capture window)
-**Relates to:** ADR 0004 (artifacts as sources)
+**Builds on:** ADR 0001 (Capture stage and verb model)
+**Relates to:** ADR 0004 (artifact sources and fidelity axis)
 **Interacts with:** the `sandshell` skill (sandbox + Bash-guard policy)
 
 ## Context
@@ -102,18 +102,18 @@ fully-destroyed sandbox with no footprint and no host teardown hook is
 ### D5. Fidelity and the minimal capture set
 
 Adapters pull, in priority order: git diff / uncommitted changes → in-flight
-agent memories and self-authored artifacts (per ADR 0004) → session transcript.
-Remote adapters that can only reach git capture the *lowest* fidelity — they
-lose the trajectory (mistake → correction) ADR 0001 says makes sessions
-valuable. When an adapter captures a reduced set, it **logs the gap** rather
-than silently presenting partial capture as complete.
+agent memories and self-authored artifacts (per ADR 0004's source fidelity
+axis) → session transcript. Remote adapters that can only reach git capture the
+*lowest* fidelity — they lose the trajectory (mistake → correction) ADR 0001
+says makes sessions valuable. When an adapter captures a reduced set, it
+**logs the gap** rather than silently presenting partial capture as complete.
 
 ### D6. Provenance is stamped at pull time
 
 Every pull stamps source identity — `<sandbox-type>`, `<sandbox-name>`, and a
-session/run id — onto the captured material. This directly discharges ADR 0001's
-open question Q5 (attributing a learning to "Claude in session X" vs. "Codex in
-session Y"): the attribution is recorded by the adapter that pulled it.
+session/run id — onto the captured material. For material acquired by
+`sheal pull`, this answers ADR 0001's provenance follow-up: attribution is
+recorded by the adapter that pulled it.
 
 ### Scope: initial implementation (local-first)
 
@@ -190,7 +190,8 @@ primitive.
 - No egress hole — capture stops fighting `sandshell`.
 - One adapter abstraction spans local sandboxes and cloud, so new environments
   are new adapters, not new architectures.
-- Pull-time provenance stamping closes ADR 0001 Q5.
+- Pull-time provenance stamping closes ADR 0001's provenance follow-up for
+  material acquired by `sheal pull`.
 
 **Negative / costs**
 
@@ -202,13 +203,12 @@ primitive.
   diffs without their trajectory.
 - Discovery: the host must be able to enumerate and name pullable environments.
 
-## Open questions and deferred work
+## Tracked decision state
 
-Resolved for the local-first cut (see § Scope): discovery (`--list`), runtime-
-native local access, staging folder configuration, Docker container selection,
-and the need for future checkpointing for fully destroyed environments.
-
-Still deferred as implementation work:
+Resolved for the local-first cut (see § Scope and `docs/tasks/`): discovery
+(`--list`), staging folder + setting, runtime-native access, sbx and Docker
+backend scope, Docker container selection, and the direction that checkpointing
+belongs in a later daemon/mid-session design. Remaining/deferred:
 
 - **Remote/cloud adapters.** Which concrete types are remote-only, and the
   fallback chain (vendor API → webhook → git/PR) when an API is unavailable in a
@@ -251,6 +251,8 @@ Acceptance criteria:
 ## References
 
 - ADR 0001 — Sheal as a Knowledge Consolidation System (§ Capture / "pull",
-  § Trigger taxonomy, Q5 cross-agent provenance, git as guaranteed survivor)
-- ADR 0004 — Artifacts as First-Class Sources (in-flight memories, dedup Q2)
+  § Trigger taxonomy, provenance follow-up, git as guaranteed survivor)
+- ADR 0004 — Artifacts as First-Class Sources (source fidelity axis,
+  in-flight memories, dedup Q2)
+- `docs/tasks/q2-cross-path-dedup.md` — active open dedup decision
 - `sandshell` skill — sandbox configuration, Bash guard hooks, audit logging
