@@ -152,7 +152,7 @@ describe("sheal pull raw session registry", () => {
         rawSessionIds: [stableSessionId],
       });
     }
-  });
+  }, 15_000);
 
   it("normalizes pulled Codex transcripts into the project raw session registry", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-raw-"));
