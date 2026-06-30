@@ -223,6 +223,7 @@ present. Workspace files such as `AGENTS.md`, `MEMORY.md`, and
 sheal pull --list                  # List available sbx sandboxes and Docker containers
 sheal pull sbx <name>              # Pull one sbx sandbox to ~/.sheal/pulls/
 sheal pull sbx <name> --checkpoint # Write a checkpoint stage without registry import
+sheal pull --checkpoint-run        # Run configured checkpoint targets once
 sheal pull sbx --all               # Pull every sbx sandbox with a workspace
 sheal pull docker <name>           # Pull one Docker container selected from --list
 ```
@@ -242,6 +243,23 @@ and staging root, writes `checkpoint.json`, stamps provenance with
 `captureKind: "checkpoint"`, and does not normalize transcripts into the raw
 registry or write an `ingested.json` marker. Long-running daemon scheduling is a
 future layer over this manual checkpoint primitive.
+
+Use `--checkpoint-run` to run a one-shot checkpoint pass over explicitly
+configured local targets:
+
+```json
+{
+  "pull": {
+    "checkpointTargets": [
+      { "backend": "sbx", "name": "codex-before-teardown" }
+    ]
+  }
+}
+```
+
+The runner never implies `--all`: only `pull.checkpointTargets` are
+checkpointed, unconfigured sandboxes are ignored, and checkpoint stages still do
+not import into the raw registry.
 
 ### `sheal init`
 
