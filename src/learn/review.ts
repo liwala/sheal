@@ -8,10 +8,7 @@ import { listLearnings, writeLearning } from "./store.js";
 /**
  * Like readline.question(), but returns null if ESC is pressed.
  */
-function askWithEsc(
-  prompt: string,
-  rl: ReturnType<typeof createInterface>
-): Promise<string | null> {
+function askWithEsc(prompt: string, rl: ReturnType<typeof createInterface>): Promise<string | null> {
   return new Promise((resolve) => {
     const onKeypress = (_: string, key: { name?: string; sequence?: string }) => {
       if (key?.name === "escape" || key?.sequence === "\x1b") {
@@ -49,9 +46,10 @@ export async function reviewLearning(
   learning: LearningFile,
   index: number,
   total: number,
-  rl: ReturnType<typeof createInterface>
+  rl: ReturnType<typeof createInterface>,
 ): Promise<ReviewResult> {
-  const ask = (q: string): Promise<string> => new Promise((resolve) => rl.question(q, resolve));
+  const ask = (q: string): Promise<string> =>
+    new Promise((resolve) => rl.question(q, resolve));
 
   console.log();
   console.log(chalk.bold(`[${index + 1}/${total}] ${learning.id}`));
@@ -61,11 +59,7 @@ export async function reviewLearning(
     const bodyPreview = learning.body.split("\n").slice(0, 3).join("\n  ");
     console.log(chalk.gray(`  ${bodyPreview}`));
   }
-  console.log(
-    chalk.gray(
-      `  tags: ${learning.tags.join(", ")}  severity: ${learning.severity}  category: ${learning.category}`
-    )
-  );
+  console.log(chalk.gray(`  tags: ${learning.tags.join(", ")}  severity: ${learning.severity}  category: ${learning.category}`));
 
   const answer = await ask(chalk.white("  [a]ccept  [e]dit  [s]kip  [r]emove  [q]uit → "));
   const a = answer.trim().toLowerCase();
@@ -113,45 +107,33 @@ function applyAction(
   learning: LearningFile,
   result: ReviewResult,
   dir: string,
-  filename: string
+  filename: string,
 ): "kept" | "promoted" | "edited" | "removed" | "skipped" {
   switch (result.action) {
     case "accept": {
       if (learning.status === "draft") {
         // Promote draft to active
         const updated = { ...learning, status: "active" as const };
-        try {
-          unlinkSync(join(dir, filename));
-        } catch {
-          /* ignore */
-        }
+        try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
         writeLearning(dir, updated);
         return "promoted";
       }
       return "kept";
     }
     case "edit": {
-      const status = learning.status === "draft" ? ("active" as const) : learning.status;
+      const status = learning.status === "draft" ? "active" as const : learning.status;
       const updated: LearningFile = {
         ...learning,
         title: result.editedText!.slice(0, 80),
         body: result.editedText!,
         status,
       };
-      try {
-        unlinkSync(join(dir, filename));
-      } catch {
-        /* ignore */
-      }
+      try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
       writeLearning(dir, updated);
       return "edited";
     }
     case "remove": {
-      try {
-        unlinkSync(join(dir, filename));
-      } catch {
-        /* ignore */
-      }
+      try { unlinkSync(join(dir, filename)); } catch { /* ignore */ }
       return "removed";
     }
     case "skip":
@@ -169,7 +151,7 @@ function applyAction(
 export async function reviewExistingLearnings(
   learnings: LearningFile[],
   dir: string,
-  filenames: string[]
+  filenames: string[],
 ): Promise<{ kept: number; promoted: number; edited: number; removed: number; remaining: number }> {
   if (learnings.length === 0) {
     console.log(chalk.yellow("No learnings to review."));
@@ -190,10 +172,7 @@ export async function reviewExistingLearnings(
   console.log();
   console.log(chalk.bold(`Reviewing ${indexed.length} learning(s) in ${dir}`));
   if (draftCount > 0) {
-    console.log(
-      chalk.yellow(`  ${draftCount} draft(s) pending review`) +
-        (activeCount > 0 ? chalk.gray(`, ${activeCount} active`) : "")
-    );
+    console.log(chalk.yellow(`  ${draftCount} draft(s) pending review`) + (activeCount > 0 ? chalk.gray(`, ${activeCount} active`) : ""));
   }
   console.log(chalk.gray("Actions: [a]ccept  [e]dit  [s]kip  [r]emove  [q]uit\n"));
 
@@ -257,12 +236,10 @@ export async function reviewExistingLearnings(
  * Convenience wrapper for the retro --enrich flow.
  */
 export async function reviewDraftLearnings(
-  dir: string
+  dir: string,
 ): Promise<{ promoted: number; edited: number; removed: number; remaining: number }> {
   const allLearnings = listLearnings(dir);
-  const allFiles = readdirSync(dir)
-    .filter((f) => f.startsWith("LEARN-") && f.endsWith(".md"))
-    .sort();
+  const allFiles = readdirSync(dir).filter((f) => f.startsWith("LEARN-") && f.endsWith(".md")).sort();
 
   const drafts = allLearnings.filter((l) => l.status === "draft");
   if (drafts.length === 0) {

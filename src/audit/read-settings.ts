@@ -40,7 +40,13 @@ export interface AuditReport {
   };
 }
 
-const KNOWN_KEYS = new Set(["permissions", "hooks", "mcpServers", "env", "enabledPlugins"]);
+const KNOWN_KEYS = new Set([
+  "permissions",
+  "hooks",
+  "mcpServers",
+  "env",
+  "enabledPlugins",
+]);
 
 function readScope(path: string, label: ScopeLabel): SettingsScope {
   const empty: SettingsScope = {

@@ -16,9 +16,9 @@ import { StatusBar } from "../components/StatusBar.js";
 
 const AGENT_COLORS: Record<string, string> = {
   "Claude Code": "blue",
-  Codex: "yellow",
-  Amp: "magenta",
-  Gemini: "green",
+  "Codex": "yellow",
+  "Amp": "magenta",
+  "Gemini": "green",
   "Entire.io": "greenBright",
 };
 
@@ -107,19 +107,10 @@ export function Timeline({
     };
   }, [project.projectPath]);
 
-  const allSessions = useMemo(
-    () => [...syncSessions, ...entireSessions],
-    [syncSessions, entireSessions]
-  );
+  const allSessions = useMemo(() => [...syncSessions, ...entireSessions], [syncSessions, entireSessions]);
 
-  const entireCount = useMemo(
-    () => allSessions.filter((s) => s.agent === "Entire.io").length,
-    [allSessions]
-  );
-  const pipedCount = useMemo(
-    () => allSessions.filter((s) => s.title?.startsWith("[piped]")).length,
-    [allSessions]
-  );
+  const entireCount = useMemo(() => allSessions.filter((s) => s.agent === "Entire.io").length, [allSessions]);
+  const pipedCount = useMemo(() => allSessions.filter((s) => s.title?.startsWith("[piped]")).length, [allSessions]);
 
   const filteredSessions = useMemo(() => {
     let result = allSessions;
@@ -134,7 +125,7 @@ export function Timeline({
         (s) =>
           s.sessionId.toLowerCase().includes(q) ||
           (s.title?.toLowerCase().includes(q) ?? false) ||
-          (s.agent?.toLowerCase().includes(q) ?? false)
+          (s.agent?.toLowerCase().includes(q) ?? false),
       );
     }
     return result;
@@ -142,7 +133,7 @@ export function Timeline({
 
   const groups: TaskGroup[] = useMemo(
     () => stitchSessions(filteredSessions, gapHours * 60 * 60 * 1000),
-    [filteredSessions, gapHours]
+    [filteredSessions, gapHours],
   );
 
   // Build flat visible rows (group headers plus expanded children).
@@ -187,50 +178,16 @@ export function Timeline({
       return;
     }
 
-    if (input === "q") {
-      onQuit();
-      return;
-    }
-    if (key.escape) {
-      onBack();
-      return;
-    }
-    if (input === "/") {
-      setFilterActive(true);
-      return;
-    }
-    if (input === "a") {
-      onAgentFilterToggle();
-      return;
-    }
-    if (input === "p") {
-      setHidePiped(!hidePiped);
-      setCursor(0);
-      setScrollOffset(0);
-      return;
-    }
-    if (input === "e") {
-      setHideEntire(!hideEntire);
-      setCursor(0);
-      setScrollOffset(0);
-      return;
-    }
-    if (input === "E") {
-      expandAll();
-      return;
-    }
-    if (input === "C") {
-      collapseAll();
-      return;
-    }
-    if (input === "+") {
-      setGapHours((h) => Math.min(24, h + 1));
-      return;
-    }
-    if (input === "-") {
-      setGapHours((h) => Math.max(1, h - 1));
-      return;
-    }
+    if (input === "q") { onQuit(); return; }
+    if (key.escape) { onBack(); return; }
+    if (input === "/") { setFilterActive(true); return; }
+    if (input === "a") { onAgentFilterToggle(); return; }
+    if (input === "p") { setHidePiped(!hidePiped); setCursor(0); setScrollOffset(0); return; }
+    if (input === "e") { setHideEntire(!hideEntire); setCursor(0); setScrollOffset(0); return; }
+    if (input === "E") { expandAll(); return; }
+    if (input === "C") { collapseAll(); return; }
+    if (input === "+") { setGapHours((h) => Math.min(24, h + 1)); return; }
+    if (input === "-") { setGapHours((h) => Math.max(1, h - 1)); return; }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -294,34 +251,15 @@ export function Timeline({
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold color="cyan">
-            {project.name}
-          </Text>
+          <Text bold color="cyan">{project.name}</Text>
           <Text bold>{" > Timeline"}</Text>
-          <Text dimColor>
-            {" "}
-            ({groups.length} task{groups.length === 1 ? "" : "s"}, {filteredSessions.length} of{" "}
-            {allSessions.length} sessions)
-          </Text>
+          <Text dimColor> ({groups.length} task{groups.length === 1 ? "" : "s"}, {filteredSessions.length} of {allSessions.length} sessions)</Text>
           {agentFilter && <Text color="blue"> [{agentFilter}]</Text>}
         </Box>
         <Box>
           <Text dimColor>gap {gapHours}h (+/-)</Text>
-          {entireCount > 0 && (
-            <Text dimColor>
-              {" "}
-              |{" "}
-              {hideEntire
-                ? `${entireCount} entire.io hidden, e`
-                : `showing ${entireCount} entire.io, e`}
-            </Text>
-          )}
-          {pipedCount > 0 && (
-            <Text dimColor>
-              {" "}
-              | {hidePiped ? `${pipedCount} piped hidden, p` : `showing ${pipedCount} piped, p`}
-            </Text>
-          )}
+          {entireCount > 0 && <Text dimColor>  |  {hideEntire ? `${entireCount} entire.io hidden, e` : `showing ${entireCount} entire.io, e`}</Text>}
+          {pipedCount > 0 && <Text dimColor>  |  {hidePiped ? `${pipedCount} piped hidden, p` : `showing ${pipedCount} piped, p`}</Text>}
         </Box>
       </Box>
 
@@ -341,9 +279,7 @@ export function Timeline({
             return (
               <Box key={`g-${g.id}`}>
                 <Text color={isCursor ? "cyan" : undefined} bold={isCursor}>
-                  {isCursor ? "> " : "  "}
-                  {indicator} {start}
-                  {durStr}
+                  {isCursor ? "> " : "  "}{indicator} {start}{durStr}
                 </Text>
                 {g.agents.length > 0 && (
                   <Text>
@@ -370,7 +306,7 @@ export function Timeline({
           return (
             <Box key={`s-${s.sessionId}`}>
               <Text color={isCursor ? "cyan" : undefined} bold={isCursor}>
-                {isCursor ? "> " : "  "} {time}
+                {isCursor ? "> " : "  "}    {time}
               </Text>
               <Text color={agentColor as any}> [{shortAgent(s.agent)}]</Text>
               <Text dimColor> {s.sessionId.slice(0, 8)}</Text>
@@ -379,9 +315,9 @@ export function Timeline({
             </Box>
           );
         })}
-        {rows.length === 0 && <Text dimColor> No sessions match filters</Text>}
+        {rows.length === 0 && <Text dimColor>  No sessions match filters</Text>}
         {rows.length > maxRows && scrollOffset + maxRows < rows.length && (
-          <Text dimColor> ↓ {rows.length - scrollOffset - maxRows} more</Text>
+          <Text dimColor>  ↓ {rows.length - scrollOffset - maxRows} more</Text>
         )}
       </Box>
 

@@ -12,10 +12,7 @@ import type { Session, SessionEntry } from "@liwala/agent-sessions";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function makeSession(
-  transcript: SessionEntry[],
-  overrides?: Partial<Session["metadata"]>
-): Session {
+function makeSession(transcript: SessionEntry[], overrides?: Partial<Session["metadata"]>): Session {
   return {
     metadata: {
       checkpointId: "cp-test",
@@ -377,9 +374,7 @@ describe("detectBashFailures", () => {
 describe("extractLearnings", () => {
   it("generates learning from failure loops", () => {
     const effort = analyzeEffort(makeSession([]));
-    const loops = [
-      { action: "Edit on app.ts", retryCount: 5, entries: [], errorPattern: "syntax error" },
-    ];
+    const loops = [{ action: "Edit on app.ts", retryCount: 5, entries: [], errorPattern: "syntax error" }];
     const learnings = extractLearnings(effort, loops, [], []);
 
     expect(learnings.length).toBeGreaterThanOrEqual(1);
@@ -521,7 +516,10 @@ describe("analyzeHumanPatterns", () => {
   });
 
   it("reports no compaction when absent", () => {
-    const session = makeSession([userEntry("fix the bug"), assistantEntry("done")]);
+    const session = makeSession([
+      userEntry("fix the bug"),
+      assistantEntry("done"),
+    ]);
 
     const patterns = analyzeHumanPatterns(session);
     expect(patterns.contextCompacted).toBe(false);
@@ -581,7 +579,7 @@ describe("calculateHealthScore", () => {
 
   it("deducts for excessive file churn", () => {
     const session = makeSession(
-      Array.from({ length: 10 }, () => toolEntry("Edit", ["src/hot.ts"]))
+      Array.from({ length: 10 }, () => toolEntry("Edit", ["src/hot.ts"])),
     );
     const effort = analyzeEffort(session);
     const score = calculateHealthScore([], [], [], effort);
@@ -602,7 +600,7 @@ describe("calculateHealthScore", () => {
 
   it("combines multiple deductions", () => {
     const session = makeSession(
-      Array.from({ length: 10 }, () => toolEntry("Edit", ["src/hot.ts"]))
+      Array.from({ length: 10 }, () => toolEntry("Edit", ["src/hot.ts"])),
     );
     const effort = analyzeEffort(session);
     const loops = [{ action: "Edit", retryCount: 3, entries: [], errorPattern: "err" }];

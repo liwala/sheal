@@ -30,16 +30,16 @@ const NOISE_PATTERNS: RegExp[] = [
   /^<INSTRUCTIONS/,
   /^<!--/,
   /^#\s+(AGENTS|CLAUDE|Repository)\b/,
-  /^#\s+\/\w+\s+—/, // Skill help headers: "# /loop — ..."
-  /^#\s+(Add|List|Remove|View|Run)\s+Scheduled/i, // Scheduler help text
+  /^#\s+\/\w+\s+—/,              // Skill help headers: "# /loop — ..."
+  /^#\s+(Add|List|Remove|View|Run)\s+Scheduled/i,  // Scheduler help text
   /^You are a\b/,
   /^Base directory for this skill:/,
   /^Usage:\s+\//,
   /^Date:\s+\w{3}\s+\d/,
   /^Caveat:\s+The messages below/,
-  /^Reply with just the number/, // Test prompts
-  /^This session is being continued/, // Session continuation boilerplate
-  /^-$/, // Single dash (empty stdin)
+  /^Reply with just the number/,    // Test prompts
+  /^This session is being continued/,  // Session continuation boilerplate
+  /^-$/,                              // Single dash (empty stdin)
 ];
 
 /**
@@ -79,9 +79,9 @@ const RULES: CategoryRule[] = [
       /\brecurring\s+(task|job|prompt|run|check)\b/i,
       /\/scheduler/i,
       /\b(set up|create|add)\b.*\b(cron|schedule|timer|launchd)\b/i,
-      /\bfollow these steps exactly\b/i, // Recurring loop prompts pattern
-      /\bscan\s+(latest|new|recent)\b/i, // Scanning/monitoring patterns
-      /^check\s+(slack|gmail|email|the\s+followup|my\s+gmail|my\s+email|my\s+slack)/i, // Monitoring checks
+      /\bfollow these steps exactly\b/i,  // Recurring loop prompts pattern
+      /\bscan\s+(latest|new|recent)\b/i,  // Scanning/monitoring patterns
+      /^check\s+(slack|gmail|email|the\s+followup|my\s+gmail|my\s+email|my\s+slack)/i,  // Monitoring checks
       /\bcheck\s+.*\bfor\s+new\s+(message|email|notification)/i,
       /\bcheck\s+.*\btracker\b/i,
       /\bpull\s+(new|latest|recent)\b/i,
@@ -197,18 +197,15 @@ export function categorizePrompts(prompts: RawPrompt[]): {
   categories: Record<DigestCategory, DigestItem[]>;
   uncategorized: DigestItem[];
 } {
-  const groups = new Map<
-    string,
-    {
-      description: string;
-      category: DigestCategory | null;
-      sessionIds: Set<string>;
-      projects: Set<string>;
-      agents: Set<string>;
-      count: number;
-      lastSeen: string;
-    }
-  >();
+  const groups = new Map<string, {
+    description: string;
+    category: DigestCategory | null;
+    sessionIds: Set<string>;
+    projects: Set<string>;
+    agents: Set<string>;
+    count: number;
+    lastSeen: string;
+  }>();
 
   for (const p of prompts) {
     // Skip noise
@@ -285,24 +282,14 @@ export function categorizePrompts(prompts: RawPrompt[]): {
  */
 function sanitizeForLLM(text: string): string {
   return text
-    .replace(
-      /\b(ignore|disregard|forget|override|instead)\b.*\b(instruction|above|rule|categor)/gi,
-      "[redacted]"
-    )
-    .replace(
-      /\b(output|respond|reply|answer|print|say)\b.*\b(only|just|nothing|everything)\b/gi,
-      "[redacted]"
-    )
+    .replace(/\b(ignore|disregard|forget|override|instead)\b.*\b(instruction|above|rule|categor)/gi, "[redacted]")
+    .replace(/\b(output|respond|reply|answer|print|say)\b.*\b(only|just|nothing|everything)\b/gi, "[redacted]")
     .replace(/\n/g, " ")
     .slice(0, 80);
 }
 
-function buildCategorizationPrompt(
-  items: Array<{ id: number; description: string; count: number }>
-): string {
-  const itemLines = items
-    .map((i) => `${i.id}|${i.count}x|${sanitizeForLLM(i.description)}`)
-    .join("\n");
+function buildCategorizationPrompt(items: Array<{ id: number; description: string; count: number }>): string {
+  const itemLines = items.map((i) => `${i.id}|${i.count}x|${sanitizeForLLM(i.description)}`).join("\n");
 
   return `You are categorizing user prompts from AI coding sessions into exactly 4 categories.
 
@@ -351,17 +338,13 @@ function extractAssistantText(sessionId: string): string | null {
       try {
         const obj = JSON.parse(line);
         if (obj.type === "assistant" && obj.message?.content) {
-          const blocks = Array.isArray(obj.message.content)
-            ? obj.message.content
-            : [obj.message.content];
+          const blocks = Array.isArray(obj.message.content) ? obj.message.content : [obj.message.content];
           for (const block of blocks) {
             if (typeof block === "string") texts.push(block);
             else if (block.type === "text" && block.text) texts.push(block.text);
           }
         }
-      } catch {
-        /* skip */
-      }
+      } catch { /* skip */ }
     }
 
     if (texts.length > 0) return texts.join("\n");
@@ -390,10 +373,7 @@ async function invokeHaiku(prompt: string, timeoutMs = 60_000): Promise<string |
 
     child.on("error", () => resolve(null));
     child.on("close", (code) => {
-      if (code !== 0) {
-        resolve(null);
-        return;
-      }
+      if (code !== 0) { resolve(null); return; }
 
       const raw = Buffer.concat(stdout).toString().trim();
 
@@ -437,10 +417,9 @@ async function invokeHaiku(prompt: string, timeoutMs = 60_000): Promise<string |
  * This prevents the LLM from downgrading correct regex categorizations.
  * Processes in batches to stay within token limits.
  */
-export async function enrichWithLLM(regexResult: {
-  categories: Record<DigestCategory, DigestItem[]>;
-  uncategorized: DigestItem[];
-}): Promise<{ categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] }> {
+export async function enrichWithLLM(
+  regexResult: { categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] },
+): Promise<{ categories: Record<DigestCategory, DigestItem[]>; uncategorized: DigestItem[] }> {
   const allCats: DigestCategory[] = ["SKILLS", "AGENTS", "SCHEDULED_TASKS", "CLAUDE_MD"];
 
   // Only send uncategorized items to the LLM — regex matches are already correct

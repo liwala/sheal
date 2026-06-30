@@ -23,13 +23,7 @@ vi.mock("@liwala/agent-sessions", () => ({
     },
   ],
   loadNativeSessionBySlug: () => ({
-    root: {
-      checkpointId: "claude-session",
-      strategy: "native",
-      checkpointsCount: 0,
-      filesTouched: [],
-      sessions: [],
-    },
+    root: { checkpointId: "claude-session", strategy: "native", checkpointsCount: 0, filesTouched: [], sessions: [] },
     sessions: [
       {
         metadata: {

@@ -1,5 +1,12 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readdirSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  readdirSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -210,7 +217,9 @@ Rebuild with \`npx tsc\` before running any sheal commands.
     expect(result.category).toBe("environment");
     expect(result.severity).toBe("high");
     expect(result.status).toBe("active");
-    expect(result.body).toBe("Rebuild with `npx tsc` before running any sheal commands.");
+    expect(result.body).toBe(
+      "Rebuild with `npx tsc` before running any sheal commands."
+    );
   });
 
   it("handles empty tags", () => {

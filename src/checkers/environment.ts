@@ -19,10 +19,7 @@ export const environmentChecker: Checker = {
     } else {
       const envExample = existsSync(join(ctx.projectRoot, ".env.example"));
       if (envExample) {
-        details.push({
-          message: ".env.example exists but .env is missing — copy and configure it",
-          severity: "warn",
-        });
+        details.push({ message: ".env.example exists but .env is missing — copy and configure it", severity: "warn" });
       }
     }
 
@@ -46,10 +43,7 @@ export const environmentChecker: Checker = {
     // Check required services
     for (const svc of envConfig.requiredServices) {
       const parts = svc.check.split(" ");
-      const result = await exec(parts[0], parts.slice(1), {
-        cwd: ctx.projectRoot,
-        timeoutMs: 3_000,
-      });
+      const result = await exec(parts[0], parts.slice(1), { cwd: ctx.projectRoot, timeoutMs: 3_000 });
       if (result.exitCode === 0) {
         details.push({ message: `Service "${svc.name}" is running`, severity: "pass" });
       } else {
@@ -71,17 +65,11 @@ export const environmentChecker: Checker = {
         details.push({ message: `${tool.name} available`, severity: "pass" });
         // Also check if gh is authenticated
         if (tool.cmd === "gh") {
-          const auth = await exec("gh", ["auth", "status"], {
-            cwd: ctx.projectRoot,
-            timeoutMs: 5_000,
-          });
+          const auth = await exec("gh", ["auth", "status"], { cwd: ctx.projectRoot, timeoutMs: 5_000 });
           if (auth.exitCode === 0) {
             details.push({ message: "gh authenticated", severity: "pass" });
           } else {
-            details.push({
-              message: "gh not authenticated — run: gh auth login",
-              severity: "warn",
-            });
+            details.push({ message: "gh not authenticated — run: gh auth login", severity: "warn" });
           }
         }
       } else {
@@ -91,26 +79,15 @@ export const environmentChecker: Checker = {
 
     if (details.length === 0) {
       return {
-        name: this.name,
-        label: this.label,
-        severity: "skip",
+        name: this.name, label: this.label, severity: "skip",
         details: [{ message: "No environment checks configured", severity: "skip" }],
         durationMs: elapsed(),
       };
     }
 
-    const worst = details.some((d) => d.severity === "fail")
-      ? "fail"
-      : details.some((d) => d.severity === "warn")
-        ? "warn"
-        : "pass";
+    const worst = details.some((d) => d.severity === "fail") ? "fail"
+      : details.some((d) => d.severity === "warn") ? "warn" : "pass";
 
-    return {
-      name: this.name,
-      label: this.label,
-      severity: worst as CheckResult["severity"],
-      details,
-      durationMs: elapsed(),
-    };
+    return { name: this.name, label: this.label, severity: worst as CheckResult["severity"], details, durationMs: elapsed() };
   },
 };

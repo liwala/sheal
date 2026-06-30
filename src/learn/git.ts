@@ -4,11 +4,7 @@ import { exec } from "../utils/exec.js";
 
 const NET_TIMEOUT = 30_000;
 
-async function git(
-  args: string[],
-  cwd: string,
-  timeoutMs?: number
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+async function git(args: string[], cwd: string, timeoutMs?: number): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const result = await exec("git", args, { cwd, timeoutMs: timeoutMs ?? 10_000 });
   if (result.exitCode === -2) {
     throw new Error("git is not installed or not in PATH");
@@ -63,10 +59,7 @@ async function getCurrentBranch(dir: string): Promise<string> {
   return r.stdout.trim() || "main";
 }
 
-export async function commitAll(
-  dir: string,
-  message?: string
-): Promise<{ committed: boolean; summary: string }> {
+export async function commitAll(dir: string, message?: string): Promise<{ committed: boolean; summary: string }> {
   await git(["add", "-A"], dir);
   const status = await git(["status", "--porcelain"], dir);
   if (!status.stdout.trim()) {
@@ -87,9 +80,7 @@ export async function push(dir: string): Promise<{ ok: boolean; output: string }
   return { ok: r.exitCode === 0, output: (r.stderr + "\n" + r.stdout).trim() };
 }
 
-export async function pull(
-  dir: string
-): Promise<{ ok: boolean; conflicts: string[]; output: string }> {
+export async function pull(dir: string): Promise<{ ok: boolean; conflicts: string[]; output: string }> {
   const branch = await getCurrentBranch(dir);
   const r = await git(["pull", "--no-rebase", "origin", branch], dir, NET_TIMEOUT);
 

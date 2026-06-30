@@ -16,27 +16,26 @@ import type { LearningFile } from "../learn/types.js";
 export function generateRetroPrompt(
   retro: Retrospective,
   checkpoint: Checkpoint,
-  existingLearnings?: LearningFile[]
+  existingLearnings?: LearningFile[],
 ): string {
   const session = checkpoint.sessions[0];
-  const userMessages =
-    session?.transcript.filter((e) => e.type === "user").map((e) => e.content.slice(0, 300)) ?? [];
+  const userMessages = session?.transcript
+    .filter((e) => e.type === "user")
+    .map((e) => e.content.slice(0, 300))
+    ?? [];
 
-  const toolErrors =
-    session?.transcript
-      .filter((e) => e.type === "tool" && e.toolOutput)
-      .filter((e) => {
-        const out = typeof e.toolOutput === "string" ? e.toolOutput : JSON.stringify(e.toolOutput);
-        return out.includes("Error") || out.includes("Exit code 1");
-      })
-      .map((e) => ({
-        tool: e.toolName ?? "unknown",
-        error: (typeof e.toolOutput === "string"
-          ? e.toolOutput
-          : JSON.stringify(e.toolOutput)
-        ).slice(0, 200),
-      }))
-      .slice(0, 15) ?? [];
+  const toolErrors = session?.transcript
+    .filter((e) => e.type === "tool" && e.toolOutput)
+    .filter((e) => {
+      const out = typeof e.toolOutput === "string" ? e.toolOutput : JSON.stringify(e.toolOutput);
+      return out.includes("Error") || out.includes("Exit code 1");
+    })
+    .map((e) => ({
+      tool: e.toolName ?? "unknown",
+      error: (typeof e.toolOutput === "string" ? e.toolOutput : JSON.stringify(e.toolOutput)).slice(0, 200),
+    }))
+    .slice(0, 15)
+    ?? [];
 
   const entireSummary = retro.entireSummary
     ? `
@@ -50,8 +49,7 @@ export function generateRetroPrompt(
     : "";
 
   const hp = retro.humanPatterns;
-  const humanSection = hp
-    ? `
+  const humanSection = hp ? `
 ## Human Interaction Patterns
 - Session Duration: ~${hp.durationMinutes} min
 - Avg Time Between Prompts: ~${hp.avgPromptIntervalMinutes} min
@@ -60,8 +58,7 @@ export function generateRetroPrompt(
 - Long Prompts (>500 chars): ${hp.longPromptCount}
 - Context Compacted: ${hp.contextCompacted ? "YES — session hit context limits" : "No"}
 - Human Engagement Ratio: ${(hp.humanEngagementRatio * 100).toFixed(1)}% of entries are user prompts
-`
-    : "";
+` : "";
 
   return `You are performing a deep retrospective analysis of a completed AI coding session.
 Your goal is to extract actionable learnings for BOTH the AI agent AND the human user.
@@ -74,9 +71,7 @@ Your goal is to extract actionable learnings for BOTH the AI agent AND the human
 - User Prompts: ${retro.effort.userPromptCount}
 - Assistant Responses: ${retro.effort.assistantResponseCount}
 - Files Modified: ${Object.keys(retro.effort.fileTouchCounts).length}
-- Tools Used: ${Object.entries(retro.effort.toolCounts)
-    .map(([t, c]) => `${t}(${c})`)
-    .join(", ")}
+- Tools Used: ${Object.entries(retro.effort.toolCounts).map(([t, c]) => `${t}(${c})`).join(", ")}
 ${retro.effort.tokenUsage ? `- Tokens: ${retro.effort.tokenUsage.inputTokens} in / ${retro.effort.tokenUsage.outputTokens} out (${retro.effort.tokenUsage.apiCallCount} API calls)` : ""}
 ${entireSummary}${humanSection}
 ## User Prompts (what the user asked)
@@ -92,21 +87,15 @@ ${retro.revertedWork.map((r) => `- ${r.files.map((f) => f.split("/").pop()).join
 ${toolErrors.map((e) => `- ${e.tool}: ${e.error}`).join("\n") || "None"}
 
 ## Most-Touched Files
-${Object.entries(retro.effort.fileTouchCounts)
-  .sort((a, b) => b[1] - a[1])
-  .slice(0, 10)
-  .map(([f, c]) => `- ${f.split("/").pop()} (${c}x)`)
-  .join("\n")}
+${Object.entries(retro.effort.fileTouchCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([f, c]) => `- ${f.split("/").pop()} (${c}x)`).join("\n")}
 
 ## Static Analysis Learnings
 ${retro.learnings.map((l) => `- [${l.severity}/${l.category}] ${l.description} → ${l.suggestion}`).join("\n") || "None"}
 
 ## Existing Learnings (already captured)
-${
-  existingLearnings && existingLearnings.length > 0
+${existingLearnings && existingLearnings.length > 0
     ? existingLearnings.map((l) => `- ${l.id} [${l.category}] ${l.title}`).join("\n")
-    : "None yet"
-}
+    : "None yet"}
 
 ---
 
@@ -145,7 +134,7 @@ Format each as a bullet starting with "- ". Be specific to what you observe in t
  * into a single unified report.
  */
 export function generateConsolidationPrompt(
-  agentAssessments: Array<{ agent: string; content: string }>
+  agentAssessments: Array<{ agent: string; content: string }>,
 ): string {
   const assessmentBlocks = agentAssessments
     .map((a) => `### Assessment by ${a.agent}\n\n${a.content}`)

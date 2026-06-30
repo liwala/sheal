@@ -5,13 +5,7 @@
  */
 
 import chalk from "chalk";
-import type {
-  DigestReport,
-  DigestCategory,
-  DigestItem,
-  TokenSummary,
-  DigestDiff,
-} from "./types.js";
+import type { DigestReport, DigestCategory, DigestItem, TokenSummary, DigestDiff } from "./types.js";
 
 function formatTokenCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -43,22 +37,14 @@ export function formatPretty(report: DigestReport): string {
 
   // Header
   lines.push(chalk.bold.white("Session Digest Report"));
-  lines.push(
-    chalk.gray(`${report.window.since.slice(0, 10)} → ${report.window.until.slice(0, 10)}`)
-  );
-  lines.push(
-    chalk.gray(
-      `${report.totalSessions} sessions | ${report.totalPrompts} prompts | ${report.scope} scope`
-    )
-  );
+  lines.push(chalk.gray(`${report.window.since.slice(0, 10)} → ${report.window.until.slice(0, 10)}`));
+  lines.push(chalk.gray(`${report.totalSessions} sessions | ${report.totalPrompts} prompts | ${report.scope} scope`));
   lines.push("");
 
   // Token summary
   lines.push(chalk.bold("Token Usage"));
   const t = report.tokens;
-  lines.push(
-    `  Input: ${chalk.yellow(formatTokenCount(t.totalInput))}  Output: ${chalk.green(formatTokenCount(t.totalOutput))}  Cache Read: ${chalk.blue(formatTokenCount(t.totalCacheRead))}  API Calls: ${chalk.white(String(t.totalApiCalls))}`
-  );
+  lines.push(`  Input: ${chalk.yellow(formatTokenCount(t.totalInput))}  Output: ${chalk.green(formatTokenCount(t.totalOutput))}  Cache Read: ${chalk.blue(formatTokenCount(t.totalCacheRead))}  API Calls: ${chalk.white(String(t.totalApiCalls))}`);
 
   // Per-agent breakdown
   const agentEntries = Object.entries(t.byAgent);
@@ -66,23 +52,19 @@ export function formatPretty(report: DigestReport): string {
     lines.push("");
     lines.push(chalk.bold("  By Agent"));
     for (const [agent, data] of agentEntries) {
-      lines.push(
-        `    ${chalk.bold(agent)}: ${formatTokenCount(data.input + data.output)} tokens, ${data.sessionCount} sessions, ${data.apiCalls} API calls`
-      );
+      lines.push(`    ${chalk.bold(agent)}: ${formatTokenCount(data.input + data.output)} tokens, ${data.sessionCount} sessions, ${data.apiCalls} API calls`);
     }
   }
 
   // Per-project top 5
   const projectEntries = Object.entries(t.byProject)
-    .sort(([, a], [, b]) => b.input + b.output - (a.input + a.output))
+    .sort(([, a], [, b]) => (b.input + b.output) - (a.input + a.output))
     .slice(0, 5);
   if (projectEntries.length > 0) {
     lines.push("");
     lines.push(chalk.bold("  Top Projects by Tokens"));
     for (const [project, data] of projectEntries) {
-      lines.push(
-        `    ${project}: ${formatTokenCount(data.input + data.output)} (${data.sessionCount}s)`
-      );
+      lines.push(`    ${project}: ${formatTokenCount(data.input + data.output)} (${data.sessionCount}s)`);
     }
   }
 
@@ -106,9 +88,7 @@ export function formatPretty(report: DigestReport): string {
     lines.push("");
     lines.push(chalk.bold("  Agents Scanned"));
     for (const scan of available) {
-      lines.push(
-        `    ${chalk.green("●")} ${scan.agent} (${scan.projectCount}p, ${scan.sessionCount}s)`
-      );
+      lines.push(`    ${chalk.green("●")} ${scan.agent} (${scan.projectCount}p, ${scan.sessionCount}s)`);
     }
     for (const scan of unavailable) {
       lines.push(`    ${chalk.red("●")} ${scan.agent}: ${chalk.gray(scan.error || "skipped")}`);
@@ -123,7 +103,7 @@ export function formatPretty(report: DigestReport): string {
   const maxCount = Math.max(
     ...allCats.flatMap((c) => report.categories[c].map((i) => i.count)),
     ...report.uncategorized.map((i) => i.count),
-    1
+    1,
   );
 
   for (const cat of allCats) {
@@ -140,12 +120,10 @@ export function formatPretty(report: DigestReport): string {
     for (const item of items.slice(0, 10)) {
       const agents = item.agents.join(",");
       lines.push(
-        `  ${chalk.white(bar(item.count, maxCount, 15))} ${chalk.bold(String(item.count).padStart(3))}x  ${item.description.slice(0, 60)}`
+        `  ${chalk.white(bar(item.count, maxCount, 15))} ${chalk.bold(String(item.count).padStart(3))}x  ${item.description.slice(0, 60)}`,
       );
       lines.push(
-        chalk.gray(
-          `       ${item.projects.join(", ")} [${agents}] ${item.sessionIds[0]?.slice(0, 8) || ""}`
-        )
+        chalk.gray(`       ${item.projects.join(", ")} [${agents}] ${item.sessionIds[0]?.slice(0, 8) || ""}`),
       );
     }
     if (items.length > 10) {
@@ -180,12 +158,8 @@ export function formatMarkdown(report: DigestReport): string {
 
   lines.push("# Session Digest Report");
   lines.push("");
-  lines.push(
-    `**Window:** ${report.window.since.slice(0, 10)} → ${report.window.until.slice(0, 10)}`
-  );
-  lines.push(
-    `**Sessions:** ${report.totalSessions} | **Prompts:** ${report.totalPrompts} | **Scope:** ${report.scope}`
-  );
+  lines.push(`**Window:** ${report.window.since.slice(0, 10)} → ${report.window.until.slice(0, 10)}`);
+  lines.push(`**Sessions:** ${report.totalSessions} | **Prompts:** ${report.totalPrompts} | **Scope:** ${report.scope}`);
   lines.push("");
 
   // Token summary
@@ -209,9 +183,7 @@ export function formatMarkdown(report: DigestReport): string {
     lines.push("| Agent | Tokens | Sessions | API Calls |");
     lines.push("|-------|--------|----------|-----------|");
     for (const [agent, data] of agentEntries) {
-      lines.push(
-        `| ${agent} | ${formatTokenCount(data.input + data.output)} | ${data.sessionCount} | ${data.apiCalls} |`
-      );
+      lines.push(`| ${agent} | ${formatTokenCount(data.input + data.output)} | ${data.sessionCount} | ${data.apiCalls} |`);
     }
     lines.push("");
   }
@@ -233,9 +205,7 @@ export function formatMarkdown(report: DigestReport): string {
     lines.push("| # | Description | Agents | Projects | Sessions |");
     lines.push("|---|-------------|--------|----------|----------|");
     for (const item of items.slice(0, 15)) {
-      lines.push(
-        `| ${item.count}x | ${item.description.slice(0, 60)} | ${item.agents.join(",")} | ${item.projects.join(",")} | ${item.sessionIds[0]?.slice(0, 8) || ""} |`
-      );
+      lines.push(`| ${item.count}x | ${item.description.slice(0, 60)} | ${item.agents.join(",")} | ${item.projects.join(",")} | ${item.sessionIds[0]?.slice(0, 8) || ""} |`);
     }
     lines.push("");
   }
@@ -274,25 +244,15 @@ export function formatDiffPretty(diff: DigestDiff): string {
   const lines: string[] = [];
 
   lines.push(chalk.bold.white("Digest Comparison"));
-  lines.push(
-    chalk.gray(
-      `Current:  ${diff.current.window.since.slice(0, 10)} → ${diff.current.window.until.slice(0, 10)}`
-    )
-  );
-  lines.push(
-    chalk.gray(
-      `Previous: ${diff.previous.window.since.slice(0, 10)} → ${diff.previous.window.until.slice(0, 10)}`
-    )
-  );
+  lines.push(chalk.gray(`Current:  ${diff.current.window.since.slice(0, 10)} → ${diff.current.window.until.slice(0, 10)}`));
+  lines.push(chalk.gray(`Previous: ${diff.previous.window.since.slice(0, 10)} → ${diff.previous.window.until.slice(0, 10)}`));
   lines.push("");
 
   // Summary deltas
   lines.push(chalk.bold("  Changes"));
   lines.push(`    Sessions: ${diff.current.totalSessions} (${delta(diff.sessionDelta)})`);
   lines.push(`    Prompts:  ${diff.current.totalPrompts} (${delta(diff.promptDelta)})`);
-  lines.push(
-    `    Tokens:   ${delta(diff.tokenDelta.input)} in / ${delta(diff.tokenDelta.output)} out`
-  );
+  lines.push(`    Tokens:   ${delta(diff.tokenDelta.input)} in / ${delta(diff.tokenDelta.output)} out`);
   lines.push(`    Cost:     ${deltaCost(diff.tokenDelta.costDelta)}`);
   lines.push(`    API:      ${delta(diff.tokenDelta.apiCalls)} calls`);
   lines.push("");

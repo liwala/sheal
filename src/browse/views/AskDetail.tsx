@@ -43,27 +43,14 @@ export function AskDetail({ projectPath, filename, onBack, onQuit }: AskDetailPr
 
   useInput((input, key) => {
     if (searchActive) {
-      if (key.escape) {
-        setSearchActive(false);
-        setSearchText("");
-      } else if (key.return) {
-        setSearchActive(false);
-      }
+      if (key.escape) { setSearchActive(false); setSearchText(""); }
+      else if (key.return) { setSearchActive(false); }
       return;
     }
 
-    if (input === "q") {
-      onQuit();
-      return;
-    }
-    if (key.escape) {
-      onBack();
-      return;
-    }
-    if (input === "/") {
-      setSearchActive(true);
-      return;
-    }
+    if (input === "q") { onQuit(); return; }
+    if (key.escape) { onBack(); return; }
+    if (input === "/") { setSearchActive(true); return; }
 
     if (key.upArrow) {
       setScrollPos((p) => Math.max(0, p - 1));
@@ -91,18 +78,17 @@ export function AskDetail({ projectPath, filename, onBack, onQuit }: AskDetailPr
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold color="blueBright">
-            Ask
-          </Text>
-          <Text bold> {question.slice(0, 80)}</Text>
+          <Text bold color="blueBright">Ask</Text>
+          <Text bold>{" "}{question.slice(0, 80)}</Text>
         </Box>
         <Text dimColor>
-          {filteredLines.length} lines | {scrollPos + 1}-
-          {Math.min(scrollPos + maxRows, filteredLines.length)}/{filteredLines.length}
+          {filteredLines.length} lines | {scrollPos + 1}-{Math.min(scrollPos + maxRows, filteredLines.length)}/{filteredLines.length}
         </Text>
       </Box>
 
-      {searchActive && <SearchBar label="Search" value={searchText} onChange={setSearchText} />}
+      {searchActive && (
+        <SearchBar label="Search" value={searchText} onChange={setSearchText} />
+      )}
 
       <Box flexDirection="column">
         {visibleLines.map((line, i) => {
@@ -113,9 +99,7 @@ export function AskDetail({ projectPath, filename, onBack, onQuit }: AskDetailPr
             <Text
               key={scrollPos + i}
               bold={isHeading}
-              color={
-                isHeading ? "blueBright" : isSessionRef ? "gray" : isBullet ? "yellow" : undefined
-              }
+              color={isHeading ? "blueBright" : isSessionRef ? "gray" : isBullet ? "yellow" : undefined}
               wrap="wrap"
             >
               {line || " "}

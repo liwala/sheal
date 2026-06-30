@@ -1,5 +1,15 @@
+export interface PullCheckpointTarget {
+  backend: string;
+  name: string;
+}
+
 export interface SelfHealConfig {
   skip?: string[];
+  pull?: {
+    stagingDir?: string;
+    stagingRetentionDays?: number;
+    checkpointTargets?: PullCheckpointTarget[];
+  };
   checkers?: {
     git?: { allowDirty?: boolean };
     dependencies?: {
@@ -26,6 +36,11 @@ export interface SelfHealConfig {
 
 export interface ResolvedConfig {
   skip: string[];
+  pull: {
+    stagingDir: string | null;
+    stagingRetentionDays: number | null;
+    checkpointTargets: PullCheckpointTarget[];
+  };
   checkers: {
     git: { allowDirty: boolean };
     dependencies: {

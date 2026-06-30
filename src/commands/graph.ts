@@ -53,18 +53,14 @@ function printOverview(graph: KnowledgeGraph): void {
   console.log(`  Files tracked: ${graph.stats.totalFiles}`);
   console.log(`  Agents: ${graph.stats.totalAgents}`);
   if (graph.stats.dateRange.earliest) {
-    console.log(
-      `  Date range: ${graph.stats.dateRange.earliest.split("T")[0]} → ${graph.stats.dateRange.latest.split("T")[0]}`
-    );
+    console.log(`  Date range: ${graph.stats.dateRange.earliest.split("T")[0]} → ${graph.stats.dateRange.latest.split("T")[0]}`);
   }
   console.log();
 
   // Agents
   console.log(chalk.bold("Agents"));
   for (const [name, anode] of graph.agents) {
-    console.log(
-      `  ${chalk.cyan(name)}: ${anode.sessionCount} sessions, ${anode.files.length} files, ${anode.totalToolCalls} tool calls`
-    );
+    console.log(`  ${chalk.cyan(name)}: ${anode.sessionCount} sessions, ${anode.files.length} files, ${anode.totalToolCalls} tool calls`);
   }
   console.log();
 
@@ -74,9 +70,7 @@ function printOverview(graph: KnowledgeGraph): void {
     for (const hf of graph.hotFiles.slice(0, 10)) {
       const shortPath = hf.path.split("/").slice(-2).join("/");
       const agentNote = hf.agentCount > 1 ? chalk.yellow(` (${hf.agentCount} agents)`) : "";
-      console.log(
-        `  ${chalk.yellow(String(hf.totalTouches).padStart(3))}x  ${shortPath}${agentNote}`
-      );
+      console.log(`  ${chalk.yellow(String(hf.totalTouches).padStart(3))}x  ${shortPath}${agentNote}`);
     }
     console.log();
   }
@@ -86,23 +80,14 @@ function printOverview(graph: KnowledgeGraph): void {
     const crossAgent = graph.correlations.filter((c) => c.crossAgent);
     const sameAgent = graph.correlations.filter((c) => !c.crossAgent);
 
-    console.log(
-      chalk.bold("Session Correlations") + chalk.gray(` (${graph.correlations.length} detected)`)
-    );
+    console.log(chalk.bold("Session Correlations") + chalk.gray(` (${graph.correlations.length} detected)`));
 
     if (crossAgent.length > 0) {
       console.log(chalk.yellow("  Cross-agent:"));
       for (const c of crossAgent.slice(0, 5)) {
         console.log(`    ${c.description}`);
-        const fileList = c.sharedFiles
-          .slice(0, 3)
-          .map((f) => f.split("/").pop())
-          .join(", ");
-        console.log(
-          chalk.gray(
-            `      Files: ${fileList}${c.sharedFiles.length > 3 ? ` +${c.sharedFiles.length - 3} more` : ""}`
-          )
-        );
+        const fileList = c.sharedFiles.slice(0, 3).map((f) => f.split("/").pop()).join(", ");
+        console.log(chalk.gray(`      Files: ${fileList}${c.sharedFiles.length > 3 ? ` +${c.sharedFiles.length - 3} more` : ""}`));
       }
     }
 
@@ -120,22 +105,18 @@ function printOverview(graph: KnowledgeGraph): void {
   for (const s of graph.sessions.slice(0, 5)) {
     const date = s.date.split("T")[0];
     const fileCount = s.filesTouched.length;
-    console.log(
-      `  ${chalk.gray(date)} ${chalk.cyan(s.agent.padEnd(12))} ${s.title.slice(0, 60)}  ${chalk.gray(`(${fileCount} files)`)}`
-    );
+    console.log(`  ${chalk.gray(date)} ${chalk.cyan(s.agent.padEnd(12))} ${s.title.slice(0, 60)}  ${chalk.gray(`(${fileCount} files)`)}`);
   }
   console.log();
 
-  console.log(
-    chalk.gray(
-      "Use --file <path> or --agent <name> for details. --json for machine-readable output."
-    )
-  );
+  console.log(chalk.gray("Use --file <path> or --agent <name> for details. --json for machine-readable output."));
 }
 
 function printFileDetail(graph: KnowledgeGraph, filePath: string): void {
   // Search for matching file (partial match)
-  const matches = [...graph.files.entries()].filter(([path]) => path.includes(filePath));
+  const matches = [...graph.files.entries()].filter(([path]) =>
+    path.includes(filePath),
+  );
 
   if (matches.length === 0) {
     console.log(chalk.yellow(`No sessions found touching "${filePath}"`));
@@ -158,7 +139,7 @@ function printFileDetail(graph: KnowledgeGraph, filePath: string): void {
 
 function printAgentDetail(graph: KnowledgeGraph, agentName: string): void {
   const match = [...graph.agents.entries()].find(([name]) =>
-    name.toLowerCase().includes(agentName.toLowerCase())
+    name.toLowerCase().includes(agentName.toLowerCase()),
   );
 
   if (!match) {
@@ -177,9 +158,9 @@ function printAgentDetail(graph: KnowledgeGraph, agentName: string): void {
   const agentFiles = anode.files
     .map((f) => {
       const fnode = graph.files.get(f);
-      const agentTouches =
-        fnode?.sessions.filter((s) => s.agent === name).reduce((sum, s) => sum + s.touchCount, 0) ??
-        0;
+      const agentTouches = fnode?.sessions
+        .filter((s) => s.agent === name)
+        .reduce((sum, s) => sum + s.touchCount, 0) ?? 0;
       return { path: f, touches: agentTouches };
     })
     .sort((a, b) => b.touches - a.touches)

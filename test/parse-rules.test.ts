@@ -32,7 +32,10 @@ Did some work.
 Be more specific.`;
 
     const rules = parseRulesFromOutput(output);
-    expect(rules).toEqual(["Always run tests before committing", "Check types after editing"]);
+    expect(rules).toEqual([
+      "Always run tests before committing",
+      "Check types after editing",
+    ]);
   });
 
   it("parses ### Rules: heading", () => {
@@ -66,7 +69,11 @@ Be more specific.`;
 **For the Human:**`;
 
     const rules = parseRulesFromOutput(output);
-    expect(rules).toEqual(["Always run tests", "Check types", "Validate inputs"]);
+    expect(rules).toEqual([
+      "Always run tests",
+      "Check types",
+      "Validate inputs",
+    ]);
   });
 
   it("handles * bullet points", () => {

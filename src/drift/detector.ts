@@ -32,58 +32,12 @@ export interface DriftReport {
  */
 function extractKeywords(text: string): string[] {
   const stopwords = new Set([
-    "a",
-    "an",
-    "the",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "could",
-    "should",
-    "can",
-    "may",
-    "in",
-    "on",
-    "at",
-    "to",
-    "for",
-    "of",
-    "with",
-    "by",
-    "from",
-    "as",
-    "if",
-    "or",
-    "and",
-    "but",
-    "not",
-    "no",
-    "this",
-    "that",
-    "it",
-    "its",
-    "before",
-    "after",
-    "when",
-    "then",
-    "than",
-    "each",
-    "every",
-    "all",
-    "any",
-    "don't",
-    "dont",
-    "run",
-    "use",
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "do", "does", "did", "will", "would", "could", "should", "can", "may",
+    "in", "on", "at", "to", "for", "of", "with", "by", "from", "as",
+    "if", "or", "and", "but", "not", "no", "this", "that", "it", "its",
+    "before", "after", "when", "then", "than", "each", "every", "all",
+    "any", "don't", "dont", "run", "use",
   ]);
   return text
     .toLowerCase()
@@ -96,16 +50,17 @@ function extractKeywords(text: string): string[] {
  * Check if a retro's static learnings match an existing learning rule.
  * Uses keyword overlap as a signal that the same pattern recurred.
  */
-function matchLearningToRetro(learning: LearningFile, retro: Retrospective): DriftViolation[] {
+function matchLearningToRetro(
+  learning: LearningFile,
+  retro: Retrospective,
+): DriftViolation[] {
   const violations: DriftViolation[] = [];
   const learningKeywords = new Set(extractKeywords(`${learning.title} ${learning.body}`));
   if (learningKeywords.size === 0) return violations;
 
   // Check static learnings from retro analysis
   for (const retroLearning of retro.learnings) {
-    const retroKeywords = extractKeywords(
-      `${retroLearning.description} ${retroLearning.suggestion}`
-    );
+    const retroKeywords = extractKeywords(`${retroLearning.description} ${retroLearning.suggestion}`);
     const overlap = retroKeywords.filter((k) => learningKeywords.has(k));
     const overlapRatio = overlap.length / Math.min(learningKeywords.size, retroKeywords.length);
 
@@ -120,11 +75,7 @@ function matchLearningToRetro(learning: LearningFile, retro: Retrospective): Dri
   }
 
   // Check failure loops — only for learnings explicitly about retries
-  if (
-    learningKeywords.has("retry") ||
-    learningKeywords.has("failing") ||
-    learningKeywords.has("twice")
-  ) {
+  if (learningKeywords.has("retry") || learningKeywords.has("failing") || learningKeywords.has("twice")) {
     for (const loop of retro.failureLoops) {
       if (loop.retryCount >= 3) {
         violations.push({
@@ -138,12 +89,7 @@ function matchLearningToRetro(learning: LearningFile, retro: Retrospective): Dri
   }
 
   // Check reverted work — only for learnings explicitly about churn/planning
-  if (
-    learningKeywords.has("churn") ||
-    learningKeywords.has("touched") ||
-    learningKeywords.has("multi-file") ||
-    learningKeywords.has("reread")
-  ) {
+  if (learningKeywords.has("churn") || learningKeywords.has("touched") || learningKeywords.has("multi-file") || learningKeywords.has("reread")) {
     for (const revert of retro.revertedWork) {
       if (revert.wastedOperations >= 6) {
         violations.push({
@@ -163,9 +109,7 @@ function matchLearningToRetro(learning: LearningFile, retro: Retrospective): Dri
  * Parse a retro enrichment file for "Recurring" section mentions.
  * These are explicit LLM-identified violations of existing learnings.
  */
-export function parseRecurringFromEnrichment(
-  content: string
-): Array<{ learningId: string; detail: string }> {
+export function parseRecurringFromEnrichment(content: string): Array<{ learningId: string; detail: string }> {
   const recurring: Array<{ learningId: string; detail: string }> = [];
   const recurringMatch = content.match(/\*\*Recurring:\*\*\s*([\s\S]*?)(?=\n\*\*|$)/);
   if (!recurringMatch || /^none/i.test(recurringMatch[1].trim())) return recurring;
@@ -190,7 +134,7 @@ export function parseRecurringFromEnrichment(
 export function detectDrift(
   learnings: LearningFile[],
   retros: Retrospective[],
-  enrichments?: Array<{ sessionId: string; content: string }>
+  enrichments?: Array<{ sessionId: string; content: string }>,
 ): DriftReport {
   const driftMap = new Map<string, DriftMatch>();
   const activeLearnings = learnings.filter((l) => l.status === "active");
@@ -240,9 +184,8 @@ export function detectDrift(
     }
   }
 
-  const drifted = Array.from(driftMap.values()).sort(
-    (a, b) => b.violations.length - a.violations.length
-  );
+  const drifted = Array.from(driftMap.values())
+    .sort((a, b) => b.violations.length - a.violations.length);
   const driftedKeys = new Set(drifted.map((d) => driftKey(d.learning)));
   const healthy = activeLearnings.filter((l) => !driftedKeys.has(driftKey(l)));
 

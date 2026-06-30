@@ -22,8 +22,8 @@ const CATEGORY_ICONS: Record<string, string> = {
   "missing-context": "?",
   "failure-loop": "!",
   "wasted-effort": "~",
-  environment: "E",
-  workflow: "W",
+  "environment": "E",
+  "workflow": "W",
 };
 
 export function LearningsList({ projectPath, projectName, onBack, onQuit }: LearningsListProps) {
@@ -37,35 +37,24 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
 
   const localLearnings = useMemo(
     () => listLearningFiles(join(projectPath, ".sheal", "learnings")),
-    [projectPath]
+    [projectPath],
   );
 
   const globalLearnings = useMemo(
     () => listLearningFiles(join(homeDir, ".sheal", "learnings")),
-    [homeDir]
+    [homeDir],
   );
 
   const learnings = showGlobal ? globalLearnings : localLearnings;
 
   useInput((input, key) => {
-    if (input === "q") {
-      onQuit();
-      return;
-    }
+    if (input === "q") { onQuit(); return; }
     if (key.escape) {
-      if (expanded !== null) {
-        setExpanded(null);
-        return;
-      }
+      if (expanded !== null) { setExpanded(null); return; }
       onBack();
       return;
     }
-    if (input === "g") {
-      setShowGlobal(!showGlobal);
-      setCursor(0);
-      setExpanded(null);
-      return;
-    }
+    if (input === "g") { setShowGlobal(!showGlobal); setCursor(0); setExpanded(null); return; }
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
@@ -87,9 +76,7 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
     return (
       <Box flexDirection="column">
         <Box marginBottom={1} flexDirection="column">
-          <Text bold color="green">
-            {l.id}: {l.title}
-          </Text>
+          <Text bold color="green">{l.id}: {l.title}</Text>
           <Box>
             <Text color={sevColor}>{l.severity}</Text>
             <Text dimColor> | {l.category}</Text>
@@ -99,16 +86,18 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
 
         <Box flexDirection="column">
           {bodyLines.slice(0, maxRows).map((line, i) => (
-            <Text key={i} wrap="wrap">
-              {line || " "}
-            </Text>
+            <Text key={i} wrap="wrap">{line || " "}</Text>
           ))}
           {bodyLines.length > maxRows && (
             <Text dimColor>... ({bodyLines.length - maxRows} more lines)</Text>
           )}
         </Box>
 
-        <StatusBar view="detail" searchActive={false} info="enter Close  esc Back to list" />
+        <StatusBar
+          view="detail"
+          searchActive={false}
+          info="enter Close  esc Back to list"
+        />
       </Box>
     );
   }
@@ -117,12 +106,8 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold color="cyan">
-            {projectName}
-          </Text>
-          <Text bold color="green">
-            {" > Learnings"}
-          </Text>
+          <Text bold color="cyan">{projectName}</Text>
+          <Text bold color="green">{" > Learnings"}</Text>
           <Text dimColor> ({learnings.length})</Text>
         </Box>
         <Box>
@@ -133,15 +118,15 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
           <Text color={showGlobal ? "green" : undefined} bold={showGlobal}>
             {showGlobal ? ">" : " "} Global ({globalLearnings.length})
           </Text>
-          <Text dimColor> [g to toggle]</Text>
+          <Text dimColor>  [g to toggle]</Text>
         </Box>
       </Box>
 
       <Box flexDirection="column" height={maxRows}>
         {learnings.length === 0 && (
           <Box flexDirection="column">
-            <Text dimColor> No {showGlobal ? "global" : "local"} learnings found.</Text>
-            <Text dimColor> Add: sheal learn add {'"insight"'} --tags=foo,bar</Text>
+            <Text dimColor>  No {showGlobal ? "global" : "local"} learnings found.</Text>
+            <Text dimColor>  Add: sheal learn add {"\"insight\""} --tags=foo,bar</Text>
           </Box>
         )}
         {learnings.slice(0, maxRows).map((l, i) => {
@@ -158,7 +143,7 @@ export function LearningsList({ projectPath, projectName, onBack, onQuit }: Lear
                 <Text> {l.title.slice(0, 70)}</Text>
               </Box>
               {i === cursor && l.tags.length > 0 && (
-                <Text dimColor> tags: {l.tags.join(", ")}</Text>
+                <Text dimColor>    tags: {l.tags.join(", ")}</Text>
               )}
             </Box>
           );

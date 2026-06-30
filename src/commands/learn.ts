@@ -1,11 +1,4 @@
-import {
-  mkdirSync,
-  copyFileSync,
-  readdirSync,
-  existsSync,
-  readFileSync,
-  unlinkSync,
-} from "node:fs";
+import { mkdirSync, copyFileSync, readdirSync, existsSync, readFileSync, unlinkSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import chalk from "chalk";
@@ -20,13 +13,7 @@ import {
 } from "../learn/index.js";
 import { reviewExistingLearnings } from "../learn/review.js";
 import type { LearningCategory, LearningSeverity, LearningFile } from "../learn/types.js";
-import {
-  runBackupRemoteAdd,
-  runBackupRemoteShow,
-  runBackupRemoteRemove,
-  runBackupPush,
-  runBackupPull,
-} from "./backup.js";
+import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./backup.js";
 
 interface LearnAddOptions {
   insight: string;
@@ -101,9 +88,7 @@ export async function runLearnList(opts: LearnListOptions): Promise<void> {
     const draftBadge = l.status === "draft" ? chalk.yellow("[draft] ") : "";
     console.log(`${l.id}  ${draftBadge}[${l.severity}] [${tags}]  ${l.title}`);
   }
-  console.log(
-    `\n${filtered.length} learning(s)${drafts.length > 0 ? chalk.yellow(` (${drafts.length} draft)`) : ""}`
-  );
+  console.log(`\n${filtered.length} learning(s)${drafts.length > 0 ? chalk.yellow(` (${drafts.length} draft)`) : ""}`);
 }
 
 interface LearnShowOptions {
@@ -117,9 +102,7 @@ interface LearnShowOptions {
  * Show full details of a learning by ID. Searches project then global.
  */
 export async function runLearnShow(opts: LearnShowOptions): Promise<void> {
-  const normalizedId = opts.id.toUpperCase().startsWith("LEARN-")
-    ? opts.id.toUpperCase()
-    : `LEARN-${opts.id.replace(/^0+/, "").padStart(3, "0")}`;
+  const normalizedId = opts.id.toUpperCase().startsWith("LEARN-") ? opts.id.toUpperCase() : `LEARN-${opts.id.replace(/^0+/, "").padStart(3, "0")}`;
 
   // Search project first, then global (unless --global forces global only)
   const dirs: Array<{ label: string; dir: string }> = [];
@@ -137,9 +120,7 @@ export async function runLearnShow(opts: LearnShowOptions): Promise<void> {
 
     console.log(chalk.bold(`${match.id}: ${match.title}`));
     console.log(chalk.gray(`Source: ${label} (${dir})`));
-    console.log(
-      chalk.gray(`Date: ${match.date}  Status: ${match.status}  Severity: ${match.severity}`)
-    );
+    console.log(chalk.gray(`Date: ${match.date}  Status: ${match.status}  Severity: ${match.severity}`));
     console.log(chalk.gray(`Tags: ${match.tags.join(", ")}  Category: ${match.category}`));
     if (match.sessionId) console.log(chalk.gray(`Session: ${match.sessionId}`));
     console.log();
@@ -173,7 +154,9 @@ export async function runLearnSync(opts: LearnSyncOptions): Promise<void> {
   }
 
   // Filter by tag overlap
-  const matching = globalLearnings.filter((l) => l.tags.some((t) => projectTags.includes(t)));
+  const matching = globalLearnings.filter((l) =>
+    l.tags.some((t) => projectTags.includes(t))
+  );
 
   if (matching.length === 0) {
     console.log("No global learnings match this project's tags.");
@@ -255,7 +238,7 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
 
   if (learnings.length === 0) {
     console.log(chalk.yellow("No active project learnings to promote."));
-    console.log(chalk.gray('Add learnings with: sheal learn add "insight"'));
+    console.log(chalk.gray("Add learnings with: sheal learn add \"insight\""));
     return;
   }
 
@@ -265,7 +248,8 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
 
   const { createInterface } = await import("node:readline");
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q: string): Promise<string> => new Promise((resolve) => rl.question(q, resolve));
+  const ask = (q: string): Promise<string> =>
+    new Promise((resolve) => rl.question(q, resolve));
 
   console.log();
   console.log(chalk.bold(`Promote project learnings to global (~/.sheal/learnings/)`));
@@ -291,11 +275,7 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
         console.log(chalk.gray(`    Consider generalizing before promoting to global.`));
       }
 
-      const answer = await ask(
-        chalk.white(
-          `  Promote to global? [${alreadyGlobal || specificity.length > 0 ? "y/N" : "Y/n"}] `
-        )
-      );
+      const answer = await ask(chalk.white(`  Promote to global? [${alreadyGlobal || specificity.length > 0 ? "y/N" : "Y/n"}] `));
       const a = answer.trim().toLowerCase();
 
       if (a === "q") {
@@ -305,8 +285,8 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
 
       const defaultNo = alreadyGlobal || specificity.length > 0;
       const shouldPromote = defaultNo
-        ? a === "y" || a === "yes"
-        : a === "" || a === "y" || a === "yes";
+        ? (a === "y" || a === "yes")
+        : (a === "" || a === "y" || a === "yes");
 
       if (shouldPromote) {
         const id = nextId(globalDir);
@@ -323,11 +303,7 @@ export async function runLearnPromote(opts: LearnPromoteOptions): Promise<void> 
   }
 
   if (promoted > 0) {
-    console.log(
-      chalk.green(
-        `\nPromoted ${promoted} learning(s) to global. Run 'sheal learn list --global' to view.`
-      )
-    );
+    console.log(chalk.green(`\nPromoted ${promoted} learning(s) to global. Run 'sheal learn list --global' to view.`));
   }
 }
 
@@ -372,9 +348,7 @@ export async function runLearnReview(opts: LearnReviewOptions): Promise<void> {
   console.log(`  ${parts.join("  ")}`);
 
   if (result.remaining > 0) {
-    console.log(
-      chalk.gray(`\nRun 'sheal learn review${opts.global ? " --global" : ""}' again to continue.`)
-    );
+    console.log(chalk.gray(`\nRun 'sheal learn review${opts.global ? " --global" : ""}' again to continue.`));
   }
 }
 
@@ -411,11 +385,7 @@ function extractReferences(text: string): Array<{ type: "file" | "tool"; value: 
   const toolPatterns = text.matchAll(/`(\w[\w-]*)(?:\s|`)/g);
   const knownTools = new Set([
     // Only flag tools that are specific enough to be meaningful
-    "dolt",
-    "amp",
-    "codex",
-    "gemini",
-    "entire",
+    "dolt", "amp", "codex", "gemini", "entire",
   ]);
   for (const m of toolPatterns) {
     if (knownTools.has(m[1].toLowerCase())) {
@@ -455,7 +425,7 @@ export function toolExists(name: string): boolean {
 export function analyzeStaleness(
   learning: LearningFile,
   daysThreshold: number,
-  projectRoot: string
+  projectRoot: string,
 ): string[] {
   const reasons: string[] = [];
 
@@ -532,7 +502,9 @@ export async function runLearnPrune(opts: LearnPruneOptions): Promise<void> {
   console.log();
 
   for (const c of candidates) {
-    const statusBadge = c.learning.status !== "active" ? chalk.gray(` [${c.learning.status}]`) : "";
+    const statusBadge = c.learning.status !== "active"
+      ? chalk.gray(` [${c.learning.status}]`)
+      : "";
     console.log(`  ${chalk.bold(c.learning.id)}${statusBadge}  ${c.learning.title}`);
     for (const reason of c.reasons) {
       console.log(chalk.yellow(`    - ${reason}`));
@@ -553,9 +525,7 @@ export async function runLearnPrune(opts: LearnPruneOptions): Promise<void> {
     try {
       unlinkSync(join(dir, c.filename));
       removed++;
-    } catch {
-      /* skip files that vanished */
-    }
+    } catch { /* skip files that vanished */ }
   }
 
   console.log(chalk.green(`Pruned ${removed} learning(s).`));
@@ -569,9 +539,5 @@ export async function runLearnPrune(opts: LearnPruneOptions): Promise<void> {
 export const runLearnRemoteAdd = runBackupRemoteAdd;
 export const runLearnRemoteShow = runBackupRemoteShow;
 export const runLearnRemoteRemove = runBackupRemoteRemove;
-export async function runLearnPush(): Promise<void> {
-  await runBackupPush();
-}
-export async function runLearnPull(): Promise<void> {
-  await runBackupPull();
-}
+export async function runLearnPush(): Promise<void> { await runBackupPush(); }
+export async function runLearnPull(): Promise<void> { await runBackupPull(); }

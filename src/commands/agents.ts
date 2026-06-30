@@ -23,12 +23,14 @@ export async function runAgents(opts: AgentsOptions): Promise<void> {
     ? projects.filter(
         (p) =>
           p.name.toLowerCase().includes(opts.project!.toLowerCase()) ||
-          p.projectPath.toLowerCase().includes(opts.project!.toLowerCase())
+          p.projectPath.toLowerCase().includes(opts.project!.toLowerCase()),
       )
     : projects;
 
   if (scoped.length === 0) {
-    const msg = opts.project ? `No projects match '${opts.project}'.` : "No projects found.";
+    const msg = opts.project
+      ? `No projects match '${opts.project}'.`
+      : "No projects found.";
     if (opts.json) console.log(JSON.stringify({ error: msg }));
     else console.error(msg);
     process.exitCode = 1;
@@ -65,9 +67,7 @@ function formatReport(a: AgentAnalysis, opts: FormatOptions): string {
   lines.push(`==========================`);
   lines.push(`Scope:    ${scope}`);
   lines.push(`Gap:      ${formatDuration(opts.gapMs)}`);
-  lines.push(
-    `Tasks:    ${a.tasks.total}  (${a.tasks.multiAgent} multi-agent, ${pct(a.tasks.multiAgent, a.tasks.total)})`
-  );
+  lines.push(`Tasks:    ${a.tasks.total}  (${a.tasks.multiAgent} multi-agent, ${pct(a.tasks.multiAgent, a.tasks.total)})`);
   lines.push(`Sessions: ${a.sessions.total}`);
   if (!opts.projectFilter) {
     lines.push(`Multi-agent projects: ${a.scope.multiAgentProjects} of ${a.scope.projects}`);
@@ -127,9 +127,7 @@ function formatReport(a: AgentAnalysis, opts: FormatOptions): string {
       const t = a.topMixedTasks[i];
       const dur = formatDuration(new Date(t.endAt).getTime() - new Date(t.startAt).getTime());
       const title = t.title ? ` — ${truncate(t.title, 60)}` : "";
-      lines.push(
-        `  ${pad(i + 1, 2)}. ${t.startAt.slice(0, 16)} ${dur.padEnd(6)} ${t.project.padEnd(30)} [${t.agents.join(",")}] ${t.sessionCount}s${title}`
-      );
+      lines.push(`  ${pad(i + 1, 2)}. ${t.startAt.slice(0, 16)} ${dur.padEnd(6)} ${t.project.padEnd(30)} [${t.agents.join(",")}] ${t.sessionCount}s${title}`);
     }
   }
 

@@ -20,14 +20,8 @@ export function RetroList({ projectPath, projectName, onSelect, onBack, onQuit }
   const retros = useMemo(() => listRetros(projectPath), [projectPath]);
 
   useInput((input, key) => {
-    if (input === "q") {
-      onQuit();
-      return;
-    }
-    if (key.escape) {
-      onBack();
-      return;
-    }
+    if (input === "q") { onQuit(); return; }
+    if (key.escape) { onBack(); return; }
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
@@ -41,9 +35,7 @@ export function RetroList({ projectPath, projectName, onSelect, onBack, onQuit }
   if (retros.length === 0) {
     return (
       <Box flexDirection="column">
-        <Text bold color="cyan">
-          {projectName}
-        </Text>
+        <Text bold color="cyan">{projectName}</Text>
         <Text color="yellow">No retrospectives found.</Text>
         <Text dimColor>Run: sheal retro --enrich</Text>
         <StatusBar view="detail" searchActive={false} />
@@ -54,12 +46,8 @@ export function RetroList({ projectPath, projectName, onSelect, onBack, onQuit }
   return (
     <Box flexDirection="column">
       <Box marginBottom={1}>
-        <Text bold color="cyan">
-          {projectName}
-        </Text>
-        <Text bold color="magenta">
-          {" > Retros"}
-        </Text>
+        <Text bold color="cyan">{projectName}</Text>
+        <Text bold color="magenta">{" > Retros"}</Text>
         <Text dimColor> ({retros.length})</Text>
       </Box>
 

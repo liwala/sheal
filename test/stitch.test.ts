@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  stitchSessions,
-  DEFAULT_GAP_MS,
-  formatDuration,
-  shortAgent,
-} from "../src/browse/utils/stitch.js";
+import { stitchSessions, DEFAULT_GAP_MS, formatDuration, shortAgent } from "../src/browse/utils/stitch.js";
 import type { CheckpointInfo } from "@liwala/agent-sessions";
 
 function makeSession(overrides: Partial<CheckpointInfo> & { createdAt: string }): CheckpointInfo {
@@ -27,11 +22,7 @@ describe("stitchSessions", () => {
   });
 
   it("creates a single group for a lone session", () => {
-    const s = makeSession({
-      createdAt: "2026-04-21T10:00:00Z",
-      agent: "Claude Code",
-      title: "Fix bug",
-    });
+    const s = makeSession({ createdAt: "2026-04-21T10:00:00Z", agent: "Claude Code", title: "Fix bug" });
     const groups = stitchSessions([s]);
     expect(groups).toHaveLength(1);
     expect(groups[0].sessions).toHaveLength(1);
@@ -40,18 +31,9 @@ describe("stitchSessions", () => {
   });
 
   it("merges consecutive sessions within the gap threshold", () => {
-    const a = makeSession({
-      sessionId: "a",
-      createdAt: "2026-04-21T10:00:00Z",
-      agent: "Claude Code",
-      title: "Task A",
-    });
+    const a = makeSession({ sessionId: "a", createdAt: "2026-04-21T10:00:00Z", agent: "Claude Code", title: "Task A" });
     const b = makeSession({ sessionId: "b", createdAt: "2026-04-21T10:30:00Z", agent: "Codex" });
-    const c = makeSession({
-      sessionId: "c",
-      createdAt: "2026-04-21T11:00:00Z",
-      agent: "Claude Code",
-    });
+    const c = makeSession({ sessionId: "c", createdAt: "2026-04-21T11:00:00Z", agent: "Claude Code" });
     const groups = stitchSessions([a, b, c]);
     expect(groups).toHaveLength(1);
     expect(groups[0].sessions.map((s) => s.sessionId)).toEqual(["a", "b", "c"]);
@@ -102,16 +84,8 @@ describe("stitchSessions", () => {
   });
 
   it("unions filesTouched across sessions in a group", () => {
-    const a = makeSession({
-      sessionId: "a",
-      createdAt: "2026-04-21T10:00:00Z",
-      filesTouched: ["foo.ts", "bar.ts"],
-    });
-    const b = makeSession({
-      sessionId: "b",
-      createdAt: "2026-04-21T10:30:00Z",
-      filesTouched: ["bar.ts", "baz.ts"],
-    });
+    const a = makeSession({ sessionId: "a", createdAt: "2026-04-21T10:00:00Z", filesTouched: ["foo.ts", "bar.ts"] });
+    const b = makeSession({ sessionId: "b", createdAt: "2026-04-21T10:30:00Z", filesTouched: ["bar.ts", "baz.ts"] });
     const groups = stitchSessions([a, b]);
     expect(groups[0].filesTouched.sort()).toEqual(["bar.ts", "baz.ts", "foo.ts"]);
   });

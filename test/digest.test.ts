@@ -95,9 +95,7 @@ describe("categorizePrompts", () => {
       makePrompt("<system-reminder>some system text</system-reminder>"),
       makePrompt("[Image: source: screenshot.png]"),
     ]);
-    const total =
-      Object.values(categories).reduce((sum, items) => sum + items.length, 0) +
-      uncategorized.length;
+    const total = Object.values(categories).reduce((sum, items) => sum + items.length, 0) + uncategorized.length;
     expect(total).toBe(0);
   });
 
@@ -172,26 +170,13 @@ function makeTokenSummary(overrides?: Partial<TokenSummary>): TokenSummary {
     totalCacheCreate: 100_000,
     totalApiCalls: 50,
     byAgent: {
-      claude: {
-        input: 1_000_000,
-        output: 500_000,
-        cacheRead: 2_000_000,
-        cacheCreate: 100_000,
-        apiCalls: 50,
-        sessionCount: 5,
-      },
+      claude: { input: 1_000_000, output: 500_000, cacheRead: 2_000_000, cacheCreate: 100_000, apiCalls: 50, sessionCount: 5 },
     },
     byProject: {
       "my-project": { input: 1_000_000, output: 500_000, sessionCount: 5 },
     },
     byModel: {
-      "claude-sonnet-4-6-20260401": {
-        input: 1_000_000,
-        output: 500_000,
-        cacheRead: 2_000_000,
-        cacheCreate: 100_000,
-        apiCalls: 50,
-      },
+      "claude-sonnet-4-6-20260401": { input: 1_000_000, output: 500_000, cacheRead: 2_000_000, cacheCreate: 100_000, apiCalls: 50 },
     },
     byProjectModel: {},
     ...overrides,
@@ -233,22 +218,10 @@ describe("estimateCost", () => {
     const tokens = makeTokenSummary({
       byProjectModel: {
         "proj-a": {
-          "claude-sonnet-4-6-20260401": {
-            input: 800_000,
-            output: 400_000,
-            cacheRead: 1_500_000,
-            cacheCreate: 80_000,
-            apiCalls: 40,
-          },
+          "claude-sonnet-4-6-20260401": { input: 800_000, output: 400_000, cacheRead: 1_500_000, cacheCreate: 80_000, apiCalls: 40 },
         },
         "proj-b": {
-          "claude-sonnet-4-6-20260401": {
-            input: 200_000,
-            output: 100_000,
-            cacheRead: 500_000,
-            cacheCreate: 20_000,
-            apiCalls: 10,
-          },
+          "claude-sonnet-4-6-20260401": { input: 200_000, output: 100_000, cacheRead: 500_000, cacheCreate: 20_000, apiCalls: 10 },
         },
       },
     });
@@ -262,14 +235,8 @@ describe("estimateCost", () => {
 
   it("returns zero cost for empty token summary", () => {
     const tokens = makeTokenSummary({
-      totalInput: 0,
-      totalOutput: 0,
-      totalCacheRead: 0,
-      totalCacheCreate: 0,
-      totalApiCalls: 0,
-      byModel: {},
-      byAgent: {},
-      byProject: {},
+      totalInput: 0, totalOutput: 0, totalCacheRead: 0, totalCacheCreate: 0,
+      totalApiCalls: 0, byModel: {}, byAgent: {}, byProject: {},
     });
     const result = estimateCost(tokens);
     expect(result.totalCost).toBe(0);
@@ -286,17 +253,7 @@ function makeReport(overrides?: Partial<DigestReport>): DigestReport {
     totalSessions: 10,
     totalPrompts: 50,
     categories: {
-      SKILLS: [
-        {
-          description: "/retro run",
-          sessionIds: ["s1"],
-          projects: ["p1"],
-          agents: ["claude"],
-          count: 5,
-          category: "SKILLS",
-          lastSeen: "2026-04-01",
-        },
-      ],
+      SKILLS: [{ description: "/retro run", sessionIds: ["s1"], projects: ["p1"], agents: ["claude"], count: 5, category: "SKILLS", lastSeen: "2026-04-01" }],
       AGENTS: [],
       SCHEDULED_TASKS: [],
       CLAUDE_MD: [],
@@ -310,9 +267,7 @@ function makeReport(overrides?: Partial<DigestReport>): DigestReport {
 
 describe("diffDigests", () => {
   it("detects new items", () => {
-    const previous = makeReport({
-      categories: { SKILLS: [], AGENTS: [], SCHEDULED_TASKS: [], CLAUDE_MD: [] },
-    });
+    const previous = makeReport({ categories: { SKILLS: [], AGENTS: [], SCHEDULED_TASKS: [], CLAUDE_MD: [] } });
     const current = makeReport();
     const diff = diffDigests(current, previous);
     expect(diff.newItems.length).toBe(1);
@@ -321,9 +276,7 @@ describe("diffDigests", () => {
 
   it("detects dropped items", () => {
     const previous = makeReport();
-    const current = makeReport({
-      categories: { SKILLS: [], AGENTS: [], SCHEDULED_TASKS: [], CLAUDE_MD: [] },
-    });
+    const current = makeReport({ categories: { SKILLS: [], AGENTS: [], SCHEDULED_TASKS: [], CLAUDE_MD: [] } });
     const diff = diffDigests(current, previous);
     expect(diff.droppedItems.length).toBe(1);
   });
@@ -337,18 +290,8 @@ describe("diffDigests", () => {
   });
 
   it("detects trending up items", () => {
-    const item = {
-      description: "/retro run",
-      sessionIds: ["s1"],
-      projects: ["p1"],
-      agents: ["claude"],
-      count: 3,
-      category: "SKILLS" as const,
-      lastSeen: "2026-03-25",
-    };
-    const previous = makeReport({
-      categories: { SKILLS: [item], AGENTS: [], SCHEDULED_TASKS: [], CLAUDE_MD: [] },
-    });
+    const item = { description: "/retro run", sessionIds: ["s1"], projects: ["p1"], agents: ["claude"], count: 3, category: "SKILLS" as const, lastSeen: "2026-03-25" };
+    const previous = makeReport({ categories: { SKILLS: [item], AGENTS: [], SCHEDULED_TASKS: [], CLAUDE_MD: [] } });
     const current = makeReport(); // count: 5 vs previous count: 3
     const diff = diffDigests(current, previous);
     expect(diff.trendingUp.length).toBe(1);

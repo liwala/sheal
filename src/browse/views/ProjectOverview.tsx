@@ -44,15 +44,12 @@ export function ProjectOverview({
 }: ProjectOverviewProps) {
   const [cursor, setCursor] = useState(0);
 
-  const { retroCount, learningCount, askCount, digestCount } = useMemo(
-    () => ({
-      retroCount: countRetros(project.projectPath),
-      learningCount: countLearnings(project.projectPath),
-      askCount: countAsks(project.projectPath),
-      digestCount: listDigests().length,
-    }),
-    [project.projectPath]
-  );
+  const { retroCount, learningCount, askCount, digestCount } = useMemo(() => ({
+    retroCount: countRetros(project.projectPath),
+    learningCount: countLearnings(project.projectPath),
+    askCount: countAsks(project.projectPath),
+    digestCount: listDigests().length,
+  }), [project.projectPath]);
 
   const agents = project.agents || [];
 
@@ -72,14 +69,8 @@ export function ProjectOverview({
   ];
 
   useInput((input, key) => {
-    if (input === "q") {
-      onQuit();
-      return;
-    }
-    if (key.escape) {
-      onBack();
-      return;
-    }
+    if (input === "q") { onQuit(); return; }
+    if (key.escape) { onBack(); return; }
 
     if (key.upArrow) {
       setCursor((c) => Math.max(0, c - 1));
@@ -94,16 +85,14 @@ export function ProjectOverview({
     <Box flexDirection="column">
       <Box marginBottom={1} flexDirection="column">
         <Box>
-          <Text bold color="cyan">
-            {project.name}
-          </Text>
+          <Text bold color="cyan">{project.name}</Text>
         </Box>
         <Text dimColor>{project.projectPath}</Text>
         {agents.length > 0 && (
           <Box>
             {agents.map((a, i) => (
               <Text key={a.agent}>
-                {i > 0 && <Text> </Text>}
+                {i > 0 && <Text>{" "}</Text>}
                 <Text color={(AGENT_COLORS[a.agent] || "white") as any}>{a.agent}</Text>
                 <Text dimColor> ({a.sessionCount})</Text>
               </Text>
@@ -122,8 +111,7 @@ export function ProjectOverview({
               {item.label}
             </Text>
             <Text color={item.count > 0 ? item.color : undefined} dimColor={item.count === 0}>
-              {" "}
-              ({item.count})
+              {" "}({item.count})
             </Text>
           </Box>
         ))}
@@ -135,11 +123,7 @@ export function ProjectOverview({
         </Box>
       )}
 
-      <StatusBar
-        view="detail"
-        searchActive={false}
-        info="^/v Navigate  enter Select  esc Back  q Quit"
-      />
+      <StatusBar view="detail" searchActive={false} info="^/v Navigate  enter Select  esc Back  q Quit" />
     </Box>
   );
 }

@@ -5,27 +5,8 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import {
-  runLearnAdd,
-  runLearnList,
-  runLearnShow,
-  runLearnSync,
-  runLearnReview,
-  runLearnPromote,
-  runLearnPrune,
-  runLearnRemoteAdd,
-  runLearnRemoteShow,
-  runLearnRemoteRemove,
-  runLearnPush,
-  runLearnPull,
-} from "./commands/learn.js";
-import {
-  runBackupRemoteAdd,
-  runBackupRemoteShow,
-  runBackupRemoteRemove,
-  runBackupPush,
-  runBackupPull,
-} from "./commands/backup.js";
+import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
+import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
 import { runAgents } from "./commands/agents.js";
@@ -37,6 +18,8 @@ import { runGraph } from "./commands/graph.js";
 import { runDrift } from "./commands/drift.js";
 import { runRules } from "./commands/rules.js";
 import { runAudit } from "./commands/audit.js";
+import { runPull } from "./commands/pull.js";
+import { runSessionsImport } from "./commands/sessions.js";
 import type { LearningCategory, LearningSeverity } from "./learn/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -124,6 +107,16 @@ Backup & Sync (git-based)
   sheal backup pull               Pull + merge from remote
   sheal learn push/pull           Aliases for backup push/pull
 
+Sandbox Pull
+────────────
+  sheal pull --list               List available local sbx sandboxes and Docker containers
+  sheal pull sbx <name>           Pull one sbx sandbox's capture set to staging
+  sheal pull sbx <name> --checkpoint
+                                  Write a checkpoint stage without registry import
+  sheal pull --checkpoint-run     Run configured checkpoint targets once
+  sheal pull sbx --all            Pull every sbx sandbox with a workspace
+  sheal pull docker <name>        Pull one Docker container's capture set
+
 Browsing
 ────────
   sheal browse                    Interactive TUI for sessions & retros
@@ -132,6 +125,7 @@ Browsing
   sheal browse learnings          Browse learnings
   sheal browse digests            Browse digest reports
   sheal export                    Export session data as JSON (for piping)
+  sheal sessions import           Add live Claude/Codex sessions to raw registry
   sheal graph                     Cross-session knowledge graph
   sheal drift                     Detect when learnings aren't being applied
 
@@ -176,10 +170,7 @@ program
   .description("Run pre-session health check on a project")
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .option("-p, --project <path>", "Project root path", process.cwd())
-  .option(
-    "--skip <checkers>",
-    "Comma-separated checkers to skip (git,dependencies,tests,environment,session-learnings,performance)"
-  )
+  .option("--skip <checkers>", "Comma-separated checkers to skip (git,dependencies,tests,environment,session-learnings,performance)")
   .action(async (opts) => {
     await runCheck({
       format: opts.format,
@@ -403,6 +394,44 @@ browse
   });
 
 program
+  .command("pull [backend] [name]")
+  .description("Discover and pull changes from agent sandboxes")
+  .option("--list", "List available agent sandboxes", false)
+  .option("--all", "Pull all sandboxes for a backend (sbx only)", false)
+  .option("--gc", "Remove expired pull staging directories", false)
+  .option("--checkpoint", "Write a checkpoint stage without raw-registry normalization", false)
+  .option("--checkpoint-run", "Run configured checkpoint targets once", false)
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .action(async (backend: string | undefined, name: string | undefined, opts) => {
+    await runPull(backend, name, {
+      list: opts.list,
+      all: opts.all,
+      gc: opts.gc,
+      checkpoint: opts.checkpoint,
+      checkpointRun: opts.checkpointRun,
+      format: opts.format,
+    });
+  });
+
+const sessions = program
+  .command("sessions")
+  .description("Manage project-local session registry records");
+
+sessions
+  .command("import")
+  .description("Import live-home or explicit-source Claude/Codex sessions into the raw registry")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .option("--source <path>", "Explicit source root containing .claude and/or .codex")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .action((opts) => {
+    runSessionsImport({
+      projectRoot: opts.project,
+      source: opts.source,
+      format: opts.format,
+    });
+  });
+
+program
   .command("agents")
   .description("Analyze how agents are used together across stitched task timelines")
   .option("-p, --project <name>", "Scope to projects matching this name or path")
@@ -474,17 +503,15 @@ program
     });
   });
 
-const learn = program.command("learn").description("Manage ADR-style session learnings");
+const learn = program
+  .command("learn")
+  .description("Manage ADR-style session learnings");
 
 learn
   .command("add <insight>")
   .description("Add a new learning (project-local by default)")
   .option("--tags <tags>", "Comma-separated tags", "general")
-  .option(
-    "--category <cat>",
-    "Category: missing-context, failure-loop, wasted-effort, environment, workflow",
-    "workflow"
-  )
+  .option("--category <cat>", "Category: missing-context, failure-loop, wasted-effort, environment, workflow", "workflow")
   .option("--severity <sev>", "Severity: low, medium, high", "medium")
   .option("--global", "Save to global store instead of project", false)
   .option("-p, --project <path>", "Project root path", process.cwd())
@@ -635,7 +662,9 @@ backup
     await runBackupPull();
   });
 
-const backupRemote = backup.command("remote").description("Manage git remote for ~/.sheal/ backup");
+const backupRemote = backup
+  .command("remote")
+  .description("Manage git remote for ~/.sheal/ backup");
 
 backupRemote
   .command("add <url>")

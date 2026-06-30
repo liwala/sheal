@@ -143,11 +143,7 @@ export function listGeminiProjects(): GeminiProject[] {
 /**
  * Synchronous version of resolveProjectPath (avoids top-level await issues).
  */
-export function resolveProjectPathSync(
-  dirName: string,
-  dirPath: string,
-  projectsMap: Map<string, string>
-): string | null {
+export function resolveProjectPathSync(dirName: string, dirPath: string, projectsMap: Map<string, string>): string | null {
   // Named directory with .project_root file
   const rootFile = join(dirPath, ".project_root");
   if (existsSync(rootFile)) {
@@ -232,9 +228,7 @@ export function listGeminiSessionsForProject(projectPath: string): CheckpointInf
 /**
  * Load a full Gemini session transcript.
  */
-export function loadGeminiSession(
-  sessionId: string
-): { meta: GeminiSessionFile; entries: GeminiTranscriptEntry[] } | null {
+export function loadGeminiSession(sessionId: string): { meta: GeminiSessionFile; entries: GeminiTranscriptEntry[] } | null {
   if (!hasGeminiSessions()) return null;
 
   // Search all project dirs for this session
@@ -365,10 +359,7 @@ function parseGeminiMessages(messages: any[]): GeminiTranscriptEntry[] {
             role: "tool",
             content: "",
             toolName: tc.displayName || tc.name,
-            toolInput:
-              typeof tc.args === "object"
-                ? JSON.stringify(tc.args).slice(0, 200)
-                : String(tc.args || "").slice(0, 200),
+            toolInput: typeof tc.args === "object" ? JSON.stringify(tc.args).slice(0, 200) : String(tc.args || "").slice(0, 200),
             toolOutput: typeof output === "string" ? output.slice(0, 500) : undefined,
             timestamp: tc.timestamp || msg.timestamp,
           });

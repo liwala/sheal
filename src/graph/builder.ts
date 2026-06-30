@@ -11,13 +11,7 @@ import {
 } from "@liwala/agent-sessions";
 import type { CheckpointInfo } from "@liwala/agent-sessions";
 import { analyzeEffort } from "../retro/analyzers.js";
-import type {
-  KnowledgeGraph,
-  FileNode,
-  AgentNode,
-  SessionNode,
-  SessionCorrelation,
-} from "./types.js";
+import type { KnowledgeGraph, FileNode, AgentNode, SessionNode, SessionCorrelation } from "./types.js";
 
 export interface BuildGraphOptions {
   projectRoot: string;
@@ -97,13 +91,7 @@ export function buildKnowledgeGraph(options: BuildGraphOptions): KnowledgeGraph 
 
     // Agent node
     if (!agents.has(agent)) {
-      agents.set(agent, {
-        name: agent,
-        sessionCount: 0,
-        files: [],
-        totalToolCalls: 0,
-        sessionIds: [],
-      });
+      agents.set(agent, { name: agent, sessionCount: 0, files: [], totalToolCalls: 0, sessionIds: [] });
     }
     const anode = agents.get(agent)!;
     anode.sessionCount++;
@@ -128,10 +116,7 @@ export function buildKnowledgeGraph(options: BuildGraphOptions): KnowledgeGraph 
   // Correlations
   const correlations = detectCorrelations(sessions, correlationWindowMinutes);
 
-  const dates = sessions
-    .map((s) => s.date)
-    .filter(Boolean)
-    .sort();
+  const dates = sessions.map((s) => s.date).filter(Boolean).sort();
 
   return {
     project: projectRoot,
@@ -156,7 +141,7 @@ function addFileNode(
   sessionId: string,
   agent: string,
   date: string,
-  touchCount: number
+  touchCount: number,
 ): void {
   if (!files.has(filePath)) {
     files.set(filePath, { path: filePath, sessions: [], totalTouches: 0, agents: [] });
@@ -197,13 +182,14 @@ function detectCorrelations(sessions: SessionNode[], windowMinutes: number): Ses
       const crossAgent = a.agent !== b.agent;
       const gapMinutes = Math.round(gap / 60000);
 
-      const agentDesc = crossAgent ? `${a.agent} and ${b.agent}` : `Two ${a.agent} sessions`;
-      const timeDesc =
-        gapMinutes < 1
-          ? "at the same time"
-          : gapMinutes < 60
-            ? `${gapMinutes}min apart`
-            : `${Math.round(gapMinutes / 60)}h apart`;
+      const agentDesc = crossAgent
+        ? `${a.agent} and ${b.agent}`
+        : `Two ${a.agent} sessions`;
+      const timeDesc = gapMinutes < 1
+        ? "at the same time"
+        : gapMinutes < 60
+          ? `${gapMinutes}min apart`
+          : `${Math.round(gapMinutes / 60)}h apart`;
 
       correlations.push({
         sessions: [

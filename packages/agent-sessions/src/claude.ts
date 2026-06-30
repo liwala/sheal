@@ -7,15 +7,7 @@
  *   { type, message, uuid, timestamp, sessionId, version, cwd, ... }
  */
 
-import {
-  existsSync,
-  openSync,
-  readSync,
-  closeSync,
-  readdirSync,
-  readFileSync,
-  statSync,
-} from "node:fs";
+import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parseTranscript } from "./transcript.js";
@@ -28,22 +20,31 @@ import type {
   TokenUsage,
 } from "./types.js";
 
+export interface ClaudeSessionReaderOptions {
+  /**
+   * Explicit source root. Accepts either a `.claude` directory or a parent that
+   * contains `.claude`, such as a pulled staging `transcript/` directory.
+   */
+  root?: string;
+}
+
 /**
  * Derive the Claude Code project directory path for a given project root.
  * Claude Code uses the format: ~/.claude/projects/-<path-with-dashes>/
  */
-export function getClaudeProjectDir(projectRoot: string): string | null {
+export function getClaudeProjectDir(projectRoot: string, options: ClaudeSessionReaderOptions = {}): string | null {
   const absPath = resolve(projectRoot);
   // Claude Code slug: replace path separators, drive colons, and spaces with -.
   // Unix: /Users/lu/code/foo → -Users-lu-code-foo
   // Windows: C:\Users\me\Claude Code → c--Users-me-Claude-Code (lowercased drive)
   const slug = absPath.replace(/[\\/: ]/g, "-");
-  const dir = join(homedir(), ".claude", "projects", slug);
+  const root = resolveClaudeRoot(options);
+  const dir = join(root, "projects", slug);
   if (existsSync(dir)) return dir;
   // Fallback: drive letter case may vary on Windows
   const lowerSlug = slug.charAt(0).toLowerCase() + slug.slice(1);
   if (lowerSlug !== slug) {
-    const lowerDir = join(homedir(), ".claude", "projects", lowerSlug);
+    const lowerDir = join(root, "projects", lowerSlug);
     if (existsSync(lowerDir)) return lowerDir;
   }
   return null;
@@ -52,8 +53,8 @@ export function getClaudeProjectDir(projectRoot: string): string | null {
 /**
  * Check if native Claude Code transcripts are available for this project.
  */
-export function hasNativeTranscripts(projectRoot: string): boolean {
-  const dir = getClaudeProjectDir(projectRoot);
+export function hasNativeTranscripts(projectRoot: string, options: ClaudeSessionReaderOptions = {}): boolean {
+  const dir = getClaudeProjectDir(projectRoot, options);
   if (!dir) return false;
 
   // Check for at least one .jsonl file
@@ -66,8 +67,8 @@ export function hasNativeTranscripts(projectRoot: string): boolean {
  * Returns CheckpointInfo[] to match the Entire.io reader interface.
  * Each session becomes its own "checkpoint" since there's no checkpoint concept natively.
  */
-export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
-  const dir = getClaudeProjectDir(projectRoot);
+export function listNativeSessions(projectRoot: string, options: ClaudeSessionReaderOptions = {}): CheckpointInfo[] {
+  const dir = getClaudeProjectDir(projectRoot, options);
   if (!dir) return [];
   return listSessionsFromDir(dir);
 }
@@ -141,10 +142,7 @@ function readHeadBytes(path: string, maxBytes: number): string {
  * When called with content (loading mode), parses the full content —
  * this avoids a redundant re-read since the caller already has the file.
  */
-function extractSessionMeta(
-  path: string,
-  fullContent?: string
-): {
+function extractSessionMeta(path: string, fullContent?: string): {
   createdAt: string;
   model?: string;
   version?: string;
@@ -223,34 +221,28 @@ function extractSessionMeta(
     }
   }
 
-  const totalTokens: TokenUsage | undefined =
-    apiCalls > 0
-      ? {
-          inputTokens: totalInput,
-          outputTokens: totalOutput,
-          cacheReadTokens: totalCacheRead,
-          cacheCreationTokens: totalCacheCreate,
-          apiCallCount: apiCalls,
-        }
-      : undefined;
+  const totalTokens: TokenUsage | undefined = apiCalls > 0 ? {
+    inputTokens: totalInput,
+    outputTokens: totalOutput,
+    cacheReadTokens: totalCacheRead,
+    cacheCreationTokens: totalCacheCreate,
+    apiCallCount: apiCalls,
+  } : undefined;
 
   const filesTouched = filesSet.size > 0 ? [...filesSet] : undefined;
-  return {
-    createdAt,
-    model,
-    version,
-    totalTokens,
-    firstPrompt: firstPrompt || pipedFallback,
-    filesTouched,
-  };
+  return { createdAt, model, version, totalTokens, firstPrompt: firstPrompt || pipedFallback, filesTouched };
 }
 
 /**
  * Load a native Claude Code session as a Checkpoint.
  * Maps the native format to our Checkpoint/Session types.
  */
-export function loadNativeSession(projectRoot: string, sessionId: string): Checkpoint | null {
-  const dir = getClaudeProjectDir(projectRoot);
+export function loadNativeSession(
+  projectRoot: string,
+  sessionId: string,
+  options: ClaudeSessionReaderOptions = {},
+): Checkpoint | null {
+  const dir = getClaudeProjectDir(projectRoot, options);
   if (!dir) return null;
   return loadSessionFromDir(dir, sessionId);
 }
@@ -280,7 +272,9 @@ function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
       tokenUsage: meta.totalTokens,
     },
     transcript,
-    prompts: transcript.filter((e) => e.type === "user").map((e) => e.content),
+    prompts: transcript
+      .filter((e) => e.type === "user")
+      .map((e) => e.content),
   };
 
   const root: CheckpointRoot = {
@@ -299,8 +293,8 @@ function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
  * List all Claude Code projects that have session transcripts.
  * Scans ~/.claude/projects/ for directories containing .jsonl files.
  */
-export function listAllNativeProjects(): NativeProject[] {
-  const projectsDir = join(homedir(), ".claude", "projects");
+export function listAllNativeProjects(options: ClaudeSessionReaderOptions = {}): NativeProject[] {
+  const projectsDir = join(resolveClaudeRoot(options), "projects");
   if (!existsSync(projectsDir)) return [];
 
   const projects: NativeProject[] = [];
@@ -351,8 +345,8 @@ export function listAllNativeProjects(): NativeProject[] {
 /**
  * List sessions for a project identified by its slug (from listAllNativeProjects).
  */
-export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
-  const dir = join(homedir(), ".claude", "projects", slug);
+export function listNativeSessionsBySlug(slug: string, options: ClaudeSessionReaderOptions = {}): CheckpointInfo[] {
+  const dir = join(resolveClaudeRoot(options), "projects", slug);
   if (!existsSync(dir)) return [];
   return listSessionsFromDir(dir);
 }
@@ -360,9 +354,20 @@ export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
 /**
  * Load a session by slug + sessionId (for global mode where we don't have a project root).
  */
-export function loadNativeSessionBySlug(slug: string, sessionId: string): Checkpoint | null {
-  const dir = join(homedir(), ".claude", "projects", slug);
+export function loadNativeSessionBySlug(
+  slug: string,
+  sessionId: string,
+  options: ClaudeSessionReaderOptions = {},
+): Checkpoint | null {
+  const dir = join(resolveClaudeRoot(options), "projects", slug);
   return loadSessionFromDir(dir, sessionId);
+}
+
+function resolveClaudeRoot(options: ClaudeSessionReaderOptions): string {
+  if (!options.root) return join(homedir(), ".claude");
+  if (existsSync(join(options.root, "projects"))) return options.root;
+  if (existsSync(join(options.root, ".claude", "projects"))) return join(options.root, ".claude");
+  return options.root;
 }
 
 /**
@@ -445,9 +450,9 @@ function extractUserText(obj: Record<string, unknown>): string | null {
  */
 function isUsefulPrompt(text: string): boolean {
   if (text.length < 6) return false;
-  if (text.startsWith("-\n")) return false; // piped stdin prompt
-  if (text.startsWith("<")) return false; // XML/HTML tags (system)
-  if (text.startsWith("#")) return false; // markdown headers (injected docs)
+  if (text.startsWith("-\n")) return false;        // piped stdin prompt
+  if (text.startsWith("<")) return false;           // XML/HTML tags (system)
+  if (text.startsWith("#")) return false;           // markdown headers (injected docs)
   if (text.startsWith("[Request interrupted")) return false;
   if (text.startsWith("Implement the following plan:")) return false;
   if (/^resume\b/i.test(text)) return false;
@@ -475,18 +480,7 @@ function slugToName(slug: string): string {
   const parts = slug.split("-").filter(Boolean);
 
   // Known path segments to skip
-  const skipWords = new Set([
-    "Users",
-    "home",
-    "code",
-    "projects",
-    "small",
-    "var",
-    "tmp",
-    "opt",
-    "src",
-    "Dropbox",
-  ]);
+  const skipWords = new Set(["Users", "home", "code", "projects", "small", "var", "tmp", "opt", "src", "Dropbox"]);
 
   // Walk backwards to find the first meaningful segment
   for (let i = parts.length - 1; i >= 0; i--) {

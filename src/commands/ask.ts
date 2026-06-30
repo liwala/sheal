@@ -61,9 +61,7 @@ export async function runAsk(options: AskOptions): Promise<void> {
 
   if (checkpoints.length === 0) {
     console.log(chalk.yellow("No session data found."));
-    console.log(
-      chalk.gray("Supported sources: Entire.io or native Claude Code (~/.claude/projects/).")
-    );
+    console.log(chalk.gray("Supported sources: Entire.io or native Claude Code (~/.claude/projects/)."));
     return;
   }
 
@@ -88,11 +86,7 @@ export async function runAsk(options: AskOptions): Promise<void> {
     if (result.success && result.output) {
       answer = result.output;
     } else {
-      console.log(
-        chalk.yellow(
-          `Agent analysis unavailable (${result.error ?? "empty output"}), showing raw excerpts.`
-        )
-      );
+      console.log(chalk.yellow(`Agent analysis unavailable (${result.error ?? "empty output"}), showing raw excerpts.`));
       answer = formatExcerptsAsAnswer(question, matches);
     }
   } else {
@@ -120,173 +114,27 @@ export async function runAsk(options: AskOptions): Promise<void> {
 
 /** Common stop words to exclude from local keyword extraction */
 const STOP_WORDS = new Set([
-  "a",
-  "an",
-  "the",
-  "is",
-  "was",
-  "were",
-  "are",
-  "be",
-  "been",
-  "being",
-  "have",
-  "has",
-  "had",
-  "do",
-  "does",
-  "did",
-  "will",
-  "would",
-  "could",
-  "should",
-  "may",
-  "might",
-  "shall",
-  "can",
-  "need",
-  "dare",
-  "ought",
-  "to",
-  "of",
-  "in",
-  "for",
-  "on",
-  "with",
-  "at",
-  "by",
-  "from",
-  "as",
-  "into",
-  "through",
-  "during",
-  "before",
-  "after",
-  "above",
-  "below",
-  "between",
-  "out",
-  "off",
-  "over",
-  "under",
-  "again",
-  "further",
-  "then",
-  "once",
-  "here",
-  "there",
-  "when",
-  "where",
-  "why",
-  "how",
-  "all",
-  "both",
-  "each",
-  "few",
-  "more",
-  "most",
-  "other",
-  "some",
-  "such",
-  "no",
-  "nor",
-  "not",
-  "only",
-  "own",
-  "same",
-  "so",
-  "than",
-  "too",
-  "very",
-  "just",
-  "about",
-  "up",
-  "down",
-  "and",
-  "but",
-  "or",
-  "if",
-  "while",
-  "that",
-  "what",
-  "which",
-  "who",
-  "whom",
-  "this",
-  "these",
-  "those",
-  "it",
-  "its",
-  "i",
-  "me",
-  "my",
-  "we",
-  "our",
-  "you",
-  "your",
-  "he",
-  "him",
-  "his",
-  "she",
-  "her",
-  "they",
-  "them",
-  "their",
+  "a", "an", "the", "is", "was", "were", "are", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "will", "would", "could",
+  "should", "may", "might", "shall", "can", "need", "dare", "ought",
+  "to", "of", "in", "for", "on", "with", "at", "by", "from", "as",
+  "into", "through", "during", "before", "after", "above", "below",
+  "between", "out", "off", "over", "under", "again", "further", "then",
+  "once", "here", "there", "when", "where", "why", "how", "all", "both",
+  "each", "few", "more", "most", "other", "some", "such", "no", "nor",
+  "not", "only", "own", "same", "so", "than", "too", "very", "just",
+  "about", "up", "down", "and", "but", "or", "if", "while", "that",
+  "what", "which", "who", "whom", "this", "these", "those", "it", "its",
+  "i", "me", "my", "we", "our", "you", "your", "he", "him", "his",
+  "she", "her", "they", "them", "their",
   // Generic words unhelpful for session search
-  "error",
-  "errors",
-  "problem",
-  "problems",
-  "fix",
-  "fixes",
-  "fixed",
-  "issue",
-  "issues",
-  "session",
-  "sessions",
-  "agent",
-  "agents",
-  "main",
-  "work",
-  "working",
-  "worked",
-  "works",
-  "use",
-  "using",
-  "used",
-  "make",
-  "made",
-  "get",
-  "got",
-  "set",
-  "try",
-  "tried",
-  "thing",
-  "things",
-  "way",
-  "ways",
-  "project",
-  "projects",
-  "code",
-  "file",
-  "files",
-  "like",
-  "want",
-  "know",
-  "bad",
-  "good",
-  "big",
-  "small",
-  "new",
-  "old",
-  "first",
-  "last",
-  "happen",
-  "happened",
-  "happening",
-  "change",
-  "changed",
-  "changes",
+  "error", "errors", "problem", "problems", "fix", "fixes", "fixed",
+  "issue", "issues", "session", "sessions", "agent", "agents", "main",
+  "work", "working", "worked", "works", "use", "using", "used", "make", "made",
+  "get", "got", "set", "try", "tried", "thing", "things", "way", "ways",
+  "project", "projects", "code", "file", "files", "like", "want", "know",
+  "bad", "good", "big", "small", "new", "old", "first", "last",
+  "happen", "happened", "happening", "change", "changed", "changes",
 ]);
 
 /**
@@ -307,7 +155,7 @@ function extractKeywordsLocally(question: string): string[] {
  */
 async function generateSearchTerms(
   cli: Awaited<ReturnType<typeof detectAgentCli>>,
-  question: string
+  question: string,
 ): Promise<string[]> {
   if (!cli) return extractKeywordsLocally(question);
 
@@ -339,9 +187,7 @@ async function generateSearchTerms(
 
   // Fallback: extract keywords locally
   if (process.env.SHEAL_DEBUG) {
-    console.error(
-      "[generateSearchTerms] Agent returned no terms, falling back to local extraction"
-    );
+    console.error("[generateSearchTerms] Agent returned no terms, falling back to local extraction");
   }
   return extractKeywordsLocally(question);
 }
@@ -526,7 +372,7 @@ function saveAskResult(
     answer: string;
     agent: string;
     global: boolean;
-  }
+  },
 ): string {
   mkdirSync(dir, { recursive: true });
 
@@ -583,9 +429,7 @@ function formatExcerptsAsAnswer(question: string, matches: SessionMatch[]): stri
   for (const match of matches) {
     if (totalChars > TOTAL_BUDGET) break;
     const projectLabel = match.projectName ? `[${match.projectName}] ` : "";
-    parts.push(
-      `### ${projectLabel}Session ${match.sessionId.slice(0, 12)} (${match.createdAt?.slice(0, 16) || "?"}, ${match.score} hits)`
-    );
+    parts.push(`### ${projectLabel}Session ${match.sessionId.slice(0, 12)} (${match.createdAt?.slice(0, 16) || "?"}, ${match.score} hits)`);
     parts.push("");
     for (const excerpt of match.excerpts) {
       if (totalChars + excerpt.length > TOTAL_BUDGET) break;
@@ -607,16 +451,10 @@ function buildAnalysisPrompt(question: string, matches: SessionMatch[], global?:
   parts.push("You are analyzing AI coding session transcripts to answer a user's question.");
   if (global) {
     const projectNames = [...new Set(matches.map((m) => m.projectName).filter(Boolean))];
-    parts.push(
-      `These excerpts come from ${projectNames.length} different project(s): ${projectNames.join(", ")}.`
-    );
-    parts.push(
-      "Treat each project as a separate codebase. Do not assume shared context between projects."
-    );
+    parts.push(`These excerpts come from ${projectNames.length} different project(s): ${projectNames.join(", ")}.`);
+    parts.push("Treat each project as a separate codebase. Do not assume shared context between projects.");
   }
-  parts.push(
-    "Below are relevant excerpts from sessions that matched search terms derived from the question."
-  );
+  parts.push("Below are relevant excerpts from sessions that matched search terms derived from the question.");
   parts.push("");
   parts.push(`**User's question:** ${question}`);
   parts.push("");
@@ -631,9 +469,7 @@ function buildAnalysisPrompt(question: string, matches: SessionMatch[], global?:
 
     parts.push(`---`);
     const projectLabel = match.projectName ? `[${match.projectName}] ` : "";
-    parts.push(
-      `**${projectLabel}Session ${match.sessionId.slice(0, 12)}** (${match.createdAt?.slice(0, 16) || "unknown date"}, ${match.agent || "unknown agent"}, relevance: ${match.score} hits)`
-    );
+    parts.push(`**${projectLabel}Session ${match.sessionId.slice(0, 12)}** (${match.createdAt?.slice(0, 16) || "unknown date"}, ${match.agent || "unknown agent"}, relevance: ${match.score} hits)`);
     parts.push("");
 
     for (const excerpt of match.excerpts) {
@@ -669,10 +505,7 @@ export function runAskList(options: { projectRoot: string; global?: boolean }): 
     return;
   }
 
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
-    .sort()
-    .reverse();
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort().reverse();
   if (files.length === 0) {
     console.log(chalk.yellow("No saved ask results found."));
     return;
@@ -701,9 +534,7 @@ export function runAskList(options: { projectRoot: string; global?: boolean }): 
     if (existsSync(globalDir)) {
       const globalCount = readdirSync(globalDir).filter((f) => f.endsWith(".md")).length;
       if (globalCount > 0) {
-        console.log(
-          chalk.gray(`\n${globalCount} global ask(s) also available (sheal ask-list --global)`)
-        );
+        console.log(chalk.gray(`\n${globalCount} global ask(s) also available (sheal ask-list --global)`));
       }
     }
   }
@@ -712,11 +543,7 @@ export function runAskList(options: { projectRoot: string; global?: boolean }): 
 /**
  * Show a specific saved ask result by filename or search term.
  */
-export function runAskShow(options: {
-  projectRoot: string;
-  query: string;
-  global?: boolean;
-}): void {
+export function runAskShow(options: { projectRoot: string; query: string; global?: boolean }): void {
   const dir = options.global
     ? join(homedir(), ".sheal", "asks")
     : join(options.projectRoot, ".sheal", "asks");
@@ -726,10 +553,7 @@ export function runAskShow(options: {
     return;
   }
 
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
-    .sort()
-    .reverse();
+  const files = readdirSync(dir).filter((f) => f.endsWith(".md")).sort().reverse();
   const q = options.query.toLowerCase();
 
   // Match by filename substring or question content

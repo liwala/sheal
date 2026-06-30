@@ -8,24 +8,24 @@ export interface DisplayBlock {
 }
 
 export const PREVIEW_LINES: Record<DisplayBlock["type"], number> = {
-  user: 3,
-  assistant: 4,
+  "user": 3,
+  "assistant": 4,
   "tool-group": 0,
-  system: 1,
+  "system": 1,
 };
 
 export const TYPE_COLORS: Record<DisplayBlock["type"], string> = {
-  user: "green",
-  assistant: "blue",
+  "user": "green",
+  "assistant": "blue",
   "tool-group": "yellow",
-  system: "gray",
+  "system": "gray",
 };
 
 export const TYPE_LABELS: Record<DisplayBlock["type"], string> = {
-  user: "USER",
-  assistant: "ASSISTANT",
+  "user": "USER",
+  "assistant": "ASSISTANT",
   "tool-group": "TOOLS",
-  system: "SYSTEM",
+  "system": "SYSTEM",
 };
 
 /**
@@ -95,10 +95,7 @@ export function buildBlocks(entries: SessionEntry[]): DisplayBlock[] {
       const summary = lines[0].slice(0, 120);
       blocks.push({ type: "assistant", summary, lines, entryCount: 1 });
     } else if (entry.type === "system") {
-      const lines = entry.content
-        .split("\n")
-        .filter((l) => l.trim())
-        .slice(0, 3);
+      const lines = entry.content.split("\n").filter((l) => l.trim()).slice(0, 3);
       if (lines.length === 0) continue;
       const summary = lines[0].slice(0, 80);
       blocks.push({ type: "system", summary, lines, entryCount: 1 });

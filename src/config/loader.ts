@@ -30,6 +30,10 @@ export function loadConfig(projectRoot: string): ResolvedConfig {
 
   return {
     skip: raw.skip ?? defaultConfig.skip,
+    pull: {
+      ...defaultConfig.pull,
+      ...raw.pull,
+    },
     checkers: {
       git: { ...defaultConfig.checkers.git, ...raw.checkers?.git },
       dependencies: {

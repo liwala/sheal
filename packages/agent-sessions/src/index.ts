@@ -16,6 +16,9 @@ export {
   listNativeSessionsBySlug,
   loadNativeSessionBySlug,
 } from "./claude.js";
+export type {
+  ClaudeSessionReaderOptions,
+} from "./claude.js";
 
 // OpenAI Codex CLI native sessions
 export {
@@ -26,7 +29,12 @@ export {
   loadCodexSessionCheckpoint,
   codexSessionToCheckpoint,
 } from "./codex.js";
-export type { CodexProject, CodexSessionFile, CodexTranscriptEntry } from "./codex.js";
+export type {
+  CodexProject,
+  CodexSessionFile,
+  CodexSessionReaderOptions,
+  CodexTranscriptEntry,
+} from "./codex.js";
 
 // Sourcegraph Amp native sessions
 export {
@@ -45,7 +53,11 @@ export {
   listGeminiSessionsForProject,
   loadGeminiSession,
 } from "./gemini.js";
-export type { GeminiProject, GeminiSessionFile, GeminiTranscriptEntry } from "./gemini.js";
+export type {
+  GeminiProject,
+  GeminiSessionFile,
+  GeminiTranscriptEntry,
+} from "./gemini.js";
 
 // Transcript normalization
 export { parseTranscript } from "./transcript.js";

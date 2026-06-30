@@ -144,7 +144,6 @@ sheal ask "show me all test failures" -n 20
 ```
 
 Options:
-
 - `--agent <name>` — Agent CLI to use: `claude`, `gemini`, `codex`, `amp`
 - `-n, --limit <count>` — Max sessions to search (default: 10)
 - `--global` — Search across ALL projects in `~/.claude/projects/`
@@ -172,7 +171,26 @@ sheal browse -p myproject          # Pre-filter by project name
 sheal browse --agent codex         # Pre-filter by agent
 ```
 
-Supports Claude Code, Codex, Amp, and Entire.io sessions.
+Supports Claude Code, Codex, Amp, and Entire.io sessions. Claude and Codex
+sessions that are visible in the live home directories but not yet present in
+`.sheal/sessions/raw/` are marked as not backed up, and the sessions view offers
+to add them to the registry.
+
+### `sheal sessions import`
+
+Import Claude Code and Codex transcripts from live home directories, or from an
+explicit source root, into the current project's raw session registry.
+
+```bash
+sheal sessions import              # Import from ~/.claude and ~/.codex
+sheal sessions import --source /tmp/agent-home
+sheal sessions import --format json
+```
+
+Imported sessions are written to
+`.sheal/sessions/raw/<stable-session-id>/` with `manifest.json`,
+`transcript.raw.jsonl`, and `normalized.json`. Live-home and explicit-source
+imports do not create pull staging `ingested.json` markers.
 
 ### `sheal export`
 
@@ -183,6 +201,65 @@ sheal export                       # List sessions (current project)
 sheal export --checkpoint <id>     # Export a specific checkpoint
 sheal export --global              # Export all projects and sessions
 ```
+
+### `sheal pull`
+
+Acquire local sandbox changes into sheal's staging area. The shipped local path
+supports `sbx` sandboxes and Docker containers, capturing git diff, agent
+artifacts, and transcripts from runtime home directories when present. Missing
+agent-specific transcript paths are reported as gaps in the pull output and
+provenance.
+Agent home artifacts are discovered by probing supported agent directories under
+the sandbox user's home directory (`$HOME/.claude`, `$HOME/.codex`,
+`$HOME/.copilot`, `$HOME/.cursor`, `$HOME/.docker-agent`, `$HOME/.droid`,
+`$HOME/.gemini`, `$HOME/.kiro`, and `$HOME/.opencode`). Missing home probes are
+ignored. Transcripts are pulled from known agent home paths such as
+`$HOME/.claude/sessions.jsonl`, `$HOME/.claude/history.jsonl`,
+`$HOME/.claude/projects/<project-slug>/`, and `$HOME/.codex/sessions/` when
+present. Workspace files such as `AGENTS.md`, `MEMORY.md`, and
+`.sheal/session.jsonl` are not part of the pull capture contract.
+
+```bash
+sheal pull --list                  # List available sbx sandboxes and Docker containers
+sheal pull sbx <name>              # Pull one sbx sandbox to ~/.sheal/pulls/
+sheal pull sbx <name> --checkpoint # Write a checkpoint stage without registry import
+sheal pull --checkpoint-run        # Run configured checkpoint targets once
+sheal pull sbx --all               # Pull every sbx sandbox with a workspace
+sheal pull docker <name>           # Pull one Docker container selected from --list
+```
+
+Use `sheal pull --list` first to copy the exact sandbox or container name.
+Docker selection is intentionally human-driven, so `sheal pull docker --all` is
+not supported. Pull acquisition output lands under
+`~/.sheal/pulls/<backend>/<name>/<timestamp>/` unless `pull.stagingDir`
+overrides it. Pulled Claude and Codex transcripts are normalized into the
+project-local raw registry at `.sheal/sessions/raw/<stable-session-id>/`; the
+pull staging directory gets an `ingested.json` marker pointing at the raw
+session IDs.
+
+Use `--checkpoint` with `sheal pull <backend> <name>` for a manual mid-session
+capture before teardown. Checkpoint mode uses the same local adapter capture set
+and staging root, writes `checkpoint.json`, stamps provenance with
+`captureKind: "checkpoint"`, and does not normalize transcripts into the raw
+registry or write an `ingested.json` marker. Long-running daemon scheduling is a
+future layer over this manual checkpoint primitive.
+
+Use `--checkpoint-run` to run a one-shot checkpoint pass over explicitly
+configured local targets:
+
+```json
+{
+  "pull": {
+    "checkpointTargets": [
+      { "backend": "sbx", "name": "codex-before-teardown" }
+    ]
+  }
+}
+```
+
+The runner never implies `--all`: only `pull.checkpointTargets` are
+checkpointed, unconfigured sandboxes are ignored, and checkpoint stages still do
+not import into the raw registry.
 
 ### `sheal init`
 
@@ -260,7 +337,6 @@ sheal drift --json                 # JSON output
 Each drifted learning is labeled `[global]` or `[project]` so you can see where the violation originated. Severity dots indicate how often the learning was violated (● once, ●● twice, ●●● three or more times).
 
 **Detection methods:**
-
 - **Keyword matching** — compares session retro learnings against your active learnings
 - **Failure loop detection** — flags retry-related learnings when retries recur
 - **File churn detection** — flags planning-related learnings when wasted edits recur
@@ -343,7 +419,6 @@ retro → project drafts → review → active → promote → global ─┐
 ```
 
 **Learning format** (`~/.sheal/learnings/LEARN-001-inspect-real-data.md`):
-
 ```markdown
 ---
 id: LEARN-001
@@ -372,12 +447,12 @@ Categories: `missing-context`, `failure-loop`, `wasted-effort`, `environment`, `
 
 For `--enrich` and `ask` commands, `sheal` can invoke these agent CLIs:
 
-| Agent       | CLI Command | Invocation                               |
-| ----------- | ----------- | ---------------------------------------- |
-| Claude Code | `claude`    | `claude -p --output-format text` (stdin) |
-| Codex       | `codex`     | `codex exec -` (stdin)                   |
-| Amp         | `amp`       | `amp -x` (stdin)                         |
-| Gemini CLI  | `gemini`    | stdin pipe                               |
+| Agent | CLI Command | Invocation |
+|-------|-------------|------------|
+| Claude Code | `claude` | `claude -p --output-format text` (stdin) |
+| Codex | `codex` | `codex exec -` (stdin) |
+| Amp | `amp` | `amp -x` (stdin) |
+| Gemini CLI | `gemini` | stdin pipe |
 
 Use `--agent claude`, `--agent codex`, `--agent amp`, or `--agent gemini` to pick one. Auto-detection tries the session's own agent first, then falls back to any available CLI.
 

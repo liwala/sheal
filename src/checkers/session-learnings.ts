@@ -97,7 +97,9 @@ export const sessionLearningsChecker: Checker = {
     }
 
     const hasHighLearnings = active.some((l) => l.severity === "high");
-    const severity = found.length === 0 ? "warn" : hasHighLearnings ? "warn" : "pass";
+    const severity = found.length === 0 ? "warn"
+      : hasHighLearnings ? "warn"
+      : "pass";
     return { name: this.name, label: this.label, severity, details, durationMs: elapsed() };
   },
 };

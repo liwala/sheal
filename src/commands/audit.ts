@@ -32,7 +32,7 @@ function printPretty(report: AuditReport): void {
   console.log();
   console.log(chalk.bold("Permissions"));
   const scopesWithPerms = scopes.filter(
-    (s) => s.exists && (s.permissions.allow.length > 0 || s.permissions.deny.length > 0)
+    (s) => s.exists && (s.permissions.allow.length > 0 || s.permissions.deny.length > 0),
   );
   if (scopesWithPerms.length === 0) {
     console.log(chalk.gray("  (none configured)"));
@@ -77,15 +77,14 @@ function printPretty(report: AuditReport): void {
     for (const mcp of merged.mcpServers) {
       const cmd = mcp.config.command
         ? [mcp.config.command, ...(mcp.config.args ?? [])].join(" ")
-        : (mcp.config.url ?? "(unknown)");
+        : mcp.config.url ?? "(unknown)";
       console.log(`  ${scopeTag(mcp.scope)} ${chalk.cyan(mcp.name)}`);
       console.log(`    ${cmd}`);
       if (mcp.config.env && Object.keys(mcp.config.env).length > 0) {
         for (const [k, v] of Object.entries(mcp.config.env)) {
-          const display =
-            k.toLowerCase().includes("key") || k.toLowerCase().includes("token")
-              ? v.slice(0, 4) + "..."
-              : v;
+          const display = k.toLowerCase().includes("key") || k.toLowerCase().includes("token")
+            ? v.slice(0, 4) + "..."
+            : v;
           console.log(`    ${chalk.gray(`${k}=${display}`)}`);
         }
       }
@@ -129,8 +128,9 @@ function printPretty(report: AuditReport): void {
     console.log();
     console.log(chalk.bold("Other Settings"));
     for (const entry of otherEntries) {
-      const val =
-        typeof entry.value === "object" ? JSON.stringify(entry.value) : String(entry.value);
+      const val = typeof entry.value === "object"
+        ? JSON.stringify(entry.value)
+        : String(entry.value);
       console.log(`  ${scopeTag(entry.scope)} ${entry.key}: ${val}`);
     }
   }

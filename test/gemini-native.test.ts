@@ -12,11 +12,7 @@ describe("Gemini project path resolution", () => {
     const dirName = createHash("sha256").update(projectPath).digest("hex");
 
     try {
-      const result = resolveProjectPathSync(
-        dirName,
-        dir,
-        new Map([[projectPath, "project-with-hash"]])
-      );
+      const result = resolveProjectPathSync(dirName, dir, new Map([[projectPath, "project-with-hash"]]));
       expect(result).toBe(projectPath);
     } finally {
       rmSync(dir, { recursive: true, force: true });

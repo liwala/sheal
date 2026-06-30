@@ -5,10 +5,7 @@ import type { Retrospective } from "../src/retro/types.js";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function makeCheckpoint(
-  transcript: SessionEntry[],
-  overrides?: Partial<Session["metadata"]>
-): Checkpoint {
+function makeCheckpoint(transcript: SessionEntry[], overrides?: Partial<Session["metadata"]>): Checkpoint {
   const session: Session = {
     metadata: {
       checkpointId: "cp-001",
@@ -36,11 +33,7 @@ function makeCheckpoint(
   };
 }
 
-function entry(
-  type: SessionEntry["type"],
-  content: string,
-  extra?: Partial<SessionEntry>
-): SessionEntry {
+function entry(type: SessionEntry["type"], content: string, extra?: Partial<SessionEntry>): SessionEntry {
   return {
     uuid: `${type[0]}-${Math.random().toString(36).slice(2, 8)}`,
     type,
@@ -93,21 +86,13 @@ describe("runRetrospective", () => {
       entry("user", "make it work"),
       // Failure loop: 4 retries of same bash command with errors
       entry("tool", "Tool: Bash", { toolName: "Bash", toolInput: { command: "npm test" } }),
-      entry("tool", "Exit code 1\nError: test failed", {
-        toolOutput: "Exit code 1\nError: test failed",
-      }),
+      entry("tool", "Exit code 1\nError: test failed", { toolOutput: "Exit code 1\nError: test failed" }),
       entry("tool", "Tool: Bash", { toolName: "Bash", toolInput: { command: "npm test" } }),
-      entry("tool", "Exit code 1\nError: test failed", {
-        toolOutput: "Exit code 1\nError: test failed",
-      }),
+      entry("tool", "Exit code 1\nError: test failed", { toolOutput: "Exit code 1\nError: test failed" }),
       entry("tool", "Tool: Bash", { toolName: "Bash", toolInput: { command: "npm test" } }),
-      entry("tool", "Exit code 1\nError: test failed", {
-        toolOutput: "Exit code 1\nError: test failed",
-      }),
+      entry("tool", "Exit code 1\nError: test failed", { toolOutput: "Exit code 1\nError: test failed" }),
       entry("tool", "Tool: Bash", { toolName: "Bash", toolInput: { command: "npm test" } }),
-      entry("tool", "Exit code 1\nError: test failed", {
-        toolOutput: "Exit code 1\nError: test failed",
-      }),
+      entry("tool", "Exit code 1\nError: test failed", { toolOutput: "Exit code 1\nError: test failed" }),
       // File churn: 5 edits on same file
       entry("tool", "Tool: Edit", { toolName: "Edit", filesAffected: ["src/app.ts"] }),
       entry("tool", "Tool: Edit", { toolName: "Edit", filesAffected: ["src/app.ts"] }),

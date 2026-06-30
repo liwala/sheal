@@ -12,10 +12,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { buildDigestReport, saveDigestReport } from "./digest.js";
-import {
-  formatPretty as formatDigestPretty,
-  formatMarkdown as formatDigestMarkdown,
-} from "../digest/formatter.js";
+import { formatPretty as formatDigestPretty, formatMarkdown as formatDigestMarkdown } from "../digest/formatter.js";
 import { buildCostData, formatCostPretty } from "./cost.js";
 import type { CostData } from "./cost.js";
 import { detectAgentCli, invokeAgent } from "../retro/agent.js";
@@ -54,10 +51,7 @@ function buildSlackBlocks(input: {
     : "n/a";
   return {
     blocks: [
-      {
-        type: "header",
-        text: { type: "plain_text", text: `Weekly Claude Digest - ${input.date}` },
-      },
+      { type: "header", text: { type: "plain_text", text: `Weekly Claude Digest - ${input.date}` } },
       {
         type: "section",
         text: {
@@ -190,11 +184,7 @@ export async function runWeekly(opts: WeeklyOptions): Promise<void> {
           console.log(chalk.yellow(`  Slack webhook returned HTTP ${res.status}`));
         }
       } catch (err) {
-        console.log(
-          chalk.yellow(
-            `  Slack request failed: ${err instanceof Error ? err.message : String(err)}`
-          )
-        );
+        console.log(chalk.yellow(`  Slack request failed: ${err instanceof Error ? err.message : String(err)}`));
       }
     }
   } else {

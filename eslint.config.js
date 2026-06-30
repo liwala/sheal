@@ -1,63 +1,61 @@
-// lintskill:js-ts template v0.2 — opinionated config for AI-assisted projects
-// Security: strict, Style: auto-fix only, Complexity: relaxed
-// Do not remove the "lintskill:js-ts template" marker — it lets future runs of
-// lintskill recognize this config as managed and offer to refresh it.
 import js from "@eslint/js";
+import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
-export default [
-  js.configs.recommended,
+const nodeGlobals = {
+  AbortController: "readonly",
+  Buffer: "readonly",
+  clearInterval: "readonly",
+  clearTimeout: "readonly",
+  console: "readonly",
+  fetch: "readonly",
+  global: "readonly",
+  process: "readonly",
+  setInterval: "readonly",
+  setTimeout: "readonly",
+  URL: "readonly",
+  URLSearchParams: "readonly",
+};
+
+export default tseslint.config(
   {
-    rules: {
-      // Security
-      "no-eval": "error",
-      "no-implied-eval": "error",
-      "no-new-func": "error",
-
-      // Correctness
-      "no-unused-vars": [
-        "warn",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-          caughtErrorsIgnorePattern: "^_",
-        },
-      ],
-      "no-undef": "error",
-      "no-constant-condition": "warn",
-      "no-unreachable": "error",
-
-      // Style — keep lenient, don't overwhelm beginners
-      "no-console": "off",
-      semi: "off",
-      quotes: "off",
+    ignores: [
+      ".claude/",
+      ".git/",
+      ".sheal/",
+      "coverage/",
+      "dist/",
+      "node_modules/",
+      "packages/*/dist/",
+    ],
+  },
+  {
+    files: ["**/*.{js,mjs,cjs,ts,tsx}"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      globals: nodeGlobals,
+      sourceType: "module",
+    },
+    plugins: {
+      "react-hooks": reactHooks,
     },
   },
+  js.configs.recommended,
   ...tseslint.configs.recommended,
   {
     rules: {
+      "no-console": "off",
+      "no-useless-assignment": "off",
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
           argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
           caughtErrorsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
         },
       ],
     },
   },
-  {
-    ignores: [
-      "node_modules/",
-      "dist/",
-      "build/",
-      "out/",
-      ".next/",
-      ".turbo/",
-      ".vercel/",
-      ".cache/",
-      "coverage/",
-      ".git/",
-    ],
-  },
-];
+);

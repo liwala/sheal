@@ -80,9 +80,7 @@ function pct(part: number, whole: number): string {
 
 function hbar(value: number, max: number, width = 20): string {
   const filled = max > 0 ? Math.round((value / max) * width) : 0;
-  return (
-    "\u2588".repeat(Math.min(filled, width)) + "\u2591".repeat(width - Math.min(filled, width))
-  );
+  return "\u2588".repeat(Math.min(filled, width)) + "\u2591".repeat(width - Math.min(filled, width));
 }
 
 function sparkCostType(m: ModelCostBreakdown): string {
@@ -94,8 +92,8 @@ function sparkCostType(m: ModelCostBreakdown): string {
     { label: "c-w", cost: m.cacheWriteCost, color: chalk.cyan },
   ];
   return parts
-    .filter((p) => p.cost > 0)
-    .map((p) => p.color(`${p.label} ${pct(p.cost, total)}`))
+    .filter(p => p.cost > 0)
+    .map(p => p.color(`${p.label} ${pct(p.cost, total)}`))
     .join(chalk.gray(" | "));
 }
 
@@ -111,67 +109,47 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
   const L: string[] = [];
   const W = 72;
   const line = () => L.push(chalk.gray("─".repeat(W)));
-  const section = (title: string) => {
-    L.push("");
-    L.push(chalk.bold.white(`  ${title}`));
-  };
+  const section = (title: string) => { L.push(""); L.push(chalk.bold.white(`  ${title}`)); };
 
   // ── Header ──
   L.push("");
   L.push(chalk.bold.white("  ╔══════════════════════════════════════════════════════════════╗"));
-  L.push(
-    chalk.bold.white("  ║") +
-      chalk.bold.yellowBright("              TOKEN COST DASHBOARD                            ") +
-      chalk.bold.white("║")
-  );
+  L.push(chalk.bold.white("  ║") + chalk.bold.yellowBright("              TOKEN COST DASHBOARD                            ") + chalk.bold.white("║"));
   L.push(chalk.bold.white("  ╚══════════════════════════════════════════════════════════════╝"));
   L.push("");
-  L.push(
-    chalk.gray(
-      `  ${sinceDate.toISOString().slice(0, 10)} → ${new Date().toISOString().slice(0, 10)}  |  ${sessionCount} sessions  |  ${Object.keys(tokens.byModel).length} models`
-    )
-  );
+  L.push(chalk.gray(`  ${sinceDate.toISOString().slice(0, 10)} → ${new Date().toISOString().slice(0, 10)}  |  ${sessionCount} sessions  |  ${Object.keys(tokens.byModel).length} models`));
 
   // ── Grand Total ──
   section("TOTAL");
   L.push("");
   L.push(`    ${chalk.bold.yellowBright(fmtCost(cost.totalCost))}  estimated API cost`);
   L.push("");
-  L.push(
-    `    ${chalk.yellow("↑ " + fmt(tokens.totalInput).padStart(7))} input     ${chalk.green("↓ " + fmt(tokens.totalOutput).padStart(7))} output`
-  );
-  L.push(
-    `    ${chalk.blue("◆ " + fmt(tokens.totalCacheRead).padStart(7))} cache-rd  ${chalk.cyan("◇ " + fmt(tokens.totalCacheCreate).padStart(7))} cache-wr`
-  );
+  L.push(`    ${chalk.yellow("↑ " + fmt(tokens.totalInput).padStart(7))} input     ${chalk.green("↓ " + fmt(tokens.totalOutput).padStart(7))} output`);
+  L.push(`    ${chalk.blue("◆ " + fmt(tokens.totalCacheRead).padStart(7))} cache-rd  ${chalk.cyan("◇ " + fmt(tokens.totalCacheCreate).padStart(7))} cache-wr`);
   L.push(`    ${chalk.white("⚡" + String(tokens.totalApiCalls).padStart(7))} API calls`);
 
   // ── Per Model Breakdown ──
   if (cost.byModelBreakdown.length > 0) {
     section("BY MODEL");
     L.push("");
-    const maxModelCost = Math.max(...cost.byModelBreakdown.map((m) => m.totalCost), 0.01);
+    const maxModelCost = Math.max(...cost.byModelBreakdown.map(m => m.totalCost), 0.01);
 
     for (const m of cost.byModelBreakdown) {
       const share = pct(m.totalCost, cost.totalCost);
-      L.push(
-        `    ${chalk.white(hbar(m.totalCost, maxModelCost, 18))} ${chalk.bold(m.displayName.padEnd(14))} ${chalk.yellowBright(fmtCost(m.totalCost).padStart(8))}  ${chalk.gray(share.padStart(4))}  ${chalk.gray(String(m.apiCalls) + " calls")}`
-      );
+      L.push(`    ${chalk.white(hbar(m.totalCost, maxModelCost, 18))} ${chalk.bold(m.displayName.padEnd(14))} ${chalk.yellowBright(fmtCost(m.totalCost).padStart(8))}  ${chalk.gray(share.padStart(4))}  ${chalk.gray(String(m.apiCalls) + " calls")}`);
 
       // Cost type breakdown spark
       L.push(chalk.gray(`      ${sparkCostType(m)}`));
 
       // Token detail line
-      L.push(
-        chalk.gray(
-          `      ↑${fmt(m.inputTokens).padStart(6)} ${fmtCost(m.inputCost).padStart(7)}  ↓${fmt(m.outputTokens).padStart(6)} ${fmtCost(m.outputCost).padStart(7)}  ◆${fmt(m.cacheReadTokens).padStart(6)} ${fmtCost(m.cacheReadCost).padStart(7)}  ◇${fmt(m.cacheCreateTokens).padStart(6)} ${fmtCost(m.cacheWriteCost).padStart(7)}`
-        )
-      );
+      L.push(chalk.gray(`      ↑${fmt(m.inputTokens).padStart(6)} ${fmtCost(m.inputCost).padStart(7)}  ↓${fmt(m.outputTokens).padStart(6)} ${fmtCost(m.outputCost).padStart(7)}  ◆${fmt(m.cacheReadTokens).padStart(6)} ${fmtCost(m.cacheReadCost).padStart(7)}  ◇${fmt(m.cacheCreateTokens).padStart(6)} ${fmtCost(m.cacheWriteCost).padStart(7)}`));
       L.push("");
     }
   }
 
   // ── Per Project ──
-  const projectEntries = Object.entries(cost.byProject).sort(([, a], [, b]) => b - a);
+  const projectEntries = Object.entries(cost.byProject)
+    .sort(([, a], [, b]) => b - a);
 
   if (projectEntries.length > 0) {
     section("BY PROJECT");
@@ -181,9 +159,7 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
     for (const [project, projCost] of projectEntries) {
       const data = tokens.byProject[project];
       const share = pct(projCost, cost.totalCost);
-      L.push(
-        `    ${chalk.white(hbar(projCost, maxProjCost, 18))} ${chalk.bold(project.padEnd(20).slice(0, 20))} ${chalk.yellowBright(fmtCost(projCost).padStart(8))}  ${chalk.gray(share.padStart(4))}  ${chalk.gray(data.sessionCount + "s")}`
-      );
+      L.push(`    ${chalk.white(hbar(projCost, maxProjCost, 18))} ${chalk.bold(project.padEnd(20).slice(0, 20))} ${chalk.yellowBright(fmtCost(projCost).padStart(8))}  ${chalk.gray(share.padStart(4))}  ${chalk.gray(data.sessionCount + "s")}`);
     }
     L.push("");
 
@@ -212,10 +188,7 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
       // Header row
       const COL = 10;
       const projCol = 18;
-      const header =
-        "    " +
-        "".padEnd(projCol) +
-        modelList.map((m) => chalk.bold(prettyModel(m).padStart(COL))).join("");
+      const header = "    " + "".padEnd(projCol) + modelList.map(m => chalk.bold(prettyModel(m).padStart(COL))).join("");
       L.push(header);
 
       // Data rows — sorted by total cost
@@ -223,7 +196,7 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
         .map(([proj, models]) => {
           let total = 0;
           for (const [model, data] of Object.entries(models)) {
-            const pricing = cost.byModelBreakdown.find((b) => b.model === model);
+            const pricing = cost.byModelBreakdown.find(b => b.model === model);
             if (pricing && pricing.apiCalls > 0) {
               const costPerCall = pricing.totalCost / pricing.apiCalls;
               total += data.apiCalls * costPerCall;
@@ -238,15 +211,14 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
         for (const model of modelList) {
           const data = models[model];
           if (data) {
-            const pricing = cost.byModelBreakdown.find((b) => b.model === model);
+            const pricing = cost.byModelBreakdown.find(b => b.model === model);
             let cellCost = 0;
             if (pricing && pricing.apiCalls > 0) {
               cellCost = (pricing.totalCost / pricing.apiCalls) * data.apiCalls;
             }
-            row +=
-              cellCost > 0.01
-                ? chalk.yellowBright(fmtCost(cellCost).padStart(COL))
-                : chalk.gray(fmtCost(cellCost).padStart(COL));
+            row += cellCost > 0.01
+              ? chalk.yellowBright(fmtCost(cellCost).padStart(COL))
+              : chalk.gray(fmtCost(cellCost).padStart(COL));
           } else {
             row += chalk.gray("·".padStart(COL));
           }
@@ -261,10 +233,7 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
     section("COST BREAKDOWN BY TYPE");
     L.push("");
 
-    let totalInput = 0,
-      totalOutput = 0,
-      totalCacheRead = 0,
-      totalCacheWrite = 0;
+    let totalInput = 0, totalOutput = 0, totalCacheRead = 0, totalCacheWrite = 0;
     for (const m of cost.byModelBreakdown) {
       totalInput += m.inputCost;
       totalOutput += m.outputCost;
@@ -282,9 +251,7 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
     ];
 
     for (const t of typeRows) {
-      L.push(
-        `    ${t.color(t.icon)} ${chalk.bold(t.label)} ${t.color(hbar(t.cost, maxType, 20))} ${chalk.yellowBright(fmtCost(t.cost).padStart(8))}  ${chalk.gray(pct(t.cost, total).padStart(4))}`
-      );
+      L.push(`    ${t.color(t.icon)} ${chalk.bold(t.label)} ${t.color(hbar(t.cost, maxType, 20))} ${chalk.yellowBright(fmtCost(t.cost).padStart(8))}  ${chalk.gray(pct(t.cost, total).padStart(4))}`);
     }
   }
 
@@ -293,13 +260,9 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
   L.push("");
   for (const scan of agentScans) {
     if (scan.available) {
-      L.push(
-        `    ${chalk.green("●")} ${chalk.bold(scan.agent.padEnd(8))} ${scan.projectCount}p  ${scan.sessionCount}s`
-      );
+      L.push(`    ${chalk.green("●")} ${chalk.bold(scan.agent.padEnd(8))} ${scan.projectCount}p  ${scan.sessionCount}s`);
     } else {
-      L.push(
-        `    ${chalk.red("●")} ${chalk.bold(scan.agent.padEnd(8))} ${chalk.gray(scan.error || "not available")}`
-      );
+      L.push(`    ${chalk.red("●")} ${chalk.bold(scan.agent.padEnd(8))} ${chalk.gray(scan.error || "not available")}`);
     }
   }
 
@@ -316,16 +279,12 @@ export function formatCostPretty(data: CostData, opts: { since: string }): strin
       L.push("");
       L.push(`    ${s.planName}:  ${chalk.cyan(`$${s.planCost}/mo`)}`);
       L.push(`    API cost:  ${chalk.yellow(fmtCost(s.apiCost))}`);
-      L.push(
-        `    Saved:     ${chalk.bold.green(fmtCost(s.saved))} (${chalk.bold.green(savePct + "%")})`
-      );
+      L.push(`    Saved:     ${chalk.bold.green(fmtCost(s.saved))} (${chalk.bold.green(savePct + "%")})`);
       L.push("");
 
       // Fun visual for savings
       const savingsBar = hbar(s.saved, s.apiCost, 30);
-      L.push(
-        `    ${chalk.green(savingsBar)} ${chalk.bold.green("saved")} vs ${chalk.gray(hbar(s.planCost, s.apiCost, 30))} ${chalk.gray("paid")}`
-      );
+      L.push(`    ${chalk.green(savingsBar)} ${chalk.bold.green("saved")} vs ${chalk.gray(hbar(s.planCost, s.apiCost, 30))} ${chalk.gray("paid")}`);
     } else {
       L.push(chalk.gray(`  💡 API would be cheaper by ${fmtCost(Math.abs(s.saved))}`));
     }

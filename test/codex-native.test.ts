@@ -21,10 +21,7 @@ describe("codexSessionToCheckpoint", () => {
           type: "message",
           role: "user",
           content: [
-            {
-              type: "input_text",
-              text: "# AGENTS.md instructions for /Users/lu/code/liwala/sheal",
-            },
+            { type: "input_text", text: "# AGENTS.md instructions for /Users/lu/code/liwala/sheal" },
             { type: "input_text", text: "let's fix sheal retro for codex sessions" },
           ],
         },
@@ -35,7 +32,9 @@ describe("codexSessionToCheckpoint", () => {
         payload: {
           type: "message",
           role: "assistant",
-          content: [{ type: "output_text", text: "I’m checking the retro loader." }],
+          content: [
+            { type: "output_text", text: "I’m checking the retro loader." },
+          ],
         },
       }),
       JSON.stringify({

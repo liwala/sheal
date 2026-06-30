@@ -31,12 +31,18 @@
     "README.md",
     "LICENSE"
   ],
+  "bundledDependencies": [
+    "@liwala/agent-sessions"
+  ],
   "bin": {
     "sheal": "./dist/index.js"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "npm run build --workspaces --if-present && tsc",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "smoke:install:docker": "bash scripts/smoke-npm-install-docker.sh",
     "test": "vitest run"
   },
   "dependencies": {
@@ -48,14 +54,15 @@
     "react": "19.2.4"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.4",
+    "@eslint/js": "10.0.1",
     "@types/node": "22.19.15",
     "@types/react": "19.2.14",
-    "eslint": "9.39.4",
-    "prettier": "3.8.2",
+    "eslint": "10.6.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "prettier": "3.9.4",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.58.2",
-    "vitest": "3.2.4"
+    "typescript-eslint": "8.62.1",
+    "vitest": "3.2.6"
   }
 }

@@ -6,13 +6,7 @@
  * from Entire.io's Go data model and stays compatible with it.
  */
 
-export type AgentType =
-  | "Claude Code"
-  | "Cursor"
-  | "Gemini CLI"
-  | "OpenCode"
-  | "Copilot CLI"
-  | string;
+export type AgentType = "Claude Code" | "Cursor" | "Gemini CLI" | "OpenCode" | "Copilot CLI" | string;
 
 export type EntryType = "user" | "assistant" | "tool" | "system";
 
