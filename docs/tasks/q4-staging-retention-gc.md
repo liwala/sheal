@@ -24,3 +24,9 @@ staging.
 hard-coded. For the next implementation slice, model this as a configurable
 retention parameter; consumed/consolidated signalling can be added when
 consolidation starts reading from staging.
+
+**Implemented (2026-06-18, T7):** `pull.stagingRetentionDays` configures a
+time-based retention window, and `sheal pull --gc` removes expired timestamped
+pull staging directories under the configured staging root. Project-local raw
+registry records are not part of staging GC. Consumed/consolidated signalling
+remains deferred until consolidation reads from staging.

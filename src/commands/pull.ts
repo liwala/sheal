@@ -1,11 +1,13 @@
 import { availableSandboxAdapters } from "../pull/registry.js";
-import { createPullStage, writePullProvenance } from "../pull/stage.js";
+import { createPullStage, defaultPullStagingRoot, gcPullStages, writePullProvenance } from "../pull/stage.js";
 import { loadConfig } from "../config/loader.js";
+import { normalizePullStage } from "../sessions/raw-registry.js";
 import type { PullResult, SandboxInstance } from "../pull/types.js";
 
 export interface PullOptions {
   list?: boolean;
   all?: boolean;
+  gc?: boolean;
   format?: string;
 }
 
@@ -17,6 +19,15 @@ interface BackendListing {
 export async function runPull(backend: string | undefined, name: string | undefined, opts: PullOptions): Promise<void> {
   const config = loadConfig(process.cwd());
 
+  if (opts.gc) {
+    runPullGc({
+      format: opts.format ?? "pretty",
+      stagingRoot: config.pull.stagingDir ?? defaultPullStagingRoot(),
+      retentionDays: config.pull.stagingRetentionDays,
+    });
+    return;
+  }
+
   if (opts.list) {
     await runPullList({ format: opts.format ?? "pretty" });
     return;
@@ -26,6 +37,7 @@ export async function runPull(backend: string | undefined, name: string | undefi
     await runPullAll(backend, name, {
       format: opts.format ?? "pretty",
       stagingRoot: config.pull.stagingDir ?? undefined,
+      projectRoot: process.cwd(),
     });
     return;
   }
@@ -53,6 +65,12 @@ export async function runPull(backend: string | undefined, name: string | undefi
     });
     const result = await adapter.pull(name, stage.dir, { pulledAt: stage.pulledAt });
     writePullProvenance(stage.dir, result.provenance);
+    normalizePullStage({
+      projectRoot: process.cwd(),
+      pullDir: stage.dir,
+      backend,
+      name,
+    });
     printPullResult({ backend, name, stagingDir: stage.dir, result, format: opts.format ?? "pretty" });
     return;
   }
@@ -61,10 +79,32 @@ export async function runPull(backend: string | undefined, name: string | undefi
   process.exitCode = 1;
 }
 
+function runPullGc(opts: { format: string; stagingRoot: string; retentionDays: number | null }): void {
+  const result = gcPullStages({
+    stagingRoot: opts.stagingRoot,
+    retentionDays: opts.retentionDays,
+  });
+
+  if (opts.format === "json") {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (!result.enabled) {
+    console.log("Pull staging retention is disabled. Set pull.stagingRetentionDays to enable GC.");
+    return;
+  }
+
+  console.log(`Removed ${result.removed.length} expired pull staging director${result.removed.length === 1 ? "y" : "ies"}.`);
+  if (result.skipped.length > 0) {
+    console.log(`Skipped ${result.skipped.length} unrecognized staging director${result.skipped.length === 1 ? "y" : "ies"}.`);
+  }
+}
+
 async function runPullAll(
   backend: string | undefined,
   name: string | undefined,
-  opts: { format: string; stagingRoot?: string },
+  opts: { format: string; stagingRoot?: string; projectRoot: string },
 ): Promise<void> {
   if (!backend || name) {
     console.error("Use `sheal pull sbx --all` to pull every sbx sandbox.");
@@ -107,6 +147,12 @@ async function runPullAll(
       const stage = createPullStage({ stagingRoot: opts.stagingRoot, backend, name: sandbox.name });
       const result = await adapter.pull(sandbox.name, stage.dir, { pulledAt: stage.pulledAt });
       writePullProvenance(stage.dir, result.provenance);
+      normalizePullStage({
+        projectRoot: opts.projectRoot,
+        pullDir: stage.dir,
+        backend,
+        name: sandbox.name,
+      });
       pulled += 1;
       results.push(buildPullCommandResult({ backend, name: sandbox.name, stagingDir: stage.dir, result }));
       if (opts.format !== "json") {

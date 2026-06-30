@@ -11,9 +11,18 @@
  */
 
 import { existsSync, openSync, readSync, closeSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { Checkpoint, CheckpointInfo, CheckpointRoot, Session, SessionEntry } from "./types.js";
+
+export interface CodexSessionReaderOptions {
+  /**
+   * Explicit source root. Accepts a `.codex` directory, a `sessions` directory,
+   * or a parent that contains `.codex`, such as a pulled staging `transcript/`
+   * directory.
+   */
+  root?: string;
+}
 
 export interface CodexProject {
   slug: string;
@@ -47,17 +56,17 @@ const CODEX_DIR = join(homedir(), ".codex", "sessions");
 /**
  * Check if Codex sessions exist.
  */
-export function hasCodexSessions(): boolean {
-  return existsSync(CODEX_DIR);
+export function hasCodexSessions(options: CodexSessionReaderOptions = {}): boolean {
+  return existsSync(resolveCodexSessionsDir(options));
 }
 
 /**
  * List all Codex sessions, grouped by project (cwd).
  */
-export function listCodexProjects(): CodexProject[] {
-  if (!hasCodexSessions()) return [];
+export function listCodexProjects(options: CodexSessionReaderOptions = {}): CodexProject[] {
+  if (!hasCodexSessions(options)) return [];
 
-  const sessionFiles = collectSessionFiles();
+  const sessionFiles = collectSessionFiles(options);
   // Group by cwd
   const byProject = new Map<string, CodexSessionFile[]>();
 
@@ -87,8 +96,11 @@ export function listCodexProjects(): CodexProject[] {
 /**
  * List sessions for a Codex project path.
  */
-export function listCodexSessionsForProject(projectPath: string): CheckpointInfo[] {
-  const sessionFiles = collectSessionFiles().filter((sf) => sf.cwd === projectPath);
+export function listCodexSessionsForProject(
+  projectPath: string,
+  options: CodexSessionReaderOptions = {},
+): CheckpointInfo[] {
+  const sessionFiles = collectSessionFiles(options).filter((sf) => sf.cwd === projectPath);
   sessionFiles.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
   return sessionFiles.map((sf) => ({
@@ -106,8 +118,11 @@ export function listCodexSessionsForProject(projectPath: string): CheckpointInfo
 /**
  * Load a single Codex session's full transcript by session ID.
  */
-export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; entries: CodexTranscriptEntry[] } | null {
-  const files = collectSessionFiles();
+export function loadCodexSession(
+  sessionId: string,
+  options: CodexSessionReaderOptions = {},
+): { meta: CodexSessionFile; entries: CodexTranscriptEntry[] } | null {
+  const files = collectSessionFiles(options);
   const file = files.find(f => f.id === sessionId);
   if (!file) return null;
 
@@ -159,8 +174,9 @@ export function loadCodexSession(sessionId: string): { meta: CodexSessionFile; e
 export function loadCodexSessionCheckpoint(
   sessionId: string,
   projectRoot?: string,
+  options: CodexSessionReaderOptions = {},
 ): Checkpoint | null {
-  const files = collectSessionFiles();
+  const files = collectSessionFiles(options);
   const file = files.find((f) => f.id === sessionId);
   if (!file) return null;
 
@@ -211,38 +227,48 @@ export function codexSessionToCheckpoint(meta: CodexSessionFile, content: string
 /**
  * Collect all session files from the dated directory structure.
  */
-function collectSessionFiles(): CodexSessionFile[] {
-  if (!existsSync(CODEX_DIR)) return [];
+function collectSessionFiles(options: CodexSessionReaderOptions = {}): CodexSessionFile[] {
+  const sessionsDir = resolveCodexSessionsDir(options);
+  if (!existsSync(sessionsDir)) return [];
 
   const sessions: CodexSessionFile[] = [];
 
   try {
-    for (const year of readdirSync(CODEX_DIR)) {
-      const yearDir = join(CODEX_DIR, year);
-      if (!statSync(yearDir).isDirectory()) continue;
-
-      for (const month of readdirSync(yearDir)) {
-        const monthDir = join(yearDir, month);
-        if (!statSync(monthDir).isDirectory()) continue;
-
-        for (const day of readdirSync(monthDir)) {
-          const dayDir = join(monthDir, day);
-          if (!statSync(dayDir).isDirectory()) continue;
-
-          for (const file of readdirSync(dayDir)) {
-            if (!file.endsWith(".jsonl")) continue;
-            const path = join(dayDir, file);
-            const meta = extractCodexMeta(path);
-            if (meta) sessions.push(meta);
-          }
-        }
-      }
-    }
+    collectJsonlFiles(sessionsDir, sessions);
   } catch {
     // skip errors in traversal
   }
 
   return sessions;
+}
+
+function collectJsonlFiles(dir: string, sessions: CodexSessionFile[]): void {
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry);
+    let isDirectory = false;
+    try {
+      isDirectory = statSync(path).isDirectory();
+    } catch {
+      continue;
+    }
+
+    if (isDirectory) {
+      collectJsonlFiles(path, sessions);
+      continue;
+    }
+
+    if (!entry.endsWith(".jsonl")) continue;
+    const meta = extractCodexMeta(path);
+    if (meta) sessions.push(meta);
+  }
+}
+
+function resolveCodexSessionsDir(options: CodexSessionReaderOptions): string {
+  if (!options.root) return CODEX_DIR;
+  if (basename(options.root) === "sessions") return options.root;
+  if (existsSync(join(options.root, "sessions"))) return join(options.root, "sessions");
+  if (existsSync(join(options.root, ".codex", "sessions"))) return join(options.root, ".codex", "sessions");
+  return join(options.root, "sessions");
 }
 
 function parseCodexTranscript(content: string): SessionEntry[] {

@@ -2,6 +2,7 @@ export interface SelfHealConfig {
   skip?: string[];
   pull?: {
     stagingDir?: string;
+    stagingRetentionDays?: number;
   };
   checkers?: {
     git?: { allowDirty?: boolean };
@@ -31,6 +32,7 @@ export interface ResolvedConfig {
   skip: string[];
   pull: {
     stagingDir: string | null;
+    stagingRetentionDays: number | null;
   };
   checkers: {
     git: { allowDirty: boolean };

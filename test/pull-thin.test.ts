@@ -88,6 +88,7 @@ process.exit(99);
         cwd: projectRoot,
         env: {
           ...process.env,
+          HOME: testHome(projectRoot),
           PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
           NO_COLOR: "1",
         },
@@ -97,7 +98,7 @@ process.exit(99);
 
     expect(result.status, result.stderr).toBe(0);
 
-    const stagingRoot = join(projectRoot, ".sheal", "pulls", "sbx", sandboxName);
+    const stagingRoot = join(testHome(projectRoot), ".sheal", "pulls", "sbx", sandboxName);
     expect(existsSync(stagingRoot)).toBe(true);
     const timestamps = readdirSync(stagingRoot);
     expect(timestamps).toHaveLength(1);
@@ -126,3 +127,7 @@ process.exit(99);
     expect(Number.isNaN(Date.parse(provenance.pulledAt as string))).toBe(false);
   });
 });
+
+function testHome(projectRoot: string): string {
+  return join(projectRoot, ".home");
+}

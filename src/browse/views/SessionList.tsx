@@ -4,14 +4,19 @@ import {
   hasEntireBranch,
   listAmpSessionsForProject,
   listCheckpoints,
-  listCodexSessionsForProject,
   listGeminiSessionsForProject,
-  listNativeSessionsBySlug,
 } from "@liwala/agent-sessions";
 import type { CheckpointInfo, NativeProject } from "@liwala/agent-sessions";
 import { hasRetro } from "../utils/retro-status.js";
 import { SearchBar } from "../components/SearchBar.js";
 import { StatusBar } from "../components/StatusBar.js";
+import { normalizeSessionSource } from "../../sessions/raw-registry.js";
+import {
+  formatSessionBackupBadge,
+  getSessionImportOffer,
+  listProjectSessionInventory,
+} from "../../sessions/inventory.js";
+import type { SessionInventoryItem } from "../../sessions/inventory.js";
 
 const AGENT_COLORS: Record<string, string> = {
   "Claude Code": "blue",
@@ -31,6 +36,8 @@ interface SessionListProps {
   onAgentFilterToggle: () => void;
 }
 
+type BrowseSessionInfo = CheckpointInfo & Partial<Pick<SessionInventoryItem, "registryStatus" | "rawSessionId">>;
+
 export function SessionList({
   project,
   onSelect,
@@ -46,44 +53,55 @@ export function SessionList({
   const [hideEntire, setHideEntire] = useState(true);
   const [filterActive, setFilterActive] = useState(false);
   const [filterText, setFilterText] = useState("");
+  const [inventoryVersion, setInventoryVersion] = useState(0);
+  const [importNotice, setImportNotice] = useState("");
   const { stdout } = useStdout();
   const maxRows = (stdout?.rows ?? 24) - 8;
 
   // Load sessions from ALL agent sources for this project (sync sources)
   const syncSessions = useMemo(() => {
-    const sessions: CheckpointInfo[] = [];
+    const sessions: BrowseSessionInfo[] = [];
     const agents = project.agents || [];
+    const hasAgents = agents.length > 0;
+    const includeClaude = hasAgents
+      ? agents.some((a) => a.agent === "claude")
+      : !project.slug.startsWith("codex:") && !project.slug.startsWith("amp:") && !project.slug.startsWith("gemini:");
+    const includeCodex = hasAgents
+      ? agents.some((a) => a.agent === "codex")
+      : project.slug.startsWith("codex:");
+    const inventory = project.projectPath.startsWith("/") && (includeClaude || includeCodex)
+      ? listProjectSessionInventory(project.projectPath)
+      : [];
+
+    if (includeClaude) {
+      sessions.push(...inventory.filter((session) => session.agent === "Claude Code"));
+    }
+    if (includeCodex) {
+      sessions.push(...inventory.filter((session) => session.agent === "Codex"));
+    }
 
     for (const a of agents) {
-      if (a.agent === "codex") {
-        sessions.push(...listCodexSessionsForProject(project.projectPath));
-      } else if (a.agent === "amp") {
+      if (a.agent === "amp") {
         sessions.push(...listAmpSessionsForProject(project.projectPath));
       } else if (a.agent === "gemini") {
         sessions.push(...listGeminiSessionsForProject(project.projectPath));
-      } else {
-        sessions.push(...listNativeSessionsBySlug(a.slug));
       }
     }
 
     // Fallback: if no agents info, use slug-based routing
     if (agents.length === 0) {
-      if (project.slug.startsWith("codex:")) {
-        sessions.push(...listCodexSessionsForProject(project.projectPath));
-      } else if (project.slug.startsWith("amp:")) {
+      if (project.slug.startsWith("amp:")) {
         sessions.push(...listAmpSessionsForProject(project.projectPath));
       } else if (project.slug.startsWith("gemini:")) {
         sessions.push(...listGeminiSessionsForProject(project.projectPath));
-      } else {
-        sessions.push(...listNativeSessionsBySlug(project.slug));
       }
     }
 
     return sessions;
-  }, [project.slug, project.projectPath, project.agents]);
+  }, [project.slug, project.projectPath, project.agents, inventoryVersion]);
 
   // Load Entire.io sessions asynchronously
-  const [entireSessions, setEntireSessions] = useState<CheckpointInfo[]>([]);
+  const [entireSessions, setEntireSessions] = useState<BrowseSessionInfo[]>([]);
   useEffect(() => {
     let cancelled = false;
     if (!project.projectPath.startsWith("/")) return;
@@ -104,11 +122,13 @@ export function SessionList({
     return () => { cancelled = true; };
   }, [project.projectPath]);
 
-  const allSessions = useMemo(() => {
+  const allSessions = useMemo<BrowseSessionInfo[]>(() => {
     const sessions = [...syncSessions, ...entireSessions];
     sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return sessions;
   }, [syncSessions, entireSessions]);
+
+  const sessionImportOffer = useMemo(() => getSessionImportOffer(syncSessions), [syncSessions]);
 
   const retroSet = useMemo(() => {
     const set = new Set<string>();
@@ -167,6 +187,13 @@ export function SessionList({
     if (input === "a") { onAgentFilterToggle(); return; }
     if (input === "p") { setHidePiped(!hidePiped); setCursor(0); setScrollOffset(0); return; }
     if (input === "e") { setHideEntire(!hideEntire); setCursor(0); setScrollOffset(0); return; }
+    if (input === "i" && sessionImportOffer && project.projectPath.startsWith("/")) {
+      const liveOnlyCount = syncSessions.filter((session) => session.registryStatus === "live-home-only").length;
+      normalizeSessionSource({ projectRoot: project.projectPath });
+      setImportNotice(`Added ${liveOnlyCount} session(s) to .sheal/sessions/raw/.`);
+      setInventoryVersion((version) => version + 1);
+      return;
+    }
 
     if (key.upArrow) {
       setCursor((c) => {
@@ -201,6 +228,8 @@ export function SessionList({
           {entireCount > 0 && pipedCount > 0 && <Text dimColor> | </Text>}
           {pipedCount > 0 && <Text dimColor>{hidePiped ? `${pipedCount} piped hidden, p to show` : `showing ${pipedCount} piped, p to hide`}</Text>}
         </Box>
+        {sessionImportOffer && <Text color="yellow">{sessionImportOffer}</Text>}
+        {importNotice && <Text color="green">{importNotice}</Text>}
       </Box>
 
       {filterActive && (
@@ -212,6 +241,7 @@ export function SessionList({
           const globalIdx = scrollOffset + i;
           const isPiped = s.title?.startsWith("[piped]") ?? false;
           const agentColor = AGENT_COLORS[s.agent || ""] || "white";
+          const backupBadge = s.registryStatus ? formatSessionBackupBadge(s as SessionInventoryItem) : "";
           return (
           <Box key={`${s.agent}-${s.sessionId}`}>
             <Text color={globalIdx === cursor ? "cyan" : undefined} bold={globalIdx === cursor} dimColor={isPiped && globalIdx !== cursor}>
@@ -223,6 +253,7 @@ export function SessionList({
               <Text color={agentColor as any}> [{s.agent === "Claude Code" ? "claude" : s.agent.toLowerCase()}]</Text>
             )}
             {retroSet.has(s.sessionId) && <Text color="magenta"> [R]</Text>}
+            {backupBadge && <Text color="yellow"> {backupBadge}</Text>}
             {s.filesTouched.length > 0 && <Text dimColor> {s.filesTouched.length}f</Text>}
             {s.title && <Text dimColor={isPiped && globalIdx !== cursor}> {s.title.slice(0, 50)}</Text>}
           </Box>

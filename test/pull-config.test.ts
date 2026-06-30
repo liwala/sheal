@@ -43,7 +43,7 @@ describe("sheal pull config", () => {
     expect(existsSync(join(projectRoot, ".sheal", "pulls", "sbx", sandboxName))).toBe(false);
   });
 
-  it("keeps the default project staging root when pull.stagingDir is unset", () => {
+  it("defaults pull staging to the user sheal home when pull.stagingDir is unset", () => {
     tmp = mkdtempSync(join(tmpdir(), "sheal-pull-config-"));
     const projectRoot = join(tmp, "project");
     const binDir = join(tmp, "bin");
@@ -58,8 +58,9 @@ describe("sheal pull config", () => {
     const result = runShealPull(projectRoot, binDir, ["sbx", sandboxName]);
 
     expect(result.status, result.stderr).toBe(0);
-    const pullDir = getOnlyPullDir(join(projectRoot, ".sheal", "pulls"), sandboxName);
+    const pullDir = getOnlyPullDir(join(testHome(projectRoot), ".sheal", "pulls"), sandboxName);
     expect(readFileSync(join(pullDir, "git.diff"), "utf-8")).toBe(diff);
+    expect(existsSync(join(projectRoot, ".sheal", "pulls", "sbx", sandboxName))).toBe(false);
   });
 });
 
@@ -71,6 +72,7 @@ function runShealPull(projectRoot: string, binDir: string, args: string[]) {
       cwd: projectRoot,
       env: {
         ...process.env,
+        HOME: testHome(projectRoot),
         PATH: `${binDir}${delimiter}${process.env.PATH ?? ""}`,
         NO_COLOR: "1",
       },
@@ -85,6 +87,10 @@ function getOnlyPullDir(stagingRoot: string, sandboxName: string): string {
   const timestamps = readdirSync(sandboxRoot);
   expect(timestamps).toHaveLength(1);
   return join(sandboxRoot, timestamps[0]);
+}
+
+function testHome(projectRoot: string): string {
+  return join(projectRoot, ".home");
 }
 
 function writeSbxFixture(

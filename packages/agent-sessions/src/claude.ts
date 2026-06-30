@@ -20,22 +20,31 @@ import type {
   TokenUsage,
 } from "./types.js";
 
+export interface ClaudeSessionReaderOptions {
+  /**
+   * Explicit source root. Accepts either a `.claude` directory or a parent that
+   * contains `.claude`, such as a pulled staging `transcript/` directory.
+   */
+  root?: string;
+}
+
 /**
  * Derive the Claude Code project directory path for a given project root.
  * Claude Code uses the format: ~/.claude/projects/-<path-with-dashes>/
  */
-export function getClaudeProjectDir(projectRoot: string): string | null {
+export function getClaudeProjectDir(projectRoot: string, options: ClaudeSessionReaderOptions = {}): string | null {
   const absPath = resolve(projectRoot);
   // Claude Code slug: replace path separators, drive colons, and spaces with -.
   // Unix: /Users/lu/code/foo → -Users-lu-code-foo
   // Windows: C:\Users\me\Claude Code → c--Users-me-Claude-Code (lowercased drive)
   const slug = absPath.replace(/[\\/: ]/g, "-");
-  const dir = join(homedir(), ".claude", "projects", slug);
+  const root = resolveClaudeRoot(options);
+  const dir = join(root, "projects", slug);
   if (existsSync(dir)) return dir;
   // Fallback: drive letter case may vary on Windows
   const lowerSlug = slug.charAt(0).toLowerCase() + slug.slice(1);
   if (lowerSlug !== slug) {
-    const lowerDir = join(homedir(), ".claude", "projects", lowerSlug);
+    const lowerDir = join(root, "projects", lowerSlug);
     if (existsSync(lowerDir)) return lowerDir;
   }
   return null;
@@ -44,8 +53,8 @@ export function getClaudeProjectDir(projectRoot: string): string | null {
 /**
  * Check if native Claude Code transcripts are available for this project.
  */
-export function hasNativeTranscripts(projectRoot: string): boolean {
-  const dir = getClaudeProjectDir(projectRoot);
+export function hasNativeTranscripts(projectRoot: string, options: ClaudeSessionReaderOptions = {}): boolean {
+  const dir = getClaudeProjectDir(projectRoot, options);
   if (!dir) return false;
 
   // Check for at least one .jsonl file
@@ -58,8 +67,8 @@ export function hasNativeTranscripts(projectRoot: string): boolean {
  * Returns CheckpointInfo[] to match the Entire.io reader interface.
  * Each session becomes its own "checkpoint" since there's no checkpoint concept natively.
  */
-export function listNativeSessions(projectRoot: string): CheckpointInfo[] {
-  const dir = getClaudeProjectDir(projectRoot);
+export function listNativeSessions(projectRoot: string, options: ClaudeSessionReaderOptions = {}): CheckpointInfo[] {
+  const dir = getClaudeProjectDir(projectRoot, options);
   if (!dir) return [];
   return listSessionsFromDir(dir);
 }
@@ -231,8 +240,9 @@ function extractSessionMeta(path: string, fullContent?: string): {
 export function loadNativeSession(
   projectRoot: string,
   sessionId: string,
+  options: ClaudeSessionReaderOptions = {},
 ): Checkpoint | null {
-  const dir = getClaudeProjectDir(projectRoot);
+  const dir = getClaudeProjectDir(projectRoot, options);
   if (!dir) return null;
   return loadSessionFromDir(dir, sessionId);
 }
@@ -283,8 +293,8 @@ function loadSessionFromDir(dir: string, sessionId: string): Checkpoint | null {
  * List all Claude Code projects that have session transcripts.
  * Scans ~/.claude/projects/ for directories containing .jsonl files.
  */
-export function listAllNativeProjects(): NativeProject[] {
-  const projectsDir = join(homedir(), ".claude", "projects");
+export function listAllNativeProjects(options: ClaudeSessionReaderOptions = {}): NativeProject[] {
+  const projectsDir = join(resolveClaudeRoot(options), "projects");
   if (!existsSync(projectsDir)) return [];
 
   const projects: NativeProject[] = [];
@@ -335,8 +345,8 @@ export function listAllNativeProjects(): NativeProject[] {
 /**
  * List sessions for a project identified by its slug (from listAllNativeProjects).
  */
-export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
-  const dir = join(homedir(), ".claude", "projects", slug);
+export function listNativeSessionsBySlug(slug: string, options: ClaudeSessionReaderOptions = {}): CheckpointInfo[] {
+  const dir = join(resolveClaudeRoot(options), "projects", slug);
   if (!existsSync(dir)) return [];
   return listSessionsFromDir(dir);
 }
@@ -347,9 +357,17 @@ export function listNativeSessionsBySlug(slug: string): CheckpointInfo[] {
 export function loadNativeSessionBySlug(
   slug: string,
   sessionId: string,
+  options: ClaudeSessionReaderOptions = {},
 ): Checkpoint | null {
-  const dir = join(homedir(), ".claude", "projects", slug);
+  const dir = join(resolveClaudeRoot(options), "projects", slug);
   return loadSessionFromDir(dir, sessionId);
+}
+
+function resolveClaudeRoot(options: ClaudeSessionReaderOptions): string {
+  if (!options.root) return join(homedir(), ".claude");
+  if (existsSync(join(options.root, "projects"))) return options.root;
+  if (existsSync(join(options.root, ".claude", "projects"))) return join(options.root, ".claude");
+  return options.root;
 }
 
 /**

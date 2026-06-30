@@ -171,7 +171,26 @@ sheal browse -p myproject          # Pre-filter by project name
 sheal browse --agent codex         # Pre-filter by agent
 ```
 
-Supports Claude Code, Codex, Amp, and Entire.io sessions.
+Supports Claude Code, Codex, Amp, and Entire.io sessions. Claude and Codex
+sessions that are visible in the live home directories but not yet present in
+`.sheal/sessions/raw/` are marked as not backed up, and the sessions view offers
+to add them to the registry.
+
+### `sheal sessions import`
+
+Import Claude Code and Codex transcripts from live home directories, or from an
+explicit source root, into the current project's raw session registry.
+
+```bash
+sheal sessions import              # Import from ~/.claude and ~/.codex
+sheal sessions import --source /tmp/agent-home
+sheal sessions import --format json
+```
+
+Imported sessions are written to
+`.sheal/sessions/raw/<stable-session-id>/` with `manifest.json`,
+`transcript.raw.jsonl`, and `normalized.json`. Live-home and explicit-source
+imports do not create pull staging `ingested.json` markers.
 
 ### `sheal export`
 
@@ -202,15 +221,19 @@ present. Workspace files such as `AGENTS.md`, `MEMORY.md`, and
 
 ```bash
 sheal pull --list                  # List available sbx sandboxes and Docker containers
-sheal pull sbx <name>              # Pull one sbx sandbox to .sheal/pulls/
+sheal pull sbx <name>              # Pull one sbx sandbox to ~/.sheal/pulls/
 sheal pull sbx --all               # Pull every sbx sandbox with a workspace
 sheal pull docker <name>           # Pull one Docker container selected from --list
 ```
 
 Use `sheal pull --list` first to copy the exact sandbox or container name.
 Docker selection is intentionally human-driven, so `sheal pull docker --all` is
-not supported. Pull output lands under
-`.sheal/pulls/<backend>/<name>/<timestamp>/`.
+not supported. Pull acquisition output lands under
+`~/.sheal/pulls/<backend>/<name>/<timestamp>/` unless `pull.stagingDir`
+overrides it. Pulled Claude and Codex transcripts are normalized into the
+project-local raw registry at `.sheal/sessions/raw/<stable-session-id>/`; the
+pull staging directory gets an `ingested.json` marker pointing at the raw
+session IDs.
 
 ### `sheal init`
 
