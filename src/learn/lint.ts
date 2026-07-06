@@ -163,8 +163,12 @@ export function lintLearnings(dir: string): LintReport {
     learning: readLearning(join(dir, file)),
   }));
 
+  // Superseded/retired learnings are already resolved: they keep their ID
+  // (collisions still matter) but no longer compete as live rules.
+  const live = entries.filter((e) => e.learning.status !== "superseded" && e.learning.status !== "retired");
+
   return {
     scanned: entries.length,
-    findings: [...findDuplicateIds(entries), ...findNearDuplicates(entries), ...findMissingTriggers(entries)],
+    findings: [...findDuplicateIds(entries), ...findNearDuplicates(live), ...findMissingTriggers(live)],
   };
 }
