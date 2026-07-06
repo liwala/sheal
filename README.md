@@ -471,6 +471,27 @@ Agent Configuration (CLAUDE.md, .cursorrules, etc.)
 Next Session (fewer mistakes)
 ```
 
+## Configuration
+
+`sheal` reads an optional `.self-heal.json` from the project root (or the nearest
+ancestor directory). It configures checkers and pull staging, e.g.:
+
+```json
+{
+  "checkers": {
+    "tests": { "timeoutMs": 30000 },
+    "environment": {
+      "requiredVars": ["DATABASE_URL"],
+      "requiredServices": [{ "name": "postgres", "check": "pg_isready -p 5432" }]
+    }
+  }
+}
+```
+
+A `.self-heal.local.json` next to it (gitignored) is merged over the shared
+config field by field — use it for machine-local checks and private tooling
+that don't belong in the repo.
+
 ## Development
 
 ```bash
