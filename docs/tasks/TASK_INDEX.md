@@ -34,6 +34,9 @@
 - [x] [T12. `sheal learn lint`: corpus hygiene checks](t12-learn-lint-corpus-hygiene.md) — `done` → src/learn/lint.ts, test/learn-lint.test.ts
 - [x] [T13. `sheal consolidate`: emit a reviewable change set](t13-sheal-consolidate-change-set.md) — `done` → src/consolidate/change-set.ts, src/commands/consolidate.ts
 - [x] [T14. Compile mechanical learnings into hooks and checkers (emitter v0)](t14-compile-mechanical-learnings.md) — `done` → src/commands/guard.ts, src/commands/check.ts (--strict)
+- [x] [T15. Expose near-duplicate similarity as structured data in lint findings](t15-structured-similarity-in-lint-findings.md) — `done` → src/learn/lint.ts, src/consolidate/change-set.ts
+- [ ] [T16. Wire guard pr and check --strict into hooks/CI (close the enforcement loop)](t16-wire-guards-into-hooks-and-ci.md) — `todo`
+- [x] [T17. Reconcile --strict's warning definition with the check report summary](t17-reconcile-strict-warning-definition.md) — `done` → src/output/json.ts, src/commands/check.ts
 
 ## Open questions
 
