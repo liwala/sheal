@@ -30,8 +30,8 @@
 
 ## P0 — Learning quality
 
-- [ ] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `doing`
-- [ ] [T12. `sheal learn lint`: corpus hygiene checks](t12-learn-lint-corpus-hygiene.md) — `doing`
+- [x] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `done` → docs/wiki-candidates/
+- [x] [T12. `sheal learn lint`: corpus hygiene checks](t12-learn-lint-corpus-hygiene.md) — `done` → src/learn/lint.ts, test/learn-lint.test.ts
 
 ## Open questions
 

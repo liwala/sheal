@@ -1,11 +1,13 @@
 ---
-status: doing
+status: done
 started: 2026-07-06
+closed: 2026-07-06
 type: task
 id: T11
 deliverable: P0
 created: 2026-07-06
 links: ["docs/adr/0001-sheal-as-consolidation-system.md"]
+output: docs/wiki-candidates/
 ---
 
 # T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus

@@ -1,6 +1,6 @@
 # ADR 0001 — Sheal as a Knowledge Consolidation System
 
-**Status:** Proposed
+**Status:** Proposed — validation milestone passed 2026-07-06 (see below)
 **Date:** 2026-05-07
 **Authors:** Luisa Lima (with brainstorming assistance from Claude)
 
@@ -8,11 +8,11 @@
 
 The "memory for agents" space is crowded. Most systems are flat fact stores
 with vector retrieval — append-only journals optimized for recall. They do not
-distinguish between *what happened*, *what we know*, and *how we should act*;
+distinguish between _what happened_, _what we know_, and _how we should act_;
 they have no notion of decay, provenance, contradiction, or promotion of
 patterns into behaviors.
 
-Sheal already does something the field mostly doesn't: it mines *sessions*
+Sheal already does something the field mostly doesn't: it mines _sessions_
 (rich, trajectory-bearing logs of agent work) and produces `LEARN-###` items
 with triggers, currently appended to `AGENTS.md`. As of this writing there are
 ~30 such items, flat and ungrouped.
@@ -34,9 +34,9 @@ Two observations sharpen the design problem:
 Karpathy's framing is right but incomplete for sheal's domain:
 
 - His sources are documents (papers, articles); ours are sessions, which have
-  *trajectory* (mistake → correction → recovery). Mining a session is closer to
+  _trajectory_ (mistake → correction → recovery). Mining a session is closer to
   mining a git log than summarizing prose.
-- His wiki is *passive* (Q&A with citations). Sheal's job is *active* — the
+- His wiki is _passive_ (Q&A with citations). Sheal's job is _active_ — the
   agent needs to behave differently next session, not just answer questions
   better. That requires a stage Karpathy doesn't have: skills compiled from
   wiki pages, with triggers.
@@ -47,7 +47,7 @@ Karpathy's framing is right but incomplete for sheal's domain:
 
 Sheal does not own the underlying stores — sessions live in Claude/Codex/etc.,
 code lives in git, terminal output lives in scrollback. Sheal is a layer that
-*moves and transforms knowledge across stores other systems own*. The product
+_moves and transforms knowledge across stores other systems own_. The product
 surface is **verbs**, not nouns: consolidate, promote, demote, forget, review,
 trace.
 
@@ -94,15 +94,15 @@ Operations map to memory processes:
 **D1. Skills live in sheal's own store** (e.g. `.sheal/skills/` per project,
 `~/.sheal/skills/` global), not in `.claude/skills/`.
 
-*Rationale:* Sheal needs to support multiple host agents (Claude, Codex,
+_Rationale:_ Sheal needs to support multiple host agents (Claude, Codex,
 Cursor, Amp). Binding skill storage to one runtime's format gives up
-portability. Sheal-owned skills can be *compiled* to runtime-specific surfaces
+portability. Sheal-owned skills can be _compiled_ to runtime-specific surfaces
 (Claude skills, Codex prompts, etc.) by emitters — this preserves the verb
 model where sheal moves knowledge into stores it doesn't own.
 
 **D2. The wiki is both per-project and global.**
 
-*Rationale:* Per-project wikis ground knowledge in a real codebase (file paths,
+_Rationale:_ Per-project wikis ground knowledge in a real codebase (file paths,
 domain concepts, project-specific failure modes survive review). A global wiki
 captures cross-project patterns — most existing `LEARN-###` items in
 `AGENTS.md` are cross-project, not codebase-specific.
@@ -130,7 +130,7 @@ A consolidation pass has stages, like sleep does:
 5. **Apply** — write changes, update links, stamp provenance
 6. **Reflect** — escalate ambiguous calls to a queue the user drains later
 
-Each pass produces a *change set*, not a snapshot. Dry-runnable, reviewable,
+Each pass produces a _change set_, not a snapshot. Dry-runnable, reviewable,
 idempotent.
 
 ### Trigger taxonomy
@@ -163,7 +163,7 @@ rehearsed, they move to an archive tier rather than being lost.
 ### User-in-the-loop, selectively
 
 Most consolidation runs automatically. Contradictions, dead skills, and
-ambiguous merges escalate to a *queue the user drains* (`sheal review`), not a
+ambiguous merges escalate to a _queue the user drains_ (`sheal review`), not a
 blocking prompt mid-flow. Memory systems feel intrusive when they interrupt;
 consolidation should batch.
 
@@ -226,9 +226,31 @@ Acceptance criteria:
 This is cheap to run, falsifiable, and produces an artifact whose usefulness
 the user can judge directly.
 
+### Validation outcome (2026-07-06, T11)
+
+The pass was run over the store as it actually was: 55 files, 53 distinct
+learnings (more than the 30 this ADR assumed — the store and `AGENTS.md` had
+diverged). Results, in full at `docs/wiki-candidates/`:
+
+- **Acceptance criteria met.** 49/53 learnings (92%) grouped into six topic
+  pages without forcing; the contradictions list is non-empty and contains two
+  genuine precedence conflicts, not just duplicates.
+- **The thesis was demonstrated by the corpus itself:** the store contains a
+  prior ad-hoc consolidation attempt (a "short-slug" generation of merged
+  rewrites for IDs 001–012) that collided IDs and never retired its sources —
+  consolidation was needed, and corrupted the store because merge/retire don't
+  exist as verbs.
+- **Revision adopted:** the durable unit is the topic page _as the store_,
+  with compiled skills as the delivery vehicle. Several "distinct" learnings
+  are one rule at different trigger thresholds, so a page owns a **trigger
+  table**, not just prose.
+
+The ADR proceeds toward Accepted; the next implementation steps are executing
+the disposition table (merge/retire) and the wiki layer proper.
+
 ## References
 
-- Karpathy, *LLM Wiki* gist:
+- Karpathy, _LLM Wiki_ gist:
   https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
 - ADR 0004 — Artifacts as First-Class Sources (source fidelity axis)
 - ADR 0005 — `sheal pull`: Acquisition Adapters for Sandboxed and Cloud

@@ -1,11 +1,13 @@
 ---
-status: doing
+status: done
 started: 2026-07-06
+closed: 2026-07-06
 type: task
 id: T12
 deliverable: P0
 created: 2026-07-06
 links: []
+output: src/learn/lint.ts
 ---
 
 # T12. `sheal learn lint`: corpus hygiene checks
