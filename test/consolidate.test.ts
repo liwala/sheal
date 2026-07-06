@@ -88,7 +88,7 @@ describe("sheal consolidate", () => {
     const changeSet = JSON.parse(result.stdout) as {
       scanned: number;
       idCollisions: { ids: string[] }[];
-      mergeCandidates: { ids: string[] }[];
+      mergeCandidates: { ids: string[]; similarity: unknown }[];
       dispositions: { id: string; action: string }[];
     };
     expect(changeSet.scanned).toBe(4);
@@ -96,6 +96,10 @@ describe("sheal consolidate", () => {
     expect(changeSet.idCollisions[0].ids).toEqual(["LEARN-001"]);
     expect(changeSet.mergeCandidates).toHaveLength(1);
     expect(changeSet.mergeCandidates[0].ids.sort()).toEqual(["LEARN-001", "LEARN-006"]);
+    // similarity is structured data end-to-end, not scraped from a message
+    expect(typeof changeSet.mergeCandidates[0].similarity).toBe("number");
+    expect(changeSet.mergeCandidates[0].similarity as number).toBeGreaterThanOrEqual(0.4);
+    expect(changeSet.mergeCandidates[0].similarity as number).toBeLessThanOrEqual(1);
     expect(changeSet.dispositions).toHaveLength(1);
     expect(changeSet.dispositions[0].id).toBe("LEARN-009");
     expect(changeSet.dispositions[0].action).toBe("rewrite-or-retire");

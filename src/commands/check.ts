@@ -2,7 +2,7 @@ import { allCheckers } from "../checkers/index.js";
 import type { CheckResult, CheckerContext } from "../checkers/types.js";
 import { loadConfig } from "../config/loader.js";
 import { outputPretty } from "../output/pretty.js";
-import { outputJson } from "../output/json.js";
+import { outputJson, resultHasWarnings } from "../output/json.js";
 
 export interface CheckOptions {
   format: string;
@@ -49,7 +49,7 @@ export async function runCheck(options: CheckOptions): Promise<void> {
   }
 
   const hasFail = results.some((r) => r.severity === "fail");
-  const hasWarn = results.some((r) => r.severity === "warn" || r.details.some((d) => d.severity === "warn"));
+  const hasWarn = results.some(resultHasWarnings);
   // Use process.exit to prevent hanging from lingering child processes
   process.exit(hasFail || (options.strict && hasWarn) ? 1 : 0);
 }

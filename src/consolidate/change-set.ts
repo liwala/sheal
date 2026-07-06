@@ -17,7 +17,7 @@ export interface ChangeSet {
   /** Same LEARN id in more than one file — resolve by renumber or retire */
   idCollisions: { ids: string[]; files: string[]; action: "renumber-or-retire" }[];
   /** Distinct ids saying nearly the same thing — merge into one rule */
-  mergeCandidates: { ids: string[]; files: string[]; similarity: string }[];
+  mergeCandidates: { ids: string[]; files: string[]; similarity: number }[];
   /** Single-learning verdicts derivable mechanically */
   dispositions: { id: string; file: string; action: "rewrite-or-retire"; reason: string }[];
 }
@@ -31,10 +31,7 @@ export function buildChangeSet(dir: string): ChangeSet {
 
   const mergeCandidates = report.findings
     .filter((f) => f.type === "near-duplicate")
-    .map((f) => {
-      const match = f.message.match(/similarity (\d+\.\d+)/);
-      return { ids: f.ids, files: f.files, similarity: match ? match[1] : "n/a" };
-    });
+    .map((f) => ({ ids: f.ids, files: f.files, similarity: f.similarity ?? 0 }));
 
   const dispositions = report.findings
     .filter((f) => f.type === "no-trigger")
