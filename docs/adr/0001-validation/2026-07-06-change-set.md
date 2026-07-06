@@ -18,10 +18,14 @@ milestone; producing it is the contract for `sheal consolidate`
   compaction") and LEARN-012S ("re-read after 3+ edits"). Proposed precedence:
   trust context _by default_; re-read only on the two named triggers
   (compaction occurred, or file touched 3+ times). No file states this today.
+  **Decided 2026-07-06 (Luisa): adopted as proposed.** Precedence now stated
+  in [working-session-cadence](working-session-cadence.md) rule 4.
 - **T2 — verify-per-edit vs. batch-into-one-edit.** LEARN-016/007S ("compile
   after each file, never batch") pulls against LEARN-023/010S/027 ("collect
   changes into a single edit pass"). Proposed resolution: batch all changes
   _to one file_ into one edit; verify after each _file_.
+  **Decided 2026-07-06 (Luisa): adopted as proposed.** Stated in
+  [working-session-cadence](working-session-cadence.md) rule 3.
 - **T3 (soft) — incrementalism vs. batching in UI work.** LEARN-014L ("one
   screen before adding more") vs. LEARN-010S ("all UI states in one edit").
   Compatible if scoped: increment at screen level, batch at state level.
