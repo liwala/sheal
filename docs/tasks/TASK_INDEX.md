@@ -30,7 +30,7 @@
 
 ## P0 — Learning quality
 
-- [x] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `done` → docs/wiki-candidates/, docs/consolidation/2026-07-06-change-set.md
+- [x] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `done` → docs/adr/0001-validation/
 - [x] [T12. `sheal learn lint`: corpus hygiene checks](t12-learn-lint-corpus-hygiene.md) — `done` → src/learn/lint.ts, test/learn-lint.test.ts
 - [ ] [T13. `sheal consolidate`: emit a reviewable change set](t13-sheal-consolidate-change-set.md) — `todo`
 - [ ] [T14. Compile mechanical learnings into hooks and checkers (emitter v0)](t14-compile-mechanical-learnings.md) — `todo`
@@ -39,6 +39,7 @@
 
 **Answered (history):**
 
+- [x] [Q6. Where does the project-tier wiki live long-term — in git or in `.sheal/`?](q6-where-does-the-wiki-layer-live.md) — `done`
 - [x] [Q1. How should the remote/cloud adapter tier work?](q1-remote-adapter-tier.md) — `done`
 - [x] [Q2. How do we dedup a session captured by more than one path?](q2-cross-path-dedup.md) — `done`
 - [x] [Q3. Do we need a daemon / mid-session checkpointing for crashed environments?](q3-daemon-checkpointing.md) — `done`

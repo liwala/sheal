@@ -4,7 +4,7 @@ type: task
 id: T14
 deliverable: P0
 created: 2026-07-06
-links: ["docs/consolidation/2026-07-06-change-set.md"]
+links: ["docs/adr/0001-validation/2026-07-06-change-set.md"]
 ---
 
 # T14. Compile mechanical learnings into hooks and checkers (emitter v0)

@@ -1,13 +1,21 @@
-# Wiki candidates — ADR 0001 validation milestone output
+# ADR 0001 validation evidence (frozen)
 
 **Date:** 2026-07-06 · **Task:** T11 · **Source:** one-shot consolidation pass
 over `.sheal/learnings/` (55 files, 53 distinct learnings) + `.sheal/retros/`.
 
-This directory is the reviewable output of the validation milestone defined in
-[ADR 0001](../adr/0001-sheal-as-consolidation-system.md) § "First step". It is
-**a proposal, not applied state**: no learning files have been merged, retired,
-or renumbered. The maintainer reviews these pages; executing the dispositions
-is a separate task.
+This directory is **frozen evidence** for the validation milestone defined in
+[ADR 0001](../0001-sheal-as-consolidation-system.md) § "First step" — the
+manual run that justified the ADR's acceptance and defined the reference
+format. It is never updated or regenerated.
+
+The living versions of these artifacts belong to sheal itself, not to `docs/`:
+recurring change sets are emitted by `sheal consolidate` into
+`.sheal/consolidation/`, and topic pages will live in `.sheal/wiki/` when the
+wiki layer ships (where the project-tier wiki lives long-term — git-committed
+for team review vs. `.sheal/` synced via remotes — is an open question, Q6).
+
+Nothing here was applied: no learning files were merged, retired, or
+renumbered by this pass.
 
 ## Verdict against the acceptance criteria
 
@@ -15,7 +23,7 @@ is a separate task.
 
 - 49 of 53 learnings (92%) grouped into six coherent topic pages without
   forcing; the four that resist grouping are explained in the
-  [change set](../consolidation/2026-07-06-change-set.md).
+  [change set](2026-07-06-change-set.md).
 - The contradictions list is non-empty, and includes two genuine precedence
   conflicts (not just duplicates) that require a human call.
 - Strongest finding: the store already contains a **failed ad-hoc consolidation

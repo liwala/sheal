@@ -4,7 +4,7 @@ type: task
 id: T13
 deliverable: P0
 created: 2026-07-06
-links: ["docs/adr/0001-sheal-as-consolidation-system.md", "docs/consolidation/2026-07-06-change-set.md"]
+links: ["docs/adr/0001-sheal-as-consolidation-system.md", "docs/adr/0001-validation/2026-07-06-change-set.md"]
 ---
 
 # T13. `sheal consolidate`: emit a reviewable change set
@@ -23,7 +23,7 @@ prose-vs-mechanical classification.
   merge candidates).
 - LLM stage (agent CLI invocation, like `retro --enrich`) produces
   dispositions and contradiction findings; the T11 output at
-  `docs/consolidation/2026-07-06-change-set.md` is the reference format.
+  `docs/adr/0001-validation/2026-07-06-change-set.md` is the reference format.
 - Output is a dated change-set file — dry-run by default, never mutates the
   store. A later `--apply` (or `sheal review`) executes it.
 
