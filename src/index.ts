@@ -6,6 +6,7 @@ import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnLint, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
+import { runGuardPr } from "./commands/guard.js";
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
@@ -45,6 +46,8 @@ patterns, and improve agent behavior over time.
 Getting Started
 ───────────────
   sheal check                     Health-check your project setup
+  sheal check --strict            Warnings are blockers (exit non-zero)
+  sheal guard pr                  Pre-PR gate: branch must be ahead of base
   sheal audit                     Audit Claude Code settings (permissions, hooks, MCPs)
   sheal init                      Bootstrap sheal into your agent config files
 
@@ -172,11 +175,31 @@ program
   .option("-f, --format <format>", "Output format: pretty | json", "pretty")
   .option("-p, --project <path>", "Project root path", process.cwd())
   .option("--skip <checkers>", "Comma-separated checkers to skip (git,dependencies,tests,environment,session-learnings,performance)")
+  .option("--strict", "Exit non-zero on warnings, not just failures", false)
   .action(async (opts) => {
     await runCheck({
       format: opts.format,
       projectRoot: opts.project,
       skip: opts.skip,
+      strict: opts.strict,
+    });
+  });
+
+const guard = program
+  .command("guard")
+  .description("Point-in-time gates compiled from learnings (for hooks and CI)");
+
+guard
+  .command("pr")
+  .description("Pre-PR gate: branch must be ahead of base (compiles LEARN-038)")
+  .option("--base <branch>", "Base branch the PR targets", "main")
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runGuardPr({
+      base: opts.base,
+      format: opts.format,
+      projectRoot: opts.project,
     });
   });
 
