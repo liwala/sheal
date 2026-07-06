@@ -366,6 +366,10 @@ sheal learn promote
 
 # Pull global learnings into project (by tag match)
 sheal learn sync
+
+# Corpus hygiene: duplicate IDs, near-duplicate rules, missing triggers
+sheal learn lint                # Exit 1 on findings (CI-usable)
+sheal learn lint --format json
 ```
 
 #### Git-based backup & sync

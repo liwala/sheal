@@ -12,6 +12,7 @@ import {
   detectProjectTags,
 } from "../learn/index.js";
 import { reviewExistingLearnings } from "../learn/review.js";
+import { lintLearnings } from "../learn/lint.js";
 import type { LearningCategory, LearningSeverity, LearningFile } from "../learn/types.js";
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./backup.js";
 
@@ -541,3 +542,34 @@ export const runLearnRemoteShow = runBackupRemoteShow;
 export const runLearnRemoteRemove = runBackupRemoteRemove;
 export async function runLearnPush(): Promise<void> { await runBackupPush(); }
 export async function runLearnPull(): Promise<void> { await runBackupPull(); }
+
+export interface LearnLintOptions {
+  global: boolean;
+  projectRoot: string;
+  format: string;
+}
+
+export async function runLearnLint(opts: LearnLintOptions): Promise<void> {
+  const dir = opts.global ? getGlobalDir() : getProjectDir(opts.projectRoot);
+  const report = lintLearnings(dir);
+
+  if (opts.format === "json") {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    const scope = opts.global ? "global" : "project";
+    console.log(chalk.bold(`Learn lint — ${scope} store (${report.scanned} learnings)`));
+    if (report.findings.length === 0) {
+      console.log(chalk.green("  ✓ no corpus hygiene problems found"));
+    } else {
+      for (const finding of report.findings) {
+        console.log(`  ${chalk.yellow("!")} ${chalk.bold(finding.type)}: ${finding.message}`);
+      }
+      console.log();
+      console.log(chalk.yellow(`${report.findings.length} finding(s)`));
+    }
+  }
+
+  if (report.findings.length > 0) {
+    process.exitCode = 1;
+  }
+}
