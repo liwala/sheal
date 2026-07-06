@@ -385,6 +385,11 @@ sheal learn sync
 # Corpus hygiene: duplicate IDs, near-duplicate rules, missing triggers
 sheal learn lint                # Exit 1 on findings (CI-usable)
 sheal learn lint --format json
+
+# Consolidation pass: emit a reviewable change set (never mutates the store)
+sheal consolidate               # Writes .sheal/consolidation/<date>-change-set.md
+sheal consolidate --format json # Mechanical change set to stdout
+sheal consolidate --prompt      # LLM judgment-stage prompt — pipe to any agent CLI
 ```
 
 #### Git-based backup & sync

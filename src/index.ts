@@ -7,6 +7,7 @@ import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
 import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnLint, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
 import { runGuardPr } from "./commands/guard.js";
+import { runConsolidate } from "./commands/consolidate.js";
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
@@ -99,6 +100,7 @@ Learnings (human-in-the-loop)
   sheal learn prune               Flag stale learnings (dry-run by default)
   sheal learn prune --apply       Actually remove stale learnings
   sheal learn lint                Check store for duplicate/near-duplicate/no-trigger learnings
+  sheal consolidate               Emit a reviewable change set for the learnings store
   sheal rules                     Inject learnings as rules into agent config
   sheal rules --dry-run           Preview without writing
 
@@ -182,6 +184,22 @@ program
       projectRoot: opts.project,
       skip: opts.skip,
       strict: opts.strict,
+    });
+  });
+
+program
+  .command("consolidate")
+  .description("Run a consolidation pass over the learnings store; emit a reviewable change set")
+  .option("--global", "Consolidate the global store instead of project", false)
+  .option("-f, --format <format>", "Output format: pretty (writes dated file) | json (stdout)", "pretty")
+  .option("--prompt", "Print the LLM judgment-stage prompt instead (pipe to any agent CLI)", false)
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runConsolidate({
+      global: opts.global,
+      format: opts.format,
+      prompt: opts.prompt,
+      projectRoot: opts.project,
     });
   });
 

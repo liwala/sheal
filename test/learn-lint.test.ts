@@ -8,7 +8,11 @@ import { lintLearnings } from "../src/learn/lint.js";
 const repoRoot = process.cwd();
 const tsxLoader = join(repoRoot, "node_modules", "tsx", "dist", "loader.mjs");
 
-function writeLearningFile(dir: string, filename: string, fields: { id: string; title: string; body: string }): void {
+function writeLearningFile(
+  dir: string,
+  filename: string,
+  fields: { id: string; title: string; body: string; status?: string },
+): void {
   writeFileSync(
     join(dir, filename),
     `---
@@ -18,7 +22,7 @@ date: 2026-07-06
 tags: [general]
 category: workflow
 severity: medium
-status: active
+status: ${fields.status ?? "active"}
 ---
 
 ${fields.body}
@@ -108,6 +112,51 @@ describe("learn lint", () => {
 
     expect(noTrigger).toHaveLength(1);
     expect(noTrigger[0].ids).toEqual(["LEARN-001"]);
+  });
+
+  it("excludes superseded and retired learnings from near-duplicate and trigger checks", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-inspect-samples.md", {
+      id: "LEARN-001",
+      title: "Inspect real samples before writing parsers",
+      body: "Before writing parsers for external data formats, always inspect two or three real samples first using git show, curl, or cat.",
+    });
+    writeLearningFile(dir, "LEARN-006-fetch-real-sample.md", {
+      id: "LEARN-006",
+      title: "Fetch a real sample before writing parsers",
+      body: "Before writing parsers for external data formats, fetch a real sample first and inspect it — do not write parsers against assumed schemas.",
+      status: "superseded",
+    });
+    writeLearningFile(dir, "LEARN-007-no-trigger-retired.md", {
+      id: "LEARN-007",
+      title: "Write clean code",
+      body: "Good variable names matter. Keep functions small and modular.",
+      status: "retired",
+    });
+
+    const report = lintLearnings(dir);
+
+    expect(report.findings.filter((f) => f.type === "near-duplicate")).toEqual([]);
+    expect(report.findings.filter((f) => f.type === "no-trigger")).toEqual([]);
+  });
+
+  it("still reports ID collisions even when one file is superseded", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-first-slug.md", {
+      id: "LEARN-001",
+      title: "Inspect real data before writing parsers",
+      body: "When writing a parser, inspect real samples first.",
+    });
+    writeLearningFile(dir, "LEARN-001-second-slug.md", {
+      id: "LEARN-001",
+      title: "Commit and restart on context compaction",
+      body: "When a session hits context compaction, commit work and restart.",
+      status: "superseded",
+    });
+
+    const report = lintLearnings(dir);
+
+    expect(report.findings.filter((f) => f.type === "duplicate-id")).toHaveLength(1);
   });
 
   it("returns no findings for a clean store and counts scanned files", () => {
