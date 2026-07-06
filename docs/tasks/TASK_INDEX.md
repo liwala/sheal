@@ -37,6 +37,9 @@
 - [x] [T15. Expose near-duplicate similarity as structured data in lint findings](t15-structured-similarity-in-lint-findings.md) — `done` → src/learn/lint.ts, src/consolidate/change-set.ts
 - [ ] [T16. Wire guard pr and check --strict into hooks/CI (close the enforcement loop)](t16-wire-guards-into-hooks-and-ci.md) — `todo`
 - [x] [T17. Reconcile --strict's warning definition with the check report summary](t17-reconcile-strict-warning-definition.md) — `done` → src/output/json.ts, src/commands/check.ts
+- [x] [T18. Unify the pretty summary line with the shared warning predicate](t18-unify-pretty-summary-warnings.md) — `done` → src/output/pretty.ts, test/check-summary.test.ts
+- [ ] [T19. Make supersede provenance git-visible](t19-git-visible-supersede-provenance.md) — `todo`
+- [ ] [T20. Harden the T14 gates against the qa-personas bypasses](t20-harden-gates-against-qa-bypasses.md) — `todo`
 
 ## Open questions
 
