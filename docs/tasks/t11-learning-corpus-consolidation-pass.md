@@ -7,7 +7,7 @@ id: T11
 deliverable: P0
 created: 2026-07-06
 links: ["docs/adr/0001-sheal-as-consolidation-system.md"]
-output: docs/wiki-candidates/
+output: docs/wiki-candidates/, docs/consolidation/2026-07-06-change-set.md
 ---
 
 # T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus
@@ -36,7 +36,8 @@ layering is real before building any wiki storage.
 
 ## Output
 
-docs/wiki-candidates/ (topic pages + contradictions list), ADR 0001 update.
+docs/wiki-candidates/ (topic pages), docs/consolidation/ (change set +
+review queue), ADR 0001 update.
 
 ## Dependencies
 

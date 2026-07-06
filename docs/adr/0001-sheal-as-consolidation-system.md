@@ -230,7 +230,8 @@ the user can judge directly.
 
 The pass was run over the store as it actually was: 55 files, 53 distinct
 learnings (more than the 30 this ADR assumed — the store and `AGENTS.md` had
-diverged). Results, in full at `docs/wiki-candidates/`:
+diverged). Results: topic pages at `docs/wiki-candidates/`, the change set +
+review queue at `docs/consolidation/2026-07-06-change-set.md`:
 
 - **Acceptance criteria met.** 49/53 learnings (92%) grouped into six topic
   pages without forcing; the contradictions list is non-empty and contains two

@@ -14,8 +14,8 @@ is a separate task.
 **The consolidation frame is real — proceed toward Accepted, with one revision.**
 
 - 49 of 53 learnings (92%) grouped into six coherent topic pages without
-  forcing; the four that resist grouping are explained in
-  [contradictions-and-dispositions.md](contradictions-and-dispositions.md).
+  forcing; the four that resist grouping are explained in the
+  [change set](../consolidation/2026-07-06-change-set.md).
 - The contradictions list is non-empty, and includes two genuine precedence
   conflicts (not just duplicates) that require a human call.
 - Strongest finding: the store already contains a **failed ad-hoc consolidation

@@ -30,8 +30,10 @@
 
 ## P0 — Learning quality
 
-- [x] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `done` → docs/wiki-candidates/
+- [x] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `done` → docs/wiki-candidates/, docs/consolidation/2026-07-06-change-set.md
 - [x] [T12. `sheal learn lint`: corpus hygiene checks](t12-learn-lint-corpus-hygiene.md) — `done` → src/learn/lint.ts, test/learn-lint.test.ts
+- [ ] [T13. `sheal consolidate`: emit a reviewable change set](t13-sheal-consolidate-change-set.md) — `todo`
+- [ ] [T14. Compile mechanical learnings into hooks and checkers (emitter v0)](t14-compile-mechanical-learnings.md) — `todo`
 
 ## Open questions
 

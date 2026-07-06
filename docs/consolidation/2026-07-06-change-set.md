@@ -1,7 +1,15 @@
-# Contradictions, near-duplicates, and dispositions
+# Consolidation change set — 2026-07-06
 
 Output of the T11 consolidation pass. **Proposal only** — nothing in
 `.sheal/learnings/` has been changed.
+
+This document is the artifact ADR 0001 calls a **change set** (the "Decide"
+stage output: merge / retire / reclassify, plus a review queue of human
+calls). This first one was produced manually as the ADR's validation
+milestone; producing it is the contract for `sheal consolidate`
+(T13 (sheal consolidate: emit a reviewable change set)), and compiling its
+"mechanical targets" section is the contract for the emitter
+(T14 (compile mechanical learnings into hooks and checkers)).
 
 ## Genuine tensions (human call required — `sheal review` queue material)
 
