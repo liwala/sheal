@@ -1,10 +1,13 @@
 ---
-status: todo
+status: done
+started: 2026-07-06
+closed: 2026-07-06
 type: task
 id: T13
 deliverable: P0
 created: 2026-07-06
 links: ["docs/adr/0001-sheal-as-consolidation-system.md", "docs/adr/0001-validation/2026-07-06-change-set.md"]
+output: src/consolidate/change-set.ts
 ---
 
 # T13. `sheal consolidate`: emit a reviewable change set

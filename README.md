@@ -85,9 +85,24 @@ Pre-session health check. Detects environment issues before you start coding.
 sheal check                    # Pretty output
 sheal check --format json      # JSON output
 sheal check --skip performance # Skip specific checkers
+sheal check --strict           # Warnings are blockers: exit non-zero on any warning
 ```
 
 **Checkers:** git status, dependencies, tests, environment, session learnings, performance & efficiency, Claude Code settings.
+
+### `sheal guard`
+
+Point-in-time gates compiled from learnings, designed for hooks and CI.
+
+```bash
+sheal guard pr                 # Pre-PR gate: branch must be ahead of base, exit 1 otherwise
+sheal guard pr --base develop  # Non-main base branch
+```
+
+`guard pr` verifies HEAD is a working branch (not the base itself), that
+`git rev-list base..HEAD` is non-empty (an empty PR is always a mistake), and
+warns on uncommitted changes. Wire it into a PreToolUse hook on `gh pr create`
+or a CI step.
 
 The performance checker detects your AI agent (Claude Code, Cursor, Gemini, Copilot, Amp), checks for RTK token compression, and config file sizes. The claude-settings checker audits permissions, hooks, MCP servers, env vars, and plugins across all settings scopes.
 
@@ -370,6 +385,11 @@ sheal learn sync
 # Corpus hygiene: duplicate IDs, near-duplicate rules, missing triggers
 sheal learn lint                # Exit 1 on findings (CI-usable)
 sheal learn lint --format json
+
+# Consolidation pass: emit a reviewable change set (never mutates the store)
+sheal consolidate               # Writes .sheal/consolidation/<date>-change-set.md
+sheal consolidate --format json # Mechanical change set to stdout
+sheal consolidate --prompt      # LLM judgment-stage prompt — pipe to any agent CLI
 ```
 
 #### Git-based backup & sync

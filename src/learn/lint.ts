@@ -12,6 +12,8 @@ export interface LintFinding {
   /** Filenames (relative to the store dir) involved in the finding */
   files: string[];
   message: string;
+  /** Jaccard score for near-duplicate findings (structured, not message-scraped) */
+  similarity?: number;
 }
 
 export interface LintReport {
@@ -125,6 +127,7 @@ function findNearDuplicates(entries: Entry[]): LintFinding[] {
           ids: [entries[i].learning.id, entries[j].learning.id],
           files: [entries[i].file, entries[j].file],
           message: `${entries[i].learning.id} and ${entries[j].learning.id} say nearly the same thing (similarity ${similarity.toFixed(2)}) — merge or retire one`,
+          similarity: Number(similarity.toFixed(2)),
         });
       }
     }
@@ -163,8 +166,12 @@ export function lintLearnings(dir: string): LintReport {
     learning: readLearning(join(dir, file)),
   }));
 
+  // Superseded/retired learnings are already resolved: they keep their ID
+  // (collisions still matter) but no longer compete as live rules.
+  const live = entries.filter((e) => e.learning.status !== "superseded" && e.learning.status !== "retired");
+
   return {
     scanned: entries.length,
-    findings: [...findDuplicateIds(entries), ...findNearDuplicates(entries), ...findMissingTriggers(entries)],
+    findings: [...findDuplicateIds(entries), ...findNearDuplicates(live), ...findMissingTriggers(live)],
   };
 }

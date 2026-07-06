@@ -2,12 +2,14 @@ import { allCheckers } from "../checkers/index.js";
 import type { CheckResult, CheckerContext } from "../checkers/types.js";
 import { loadConfig } from "../config/loader.js";
 import { outputPretty } from "../output/pretty.js";
-import { outputJson } from "../output/json.js";
+import { outputJson, resultHasWarnings } from "../output/json.js";
 
 export interface CheckOptions {
   format: string;
   projectRoot: string;
   skip?: string;
+  /** Treat warnings as blockers (compiles LEARN-007 into an exit code) */
+  strict?: boolean;
 }
 
 export async function runCheck(options: CheckOptions): Promise<void> {
@@ -15,10 +17,7 @@ export async function runCheck(options: CheckOptions): Promise<void> {
   const format = options.format ?? config.format;
 
   // Merge --skip flag into config
-  const skipList = [
-    ...config.skip,
-    ...(options.skip ? options.skip.split(",").map((s) => s.trim()) : []),
-  ];
+  const skipList = [...config.skip, ...(options.skip ? options.skip.split(",").map((s) => s.trim()) : [])];
 
   const checkers = allCheckers.filter((c) => !skipList.includes(c.name));
   const ctx: CheckerContext = { projectRoot: options.projectRoot, config };
@@ -29,9 +28,7 @@ export async function runCheck(options: CheckOptions): Promise<void> {
       try {
         return await Promise.race([
           checker.run(ctx),
-          new Promise<CheckResult>((_, reject) =>
-            setTimeout(() => reject(new Error("timeout")), config.timeoutMs),
-          ),
+          new Promise<CheckResult>((_, reject) => setTimeout(() => reject(new Error("timeout")), config.timeoutMs)),
         ]);
       } catch {
         return {
@@ -52,6 +49,7 @@ export async function runCheck(options: CheckOptions): Promise<void> {
   }
 
   const hasFail = results.some((r) => r.severity === "fail");
+  const hasWarn = results.some(resultHasWarnings);
   // Use process.exit to prevent hanging from lingering child processes
-  process.exit(hasFail ? 1 : 0);
+  process.exit(hasFail || (options.strict && hasWarn) ? 1 : 0);
 }

@@ -32,8 +32,14 @@
 
 - [x] [T11. Run the ADR 0001 validation milestone: consolidate the LEARN corpus](t11-learning-corpus-consolidation-pass.md) — `done` → docs/adr/0001-validation/
 - [x] [T12. `sheal learn lint`: corpus hygiene checks](t12-learn-lint-corpus-hygiene.md) — `done` → src/learn/lint.ts, test/learn-lint.test.ts
-- [ ] [T13. `sheal consolidate`: emit a reviewable change set](t13-sheal-consolidate-change-set.md) — `todo`
-- [ ] [T14. Compile mechanical learnings into hooks and checkers (emitter v0)](t14-compile-mechanical-learnings.md) — `todo`
+- [x] [T13. `sheal consolidate`: emit a reviewable change set](t13-sheal-consolidate-change-set.md) — `done` → src/consolidate/change-set.ts, src/commands/consolidate.ts
+- [x] [T14. Compile mechanical learnings into hooks and checkers (emitter v0)](t14-compile-mechanical-learnings.md) — `done` → src/commands/guard.ts, src/commands/check.ts (--strict)
+- [x] [T15. Expose near-duplicate similarity as structured data in lint findings](t15-structured-similarity-in-lint-findings.md) — `done` → src/learn/lint.ts, src/consolidate/change-set.ts
+- [ ] [T16. Wire guard pr and check --strict into hooks/CI (close the enforcement loop)](t16-wire-guards-into-hooks-and-ci.md) — `todo`
+- [x] [T17. Reconcile --strict's warning definition with the check report summary](t17-reconcile-strict-warning-definition.md) — `done` → src/output/json.ts, src/commands/check.ts
+- [x] [T18. Unify the pretty summary line with the shared warning predicate](t18-unify-pretty-summary-warnings.md) — `done` → src/output/pretty.ts, test/check-summary.test.ts
+- [ ] [T19. Make supersede provenance git-visible](t19-git-visible-supersede-provenance.md) — `todo`
+- [ ] [T20. Harden the T14 gates against the qa-personas bypasses](t20-harden-gates-against-qa-bypasses.md) — `todo`
 
 ## Open questions
 

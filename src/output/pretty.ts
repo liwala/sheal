@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import type { CheckResult, Severity } from "../checkers/types.js";
+import { buildSummary } from "./json.js";
 
 const icons: Record<Severity, string> = {
   pass: chalk.green("✓"),
@@ -33,14 +34,15 @@ export function outputPretty(results: CheckResult[]): void {
 
   console.log(chalk.gray("─".repeat(40)));
 
-  const counts = { pass: 0, warn: 0, fail: 0, skip: 0 };
-  for (const r of results) counts[r.severity]++;
+  // Same predicate as the JSON summary and --strict's exit code (T17/T18):
+  // detail-level warnings count, so the terminal never contradicts the gate.
+  const summary = buildSummary(results);
 
   const parts: string[] = [];
-  if (counts.pass) parts.push(chalk.green(`${counts.pass} passed`));
-  if (counts.warn) parts.push(chalk.yellow(`${counts.warn} warnings`));
-  if (counts.fail) parts.push(chalk.red(`${counts.fail} failed`));
-  if (counts.skip) parts.push(chalk.gray(`${counts.skip} skipped`));
+  if (summary.passed) parts.push(chalk.green(`${summary.passed} passed`));
+  if (summary.warnings) parts.push(chalk.yellow(`${summary.warnings} warnings`));
+  if (summary.failed) parts.push(chalk.red(`${summary.failed} failed`));
+  if (summary.skipped) parts.push(chalk.gray(`${summary.skipped} skipped`));
 
   const totalMs = results.reduce((sum, r) => Math.max(sum, r.durationMs), 0);
   console.log(`${results.length} checks: ${parts.join(", ")} ${chalk.gray(`(${totalMs}ms)`)}`);
