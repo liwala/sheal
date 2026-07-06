@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import { runCheck } from "./commands/check.js";
 import { runRetro } from "./commands/retro.js";
-import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
+import { runLearnAdd, runLearnList, runLearnShow, runLearnSync, runLearnReview, runLearnPromote, runLearnPrune, runLearnLint, runLearnRemoteAdd, runLearnRemoteShow, runLearnRemoteRemove, runLearnPush, runLearnPull } from "./commands/learn.js";
 import { runBackupRemoteAdd, runBackupRemoteShow, runBackupRemoteRemove, runBackupPush, runBackupPull } from "./commands/backup.js";
 import { runAsk, runAskList, runAskShow } from "./commands/ask.js";
 import { runBrowse } from "./commands/browse.js";
@@ -95,6 +95,7 @@ Learnings (human-in-the-loop)
   sheal learn sync                Pull global learnings into project
   sheal learn prune               Flag stale learnings (dry-run by default)
   sheal learn prune --apply       Actually remove stale learnings
+  sheal learn lint                Check store for duplicate/near-duplicate/no-trigger learnings
   sheal rules                     Inject learnings as rules into agent config
   sheal rules --dry-run           Preview without writing
 
@@ -597,6 +598,20 @@ learn
       global: opts.global,
       days: parsePositiveInt(opts.days, "--days"),
       dryRun: !opts.apply,
+      projectRoot: opts.project,
+    });
+  });
+
+learn
+  .command("lint")
+  .description("Check the learnings store for duplicate IDs, near-duplicates, and missing triggers")
+  .option("--global", "Lint global learnings instead of project", false)
+  .option("-f, --format <format>", "Output format: pretty | json", "pretty")
+  .option("-p, --project <path>", "Project root path", process.cwd())
+  .action(async (opts) => {
+    await runLearnLint({
+      global: opts.global,
+      format: opts.format,
       projectRoot: opts.project,
     });
   });
