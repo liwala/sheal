@@ -15,5 +15,8 @@ tmp/
 # sheal local data (synced learnings, cached retros)
 .sheal/
 
+# machine-local config overlay (merged over .self-heal.json by sheal)
+.self-heal.local.json
+
 # Dolt database files (added by bd init)
 *.db

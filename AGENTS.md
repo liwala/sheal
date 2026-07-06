@@ -199,10 +199,28 @@ Run `sheal retro` at the end of sessions to extract learnings.
 - [LEARN-030] After `npm audit` reveals a vulnerability, check if the vulnerable package is a direct or transitive dependency before attempting to pin it — pinning a transitive dependency in `package.json` may have no effect.
 <!-- END SHEAL RULES -->
 
+<!-- agent-policy-kit:start -->
+## Agent rules
+
+- Before writing source code for any behavior with an assertable contract: use the tdd skill
+- When setting up or managing repo task/question tracking in `docs/tasks/`: use the opentasks skill
+- When the repo lacks linting for changed code or a new language/toolchain: use the linters skill
+- Before security-relevant architecture decisions: suggest the threat-model skill
+- Before closing substantial changes that may affect security posture: suggest the security-review skill
+- Before closing any task or raising a PR: use the done skill
+- When making a costly or hard-to-reverse architectural decision: use the adr skill
+- When using a skill, also read `USER.md` in the same skill directory if it exists; it contains local instructions that extend the kit-managed `SKILL.md`
+- When referencing a task, question, ADR, or issue ID in any output a human or another repo will read (reports, issues, PRs, commit messages, chat), append its title — `T10 (Support .self-heal.local.json machine-local config overlay)`, never a bare `T10`. IDs are only meaningful inside their owning repo.
+- When blocked, uncertain, or two requirements conflict: stop and ask - never guess
+- Tests assert observable behavior, not implementation; they must survive a refactor
+
 ## Task and question tracking
 
-This project uses `docs/tasks/` to track work items and open decisions. Use the `/opentasks` skill to manage it.
+This project can use `docs/tasks/` as a lightweight repo convention for work items and open decisions. Use the `opentasks` skill to manage it.
 
-- When planning or breaking down work, record concrete steps as tasks (`/opentasks new task <title>`) and open decisions as questions (`/opentasks new question <title>`).
-- Keep status current: mark items `doing` when you start, `blocked` when waiting, `done` when complete.
-- Never create task or question files manually — always go through `/opentasks` to keep the index in sync.
+- To initialize task tracking, run `/opentasks bootstrap` where slash skills are supported, `/skill:opentasks bootstrap` in Pi, or invoke the `opentasks` skill through the local skill picker.
+- When planning or breaking down work, record concrete steps as tasks and open decisions as questions.
+- Keep tasks sized for one focused agent session or one coherent PR.
+- Use questions for unresolved decisions, ADRs for durable decisions, and tasks for execution.
+- Never create task or question files manually; use the `opentasks` skill so the index stays in sync.
+<!-- agent-policy-kit:end -->

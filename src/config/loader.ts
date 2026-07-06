@@ -4,11 +4,12 @@ import type { SelfHealConfig, ResolvedConfig } from "./types.js";
 import { defaultConfig } from "./defaults.js";
 
 const CONFIG_FILENAME = ".self-heal.json";
+const LOCAL_CONFIG_FILENAME = ".self-heal.local.json";
 
-function findConfigFile(startDir: string): string | null {
+function findConfigFile(startDir: string, filename: string): string | null {
   let dir = startDir;
   while (true) {
-    const candidate = join(dir, CONFIG_FILENAME);
+    const candidate = join(dir, filename);
     if (existsSync(candidate)) return candidate;
     const parent = dirname(dir);
     if (parent === dir) return null;
@@ -16,45 +17,58 @@ function findConfigFile(startDir: string): string | null {
   }
 }
 
-export function loadConfig(projectRoot: string): ResolvedConfig {
-  const configPath = findConfigFile(projectRoot);
-  if (!configPath) return { ...defaultConfig };
-
-  let raw: SelfHealConfig;
+function readConfigFile(path: string): SelfHealConfig | null {
   try {
-    raw = JSON.parse(readFileSync(configPath, "utf-8")) as SelfHealConfig;
+    return JSON.parse(readFileSync(path, "utf-8")) as SelfHealConfig;
   } catch (e) {
-    console.error(`Warning: failed to parse ${configPath}: ${(e as Error).message}`);
-    return { ...defaultConfig };
+    console.error(`Warning: failed to parse ${path}: ${(e as Error).message}`);
+    return null;
   }
+}
 
+function mergeLayer(base: ResolvedConfig, raw: SelfHealConfig): ResolvedConfig {
   return {
-    skip: raw.skip ?? defaultConfig.skip,
+    skip: raw.skip ?? base.skip,
     pull: {
-      ...defaultConfig.pull,
+      ...base.pull,
       ...raw.pull,
     },
     checkers: {
-      git: { ...defaultConfig.checkers.git, ...raw.checkers?.git },
+      git: { ...base.checkers.git, ...raw.checkers?.git },
       dependencies: {
-        ...defaultConfig.checkers.dependencies,
+        ...base.checkers.dependencies,
         ...raw.checkers?.dependencies,
       },
-      tests: { ...defaultConfig.checkers.tests, ...raw.checkers?.tests },
+      tests: { ...base.checkers.tests, ...raw.checkers?.tests },
       environment: {
-        ...defaultConfig.checkers.environment,
+        ...base.checkers.environment,
         ...raw.checkers?.environment,
       },
       sessionLearnings: {
-        ...defaultConfig.checkers.sessionLearnings,
+        ...base.checkers.sessionLearnings,
         ...raw.checkers?.sessionLearnings,
       },
     },
     learnings: {
-      ...defaultConfig.learnings,
+      ...base.learnings,
       ...raw.learnings,
     },
-    timeoutMs: raw.timeoutMs ?? defaultConfig.timeoutMs,
-    format: raw.format ?? defaultConfig.format,
+    timeoutMs: raw.timeoutMs ?? base.timeoutMs,
+    format: raw.format ?? base.format,
   };
+}
+
+export function loadConfig(projectRoot: string): ResolvedConfig {
+  // .self-heal.local.json is a machine-local overlay (gitignored): same shape
+  // as .self-heal.json, merged over it field by field. Each file is found by
+  // its own upward search so a repo-root local file applies from subdirectories.
+  const layers = [
+    findConfigFile(projectRoot, CONFIG_FILENAME),
+    findConfigFile(projectRoot, LOCAL_CONFIG_FILENAME),
+  ]
+    .filter((path): path is string => path !== null)
+    .map(readConfigFile)
+    .filter((raw): raw is SelfHealConfig => raw !== null);
+
+  return layers.reduce(mergeLayer, { ...defaultConfig });
 }
