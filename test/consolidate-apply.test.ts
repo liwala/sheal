@@ -215,6 +215,38 @@ describe("consolidate apply", () => {
     expect(learning.body).toContain("When adding filter/search/sort");
   });
 
+  it("supersede then renumber on the same file applies both (collision member that also retires)", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-keep.md", {
+      id: "LEARN-001",
+      title: "Survivor",
+      body: "When A, do B.",
+    });
+    writeLearningFile(dir, "LEARN-001-dup.md", {
+      id: "LEARN-001",
+      title: "Absorbed duplicate",
+      body: "When A, also do B.",
+    });
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "supersede", file: "LEARN-001-dup.md", by: "ground-truth rule 1" },
+        { action: "renumber", file: "LEARN-001-dup.md", toId: "LEARN-002" },
+      ],
+    };
+    applyDecisions(dir, decisions, { apply: true });
+
+    const renamed = readdirSync(dir).find((f) => f.startsWith("LEARN-002"));
+    expect(renamed).toBeDefined();
+    const learning = readLearning(join(dir, renamed!));
+    expect(learning.id).toBe("LEARN-002");
+    expect(learning.status).toBe("superseded");
+    expect(learning.body).toContain("**Superseded by:** ground-truth rule 1");
+
+    const report = lintLearnings(dir);
+    expect(report.findings.filter((f) => f.type === "duplicate-id")).toHaveLength(0);
+  });
+
   it("a decision referencing a missing file fails the whole run with no partial mutation", () => {
     const dir = makeStore();
     writeLearningFile(dir, "LEARN-006-real.md", {

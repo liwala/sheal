@@ -100,9 +100,14 @@ function planDetail(v: ValidatedDecision): string {
 
 function execute(dir: string, v: ValidatedDecision): void {
   const d = v.decision;
+  // Re-read at execution time: decisions apply in file order, and an earlier
+  // decision (e.g. supersede) may already have rewritten this file. Status
+  // changes must be listed before a renumber of the same file — the renumber
+  // renames it, so later decisions could no longer find it by the old name.
+  const current = readLearning(v.path);
   switch (d.action) {
     case "renumber": {
-      const updated = { ...v.learning, id: d.toId };
+      const updated = { ...current, id: d.toId };
       const newPath = join(dir, `${d.toId}-${slugify(updated.title)}.md`);
       writeFileSync(newPath, renderLearning(updated), "utf-8");
       if (newPath !== v.path) unlinkSync(v.path);
@@ -110,24 +115,24 @@ function execute(dir: string, v: ValidatedDecision): void {
     }
     case "supersede": {
       const updated: LearningFile = {
-        ...v.learning,
+        ...current,
         status: "superseded",
-        body: `${v.learning.body.trim()}\n\n**Superseded by:** ${d.by}`,
+        body: `${current.body.trim()}\n\n**Superseded by:** ${d.by}`,
       };
       writeFileSync(v.path, renderLearning(updated), "utf-8");
       break;
     }
     case "retire": {
       const updated: LearningFile = {
-        ...v.learning,
+        ...current,
         status: "retired",
-        body: `${v.learning.body.trim()}\n\n**Retired:** ${d.reason}`,
+        body: `${current.body.trim()}\n\n**Retired:** ${d.reason}`,
       };
       writeFileSync(v.path, renderLearning(updated), "utf-8");
       break;
     }
     case "rewrite": {
-      const updated: LearningFile = { ...v.learning, title: d.title, body: d.body };
+      const updated: LearningFile = { ...current, title: d.title, body: d.body };
       const newPath = join(dir, `${updated.id}-${slugify(d.title)}.md`);
       writeFileSync(newPath, renderLearning(updated), "utf-8");
       if (newPath !== v.path) unlinkSync(v.path);
