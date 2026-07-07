@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readLearning, renderLearning, slugify } from "../learn/store.js";
 import type { LearningFile } from "../learn/types.js";
@@ -39,11 +39,33 @@ interface ValidatedDecision {
   path: string;
 }
 
+/**
+ * In-place writes follow symlinks, so a LEARN-*.md symlink inside the store
+ * would redirect a supersede/retire write outside it. Refuse symlinks at
+ * every path we read or write.
+ */
+function assertNotSymlink(path: string, label: string): void {
+  let stat;
+  try {
+    stat = lstatSync(path);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw err;
+  }
+  if (stat.isSymbolicLink()) {
+    throw new Error(`${label} is a symlink — refusing to read or write through it: ${path}`);
+  }
+}
+
 function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[] {
   const actions = new Set(["renumber", "supersede", "retire", "rewrite"]);
   const existingIds = new Map<string, string[]>();
   if (existsSync(dir)) {
     for (const f of readdirSync(dir).filter((f) => f.startsWith("LEARN-") && f.endsWith(".md"))) {
+      // Symlinks are never legitimate store entries; skip them here so the
+      // scan doesn't read through them — decisions referencing one are
+      // rejected below by assertNotSymlink.
+      if (lstatSync(join(dir, f)).isSymbolicLink()) continue;
       const l = readLearning(join(dir, f));
       existingIds.set(l.id, [...(existingIds.get(l.id) ?? []), f]);
     }
@@ -76,12 +98,14 @@ function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[
     if (!existsSync(path)) {
       throw new Error(`Decision references a missing file: ${decision.file}`);
     }
+    assertNotSymlink(path, `Decision file ${decision.file}`);
     const learning = readLearning(path);
 
     if (decision.action === "renumber") {
-      if (!/^LEARN-\d+$/.test(decision.toId)) {
-        throw new Error(`Renumber target for ${decision.file} is not a LEARN-NNN id: "${decision.toId}"`);
+      if (!/^LEARN-\d{3,}$/.test(decision.toId)) {
+        throw new Error(`Renumber target for ${decision.file} is not a zero-padded LEARN-NNN id: "${decision.toId}"`);
       }
+      assertNotSymlink(join(dir, `${decision.toId}-${slugify(learning.title)}.md`), `Renumber target for ${decision.toId}`);
       const holders = (existingIds.get(decision.toId) ?? []).filter((f) => f !== decision.file);
       if (holders.length > 0) {
         throw new Error(`Renumber target ${decision.toId} is already used by ${holders.join(", ")}`);
@@ -100,8 +124,14 @@ function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[
     if (decision.action === "retire" && !decision.reason) {
       throw new Error(`Retire decision for ${decision.file} is missing "reason"`);
     }
-    if (decision.action === "rewrite" && (!decision.title || !decision.body)) {
-      throw new Error(`Rewrite decision for ${decision.file} needs both "title" and "body"`);
+    if (decision.action === "rewrite") {
+      if (!decision.title || !decision.body) {
+        throw new Error(`Rewrite decision for ${decision.file} needs both "title" and "body"`);
+      }
+      if (/[\r\n]/.test(decision.title)) {
+        throw new Error(`Rewrite title for ${decision.file} must be a single line (frontmatter injection)`);
+      }
+      assertNotSymlink(join(dir, `${learning.id}-${slugify(decision.title)}.md`), `Rewrite target for ${decision.file}`);
     }
     return { decision, learning, path };
   });
@@ -127,11 +157,13 @@ function execute(dir: string, v: ValidatedDecision): void {
   // decision (e.g. supersede) may already have rewritten this file. Status
   // changes must be listed before a renumber of the same file — the renumber
   // renames it, so later decisions could no longer find it by the old name.
+  assertNotSymlink(v.path, `Decision file ${d.file}`);
   const current = readLearning(v.path);
   switch (d.action) {
     case "renumber": {
       const updated = { ...current, id: d.toId };
       const newPath = join(dir, `${d.toId}-${slugify(updated.title)}.md`);
+      assertNotSymlink(newPath, `Renumber target for ${d.toId}`);
       writeFileSync(newPath, renderLearning(updated), "utf-8");
       if (newPath !== v.path) unlinkSync(v.path);
       break;
@@ -160,6 +192,7 @@ function execute(dir: string, v: ValidatedDecision): void {
     case "rewrite": {
       const updated: LearningFile = { ...current, title: d.title, body: d.body };
       const newPath = join(dir, `${updated.id}-${slugify(d.title)}.md`);
+      assertNotSymlink(newPath, `Rewrite target for ${d.file}`);
       writeFileSync(newPath, renderLearning(updated), "utf-8");
       if (newPath !== v.path) unlinkSync(v.path);
       break;

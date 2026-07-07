@@ -68,11 +68,21 @@ function runApplyStage(dir: string, decisionsPath: string, apply: boolean): void
 
   let result;
   try {
-    result = applyDecisions(dir, decisionsFile, { apply });
+    // Validation-only pass first: a failure here means nothing was written.
+    result = applyDecisions(dir, decisionsFile, { apply: false });
   } catch (err) {
     console.error(chalk.red(`Decisions not applied: ${(err as Error).message}`));
     process.exitCode = 1;
     return;
+  }
+  if (apply) {
+    try {
+      result = applyDecisions(dir, decisionsFile, { apply: true });
+    } catch (err) {
+      console.error(chalk.red(`Apply failed mid-run — the store may be partially changed: ${(err as Error).message}`));
+      process.exitCode = 1;
+      return;
+    }
   }
 
   const mode = result.applied ? chalk.green("applied") : chalk.yellow("dry run (pass --apply to execute)");

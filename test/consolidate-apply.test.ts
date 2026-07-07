@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -316,6 +316,77 @@ describe("consolidate apply", () => {
 
     const body = readLearning(join(dir, "LEARN-001-old.md")).body;
     expect(body.match(/\*\*Superseded by:\*\*/g)).toHaveLength(1);
+  });
+
+  it("refuses to operate on a symlinked store entry (no write-through outside the store)", () => {
+    const dir = makeStore();
+    const outside = join(dir, "..", "sentinel.md");
+    writeFileSync(outside, "untouched", "utf-8");
+    symlinkSync(outside, join(dir, "LEARN-001-linked.md"));
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "retire", file: "LEARN-001-linked.md", reason: "symlink vector" },
+      ],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/symlink/i);
+    expect(readFileSync(outside, "utf-8")).toBe("untouched");
+  });
+
+  it("refuses a renumber whose target filename is a pre-existing symlink", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-real.md", {
+      id: "LEARN-001",
+      title: "Real",
+      body: "When A, do B.",
+    });
+    const outside = join(dir, "..", "sentinel2.md");
+    writeFileSync(outside, "untouched", "utf-8");
+    symlinkSync(outside, join(dir, "LEARN-002-real.md"));
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "renumber", file: "LEARN-001-real.md", toId: "LEARN-002" },
+      ],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/symlink|LEARN-002/i);
+    expect(readFileSync(outside, "utf-8")).toBe("untouched");
+  });
+
+  it("rejects a renumber target that is not zero-padded to the store convention", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-real.md", {
+      id: "LEARN-001",
+      title: "Real",
+      body: "When A, do B.",
+    });
+
+    const decisions: DecisionsFile = {
+      decisions: [{ action: "renumber", file: "LEARN-001-real.md", toId: "LEARN-2" }],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/LEARN-2/);
+  });
+
+  it("rejects a rewrite title containing a newline (frontmatter injection)", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-real.md", {
+      id: "LEARN-001",
+      title: "Real",
+      body: "When A, do B.",
+    });
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        {
+          action: "rewrite",
+          file: "LEARN-001-real.md",
+          title: "Innocent\nstatus: retired",
+          body: "When A, do B.",
+        },
+      ],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/title/i);
+    expect(readLearning(join(dir, "LEARN-001-real.md")).status).toBe("active");
   });
 
   it("rejects file references that escape the store directory", () => {
