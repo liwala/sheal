@@ -64,6 +64,20 @@ milestone; producing it is the contract for `sheal consolidate`
   **LEARN-041** (user says "no, it was X" → pivot, don't defend): a coherent
   conversational-repair pair. A page materializes if a third arrives.
 
+## No-trigger dispositions (decided 2026-07-07, Luisa)
+
+Both flagged rewrite-or-retire by `sheal consolidate`; both **rewritten with
+a checkable trigger** rather than retired:
+
+- **LEARN-031** → "When adding filter/search/sort over a collection in UI
+  code, apply it in the data/query layer, not in the render path." Trigger:
+  adding filtering logic to a component.
+- **LEARN-043** → "When a command fails due to environment state (blocked
+  host, missing tool, sandbox quirk) and the workaround isn't derivable from
+  the repo, record it (memory / `.self-heal.local.json`) before moving on."
+  Trigger: environment-caused failure with a non-obvious workaround. Holds
+  the slot until the `sheal capture` crisis verb (mechanical table) lands.
+
 ## Mechanical compilation targets (12)
 
 Learnings that should become hooks/checkers/config, not prose — per the

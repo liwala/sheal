@@ -62,7 +62,7 @@ export function slugify(title: string): string {
 /**
  * Render a LearningFile to its markdown string (frontmatter + body).
  */
-function renderLearning(learning: LearningFile): string {
+export function renderLearning(learning: LearningFile): string {
   const tags = `[${learning.tags.join(", ")}]`;
   const sessionLine = learning.sessionId ? `\nsession-id: ${learning.sessionId}` : "";
   return `---
