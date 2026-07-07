@@ -49,6 +49,12 @@ function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[
     }
   }
 
+  // Walk decisions in order, simulating renames: a renumber/rewrite renames
+  // its file, so later decisions can no longer reference the old name, and
+  // two renumbers must not claim the same target id.
+  const renamedAway = new Set<string>();
+  const claimedIds = new Set<string>();
+
   return decisionsFile.decisions.map((decision) => {
     if (!actions.has(decision.action)) {
       throw new Error(`Unknown action "${(decision as { action: string }).action}" in decisions file`);
@@ -60,6 +66,11 @@ function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[
     // path with separators could read or write outside the store.
     if (decision.file.includes("/") || decision.file.includes("\\") || !decision.file.startsWith("LEARN-")) {
       throw new Error(`Decision file must be a LEARN-*.md filename inside the store, got: ${decision.file}`);
+    }
+    if (renamedAway.has(decision.file)) {
+      throw new Error(
+        `Decision references ${decision.file}, which an earlier renumber/rewrite renames — list status changes before renames`,
+      );
     }
     const path = join(dir, decision.file);
     if (!existsSync(path)) {
@@ -75,6 +86,13 @@ function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[
       if (holders.length > 0) {
         throw new Error(`Renumber target ${decision.toId} is already used by ${holders.join(", ")}`);
       }
+      if (claimedIds.has(decision.toId)) {
+        throw new Error(`Renumber target ${decision.toId} is already claimed by an earlier decision in this file`);
+      }
+      claimedIds.add(decision.toId);
+    }
+    if (decision.action === "renumber" || decision.action === "rewrite") {
+      renamedAway.add(decision.file);
     }
     if (decision.action === "supersede" && !decision.by) {
       throw new Error(`Supersede decision for ${decision.file} is missing "by"`);
@@ -119,6 +137,8 @@ function execute(dir: string, v: ValidatedDecision): void {
       break;
     }
     case "supersede": {
+      // Idempotent: re-applying the same decision must not stack pointers
+      if (current.status === "superseded" && current.body.includes(`**Superseded by:** ${d.by}`)) break;
       const updated: LearningFile = {
         ...current,
         status: "superseded",
@@ -128,6 +148,7 @@ function execute(dir: string, v: ValidatedDecision): void {
       break;
     }
     case "retire": {
+      if (current.status === "retired" && current.body.includes(`**Retired:** ${d.reason}`)) break;
       const updated: LearningFile = {
         ...current,
         status: "retired",

@@ -247,6 +247,77 @@ describe("consolidate apply", () => {
     expect(report.findings.filter((f) => f.type === "duplicate-id")).toHaveLength(0);
   });
 
+  it("rejects two renumbers claiming the same target id", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-first.md", {
+      id: "LEARN-001",
+      title: "First",
+      body: "When A, do B.",
+    });
+    writeLearningFile(dir, "LEARN-001-second.md", {
+      id: "LEARN-001",
+      title: "Second",
+      body: "When C, do D.",
+    });
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "renumber", file: "LEARN-001-first.md", toId: "LEARN-002" },
+        { action: "renumber", file: "LEARN-001-second.md", toId: "LEARN-002" },
+      ],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/LEARN-002/);
+    const report = lintLearnings(dir);
+    expect(report.findings.filter((f) => f.type === "duplicate-id")).toHaveLength(1);
+  });
+
+  it("rejects a decision referencing a file renamed by an earlier decision", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-target.md", {
+      id: "LEARN-001",
+      title: "Target",
+      body: "When A, do B.",
+    });
+    const before = snapshot(dir);
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "renumber", file: "LEARN-001-target.md", toId: "LEARN-002" },
+        { action: "supersede", file: "LEARN-001-target.md", by: "some rule" },
+      ],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/renamed|renumber/i);
+    expect(snapshot(dir)).toEqual(before);
+  });
+
+  it("re-applying the same supersede and retire decisions is idempotent", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-old.md", {
+      id: "LEARN-001",
+      title: "Old rule",
+      body: "When A, do B.",
+    });
+    writeLearningFile(dir, "LEARN-002-feedback.md", {
+      id: "LEARN-002",
+      title: "Feedback",
+      body: "When C, do D.",
+    });
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "supersede", file: "LEARN-001-old.md", by: "rule 1" },
+        { action: "retire", file: "LEARN-002-feedback.md", reason: "product feedback" },
+      ],
+    };
+    applyDecisions(dir, decisions, { apply: true });
+    const first = snapshot(dir);
+    applyDecisions(dir, decisions, { apply: true });
+    expect(snapshot(dir)).toEqual(first);
+
+    const body = readLearning(join(dir, "LEARN-001-old.md")).body;
+    expect(body.match(/\*\*Superseded by:\*\*/g)).toHaveLength(1);
+  });
+
   it("rejects file references that escape the store directory", () => {
     const dir = makeStore();
     writeLearningFile(dir, "LEARN-001-real.md", {
