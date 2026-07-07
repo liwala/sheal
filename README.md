@@ -390,7 +390,17 @@ sheal learn lint --format json
 sheal consolidate               # Writes .sheal/consolidation/<date>-change-set.md
 sheal consolidate --format json # Mechanical change set to stdout
 sheal consolidate --prompt      # LLM judgment-stage prompt — pipe to any agent CLI
+
+# Apply stage: execute reviewed dispositions against the store
+sheal consolidate --decisions decisions.json          # Dry run — prints the plan
+sheal consolidate --decisions decisions.json --apply  # Executes it
 ```
+
+The decisions file is JSON with a `decisions` array; each entry names a store
+file and one action: `renumber` (`toId`), `supersede` (`by`), `retire`
+(`reason`), or `rewrite` (`title` + `body`). Every decision is validated
+before anything is written; supersede and retire append a provenance line to
+the learning body. List status changes before a renumber of the same file.
 
 #### Git-based backup & sync
 

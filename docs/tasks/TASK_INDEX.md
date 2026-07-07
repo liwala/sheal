@@ -41,6 +41,7 @@
 - [ ] [T19. Make supersede provenance git-visible](t19-git-visible-supersede-provenance.md) — `todo`
 - [ ] [T20. Harden the T14 gates against the qa-personas bypasses](t20-harden-gates-against-qa-bypasses.md) — `todo`
 - [ ] [T21. `sheal review`: apply consolidation change-set dispositions to the store](t21-sheal-review-apply-dispositions.md) — `doing`
+- [ ] [T22. Validate checkpoint completeness inside `sheal retro`](t22-validate-checkpoint-completeness-in-retro.md) — `todo`
 
 ## Open questions
 

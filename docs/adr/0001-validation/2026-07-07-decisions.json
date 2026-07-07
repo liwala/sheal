@@ -1,0 +1,154 @@
+{
+  "$comment": "Apply-stage decisions for the 2026-07-06 consolidation change set (ADR 0001). Executes the merge/retire table, the T1/T2 tension decisions (2026-07-06), the LEARN-031/043 rewrites (2026-07-07), and renumbers one member of each of the 12 ID collisions (long-titled AGENTS.md-era items keep their number). Status changes precede renumbers of the same file. Apply: sheal consolidate --decisions docs/adr/0001-validation/2026-07-07-decisions.json --apply",
+  "decisions": [
+    {
+      "action": "supersede",
+      "file": "LEARN-001-inspect-real-data-before-writing-parsers.md",
+      "by": "ground-truth-before-action rule 1 (docs/adr/0001-validation/ground-truth-before-action.md); LEARN-001 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-003-after-creating-test-fixtures-verify-they-match-the.md",
+      "by": "ground-truth-before-action rule 1 (docs/adr/0001-validation/ground-truth-before-action.md), folded"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-006-before-parsing-any-external-data-format-entire-io-.md",
+      "by": "ground-truth-before-action rule 1 (docs/adr/0001-validation/ground-truth-before-action.md)"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-002-run-help-before-using-unfamiliar-cli.md",
+      "by": "ground-truth-before-action rule 2 (docs/adr/0001-validation/ground-truth-before-action.md); LEARN-002 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-012-when-adding-support-for-a-new-agent-runtime-amp-co.md",
+      "by": "ground-truth-before-action rule 2 (docs/adr/0001-validation/ground-truth-before-action.md), folded"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-028-when-the-user-reports-a-ui-bug-via-screenshot-repr.md",
+      "by": "ground-truth-before-action rule 3 (docs/adr/0001-validation/ground-truth-before-action.md); LEARN-025 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-010-when-a-session-hits-context-compaction-stop-adding.md",
+      "by": "working-session-cadence rule 1 (docs/adr/0001-validation/working-session-cadence.md); the merged compaction protocol adopts LEARN-003 (on-context-compaction) text"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-013-after-context-compaction-re-read-the-3-most-recent.md",
+      "by": "working-session-cadence rule 1 (docs/adr/0001-validation/working-session-cadence.md); the re-read clause survives as a T1 precedence trigger in rule 4"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-021-after-implementing-each-user-requested-feature-run.md",
+      "by": "working-session-cadence rule 2 (docs/adr/0001-validation/working-session-cadence.md); LEARN-022 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-007-compile-after-each-file-not-in-batch.md",
+      "by": "working-session-cadence rule 3 (docs/adr/0001-validation/working-session-cadence.md), T2 decision 2026-07-06: batch per file, verify per file; LEARN-016 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-008-after-npm-link-or-global-cli-installation-always-r.md",
+      "by": "working-session-cadence rule 3 (docs/adr/0001-validation/working-session-cadence.md), folded (rebuild + smoke-test clause)"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-009-dont-retry-same-failing-call.md",
+      "by": "working-session-cadence rule 4 (docs/adr/0001-validation/working-session-cadence.md); LEARN-018 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-040-before-re-reading-a-file-in-the-same-session-check.md",
+      "by": "working-session-cadence rule 4 (docs/adr/0001-validation/working-session-cadence.md), T1 decision 2026-07-06: trust context by default; re-read only on compaction or 3+ touches"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-004-plan-multi-file-changes-before-coding.md",
+      "by": "plan-before-you-edit rule 1 (docs/adr/0001-validation/plan-before-you-edit.md); LEARN-011 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-005-when-bootstrapping-a-new-typescript-cli-project-de.md",
+      "by": "plan-before-you-edit rule 1 (docs/adr/0001-validation/plan-before-you-edit.md), demoted to an example instance"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-009-when-a-session-involves-both-infrastructure-setup-.md",
+      "by": "plan-before-you-edit rule 1 (docs/adr/0001-validation/plan-before-you-edit.md), demoted to an example instance"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-011-clarify-multi-step-flows-before-coding.md",
+      "by": "plan-before-you-edit rule 2 (docs/adr/0001-validation/plan-before-you-edit.md), folded; LEARN-024 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-010-implement-full-ui-state-in-one-edit.md",
+      "by": "plan-before-you-edit rule 2 (docs/adr/0001-validation/plan-before-you-edit.md), folded"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-027-when-a-tui-component-has-been-edited-5-times-in-a-.md",
+      "by": "plan-before-you-edit rule 2 crisis clause (docs/adr/0001-validation/plan-before-you-edit.md)"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-005-get-one-screen-working-before-adding-navigation.md",
+      "by": "plan-before-you-edit rule 3 (docs/adr/0001-validation/plan-before-you-edit.md); LEARN-014 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-008-inventory-environment-before-assuming-tools-exist.md",
+      "by": "environment-and-sandbox-diagnostics rule 1 (docs/adr/0001-validation/environment-and-sandbox-diagnostics.md); LEARN-017 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-006-check-build-tags-and-cross-compilation-for-os-errors.md",
+      "by": "environment-and-sandbox-diagnostics rule 4 (docs/adr/0001-validation/environment-and-sandbox-diagnostics.md); LEARN-015 remains the store representative"
+    },
+    {
+      "action": "supersede",
+      "file": "LEARN-004-when-a-background-server-process-dolt-postgres-red.md",
+      "by": "`.self-heal.json` requiredServices (compiled mechanically — ADR 0001 validation mechanical targets table; the rule is now config, not prose)"
+    },
+    {
+      "action": "retire",
+      "file": "LEARN-019-when-a-retro-session-s-input-data-is-incomplete-e-.md",
+      "reason": "product feedback against sheal's retro pipeline, not an agent-behavior rule — filed as T22 (Validate checkpoint completeness inside sheal retro)"
+    },
+    {
+      "action": "retire",
+      "file": "LEARN-020-when-running-retro-on-a-prior-session-verify-the-c.md",
+      "reason": "product feedback against sheal's retro pipeline, not an agent-behavior rule — filed as T22 (Validate checkpoint completeness inside sheal retro)"
+    },
+    {
+      "action": "rewrite",
+      "file": "LEARN-031-filter-collections-at-the-data-layer-not-in-the-pr.md",
+      "title": "Apply collection filters in the data layer, not the render path",
+      "body": "When adding filter/search/sort over a collection in UI code, apply it in the data/query layer, not in the render path."
+    },
+    {
+      "action": "rewrite",
+      "file": "LEARN-043-save-non-obvious-environmental-gotchas-blocked-hos.md",
+      "title": "Record environment gotchas the moment they are identified",
+      "body": "When a command fails due to environment state (blocked host, missing tool, sandbox quirk) and the workaround isn't derivable from the repo, record it (memory or `.self-heal.local.json`) before moving on. Slot for the planned `sheal capture` crisis verb."
+    },
+    { "action": "renumber", "file": "LEARN-001-inspect-real-data-before-writing-parsers.md", "toId": "LEARN-045" },
+    { "action": "renumber", "file": "LEARN-002-run-help-before-using-unfamiliar-cli.md", "toId": "LEARN-046" },
+    { "action": "renumber", "file": "LEARN-003-on-context-compaction-commit-and-restart.md", "toId": "LEARN-047" },
+    { "action": "renumber", "file": "LEARN-004-plan-multi-file-changes-before-coding.md", "toId": "LEARN-048" },
+    { "action": "renumber", "file": "LEARN-005-get-one-screen-working-before-adding-navigation.md", "toId": "LEARN-049" },
+    { "action": "renumber", "file": "LEARN-006-check-build-tags-and-cross-compilation-for-os-errors.md", "toId": "LEARN-050" },
+    { "action": "renumber", "file": "LEARN-007-compile-after-each-file-not-in-batch.md", "toId": "LEARN-051" },
+    { "action": "renumber", "file": "LEARN-008-inventory-environment-before-assuming-tools-exist.md", "toId": "LEARN-052" },
+    { "action": "renumber", "file": "LEARN-009-dont-retry-same-failing-call.md", "toId": "LEARN-053" },
+    { "action": "renumber", "file": "LEARN-010-implement-full-ui-state-in-one-edit.md", "toId": "LEARN-054" },
+    { "action": "renumber", "file": "LEARN-011-clarify-multi-step-flows-before-coding.md", "toId": "LEARN-055" },
+    { "action": "renumber", "file": "LEARN-012-reread-file-after-3-plus-edits.md", "toId": "LEARN-056" }
+  ]
+}
