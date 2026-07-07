@@ -1,6 +1,7 @@
 ---
-status: doing
+status: done
 started: 2026-07-07
+closed: 2026-07-07
 type: task
 id: T21
 deliverable: P0
@@ -8,6 +9,7 @@ created: 2026-07-07
 links:
   - docs/adr/0001-sheal-as-consolidation-system.md
   - docs/adr/0001-validation/2026-07-06-change-set.md
+output: src/consolidate/apply.ts, src/commands/consolidate.ts, test/consolidate-apply.test.ts, docs/adr/0001-validation/2026-07-07-decisions.json
 ---
 
 # T21. `sheal review`: apply consolidation change-set dispositions to the store
