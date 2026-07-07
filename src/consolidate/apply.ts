@@ -56,6 +56,11 @@ function validate(dir: string, decisionsFile: DecisionsFile): ValidatedDecision[
     if (!decision.file) {
       throw new Error(`Decision (${decision.action}) is missing a "file" reference`);
     }
+    // Plain store filenames only — "file" is joined onto the store dir, so a
+    // path with separators could read or write outside the store.
+    if (decision.file.includes("/") || decision.file.includes("\\") || !decision.file.startsWith("LEARN-")) {
+      throw new Error(`Decision file must be a LEARN-*.md filename inside the store, got: ${decision.file}`);
+    }
     const path = join(dir, decision.file);
     if (!existsSync(path)) {
       throw new Error(`Decision references a missing file: ${decision.file}`);

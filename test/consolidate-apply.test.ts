@@ -247,6 +247,24 @@ describe("consolidate apply", () => {
     expect(report.findings.filter((f) => f.type === "duplicate-id")).toHaveLength(0);
   });
 
+  it("rejects file references that escape the store directory", () => {
+    const dir = makeStore();
+    writeLearningFile(dir, "LEARN-001-real.md", {
+      id: "LEARN-001",
+      title: "Real learning",
+      body: "When M, do N.",
+    });
+    writeFileSync(join(dir, "..", "outside.md"), "not a learning", "utf-8");
+
+    const decisions: DecisionsFile = {
+      decisions: [
+        { action: "retire", file: "../outside.md", reason: "escape attempt" },
+      ],
+    };
+    expect(() => applyDecisions(dir, decisions, { apply: true })).toThrow(/outside\.md/);
+    expect(readFileSync(join(dir, "..", "outside.md"), "utf-8")).toBe("not a learning");
+  });
+
   it("a decision referencing a missing file fails the whole run with no partial mutation", () => {
     const dir = makeStore();
     writeLearningFile(dir, "LEARN-006-real.md", {
