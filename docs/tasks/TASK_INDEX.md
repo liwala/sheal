@@ -42,7 +42,7 @@
 - [ ] [T20. Harden the T14 gates against the qa-personas bypasses](t20-harden-gates-against-qa-bypasses.md) — `todo`
 - [x] [T21. `sheal review`: apply consolidation change-set dispositions to the store](t21-sheal-review-apply-dispositions.md) — `done` → src/consolidate/apply.ts, docs/adr/0001-validation/2026-07-07-decisions.json
 - [ ] [T22. Validate checkpoint completeness inside `sheal retro`](t22-validate-checkpoint-completeness-in-retro.md) — `todo`
-- [ ] [T23. Preserve unknown frontmatter through learnings-store round-trips](t23-preserve-unknown-frontmatter-in-store.md) — `todo`
+- [x] [T23. Preserve unknown frontmatter through learnings-store round-trips](t23-preserve-unknown-frontmatter-in-store.md) — `done` → src/learn/store.ts, test/store-frontmatter.test.ts
 
 ## Open questions
 

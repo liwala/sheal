@@ -1,11 +1,14 @@
 ---
-status: todo
+status: done
+started: 2026-07-09
+closed: 2026-07-09
 type: task
 id: T23
 deliverable: P0
 created: 2026-07-07
 links:
   - docs/tasks/t19-git-visible-supersede-provenance.md
+output: src/learn/store.ts, src/learn/types.ts, test/store-frontmatter.test.ts
 ---
 
 # T23. Preserve unknown frontmatter through learnings-store round-trips
