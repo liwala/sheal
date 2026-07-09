@@ -3,6 +3,7 @@ status: todo
 type: task
 id: T20
 deliverable: P0
+autonomy: auto
 created: 2026-07-06
 links: ["https://github.com/liwala/sheal/pull/46", "https://github.com/liwala/sheal/pull/47"]
 ---

@@ -3,6 +3,7 @@ status: todo
 type: task
 id: T22
 deliverable: P0
+autonomy: auto
 created: 2026-07-07
 links:
   - docs/adr/0001-validation/2026-07-06-change-set.md
