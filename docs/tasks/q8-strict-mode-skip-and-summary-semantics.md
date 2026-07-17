@@ -28,4 +28,10 @@ blocked until it's decided. It also shapes T16 (Wire guard pr and check
   machine consumers see the strict verdict without re-deriving it? (QA
   suggested it; deliberately left unfixed pending this call.)
 
-**Still open:** both A and B; answering unblocks T20.
+- Decision C (appended 2026-07-17, pr-tutor pass on PR #49) — load-error
+  exit semantics: `sheal retro` on a corrupt/malformed checkpoint prints a
+  clean error but exits 0, so scripts cannot distinguish "analyzed" from
+  "refused input". Same strictness family: decide whether load errors (and
+  possibly input gaps) should have a strict/exit-code mode.
+
+**Still open:** A, B, and C; answering A+B unblocks T20.
