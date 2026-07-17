@@ -39,9 +39,20 @@
 - [x] [T17. Reconcile --strict's warning definition with the check report summary](t17-reconcile-strict-warning-definition.md) — `done` → src/output/json.ts, src/commands/check.ts
 - [x] [T18. Unify the pretty summary line with the shared warning predicate](t18-unify-pretty-summary-warnings.md) — `done` → src/output/pretty.ts, test/check-summary.test.ts
 - [ ] [T19. Make supersede provenance git-visible](t19-git-visible-supersede-provenance.md) — `todo`
-- [ ] [T20. Harden the T14 gates against the qa-personas bypasses](t20-harden-gates-against-qa-bypasses.md) — `todo`
+- [ ] [T20. Harden the T14 gates against the qa-personas bypasses](t20-harden-gates-against-qa-bypasses.md) — `blocked` (waiting on Q8 strict-mode semantics)
+- [x] [T21. `sheal review`: apply consolidation change-set dispositions to the store](t21-sheal-review-apply-dispositions.md) — `done` → src/consolidate/apply.ts, docs/adr/0001-validation/2026-07-07-decisions.json
+- [x] [T22. Validate checkpoint completeness inside `sheal retro`](t22-validate-checkpoint-completeness-in-retro.md) — `done` → src/retro/completeness.ts (PR #49)
+- [x] [T23. Preserve unknown frontmatter through learnings-store round-trips](t23-preserve-unknown-frontmatter-in-store.md) — `done` → src/learn/store.ts, test/store-frontmatter.test.ts
+- [ ] [T24. Retro extractor: branch "product feedback vs. learning"](t24-retro-extractor-product-feedback-branch.md) — `todo`
+- [ ] [T25. Share the file-modifying-tools list between agent-sessions and retro completeness](t25-shared-file-modifying-tools-constant.md) — `todo`
+- [ ] [T26. Reject path traversal in session-id → file resolution (native loaders)](t26-session-id-path-traversal-in-native-loaders.md) — `todo`
 
 ## Open questions
+
+**For luisa:**
+
+- [ ] [Q7. Is `docs/adr/0001-validation/` frozen evidence or the living successor-rule surface?](q7-frozen-validation-evidence-vs-living-successor-rules.md) — `todo`
+- [ ] [Q8. Strict-mode semantics: how should `--strict` treat skipped checkers, and should the JSON summary expose a `strictOk` field?](q8-strict-mode-skip-and-summary-semantics.md) — `todo`
 
 **Answered (history):**
 

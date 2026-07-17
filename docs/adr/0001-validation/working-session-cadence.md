@@ -30,13 +30,18 @@ compaction protocol.
 2. **Commit rhythm:** commit per completed feature; at 5+ touched files,
    refuse new features until current work is committed and the next feature's
    file list is written. _(absorbs 021 into 022)_
-3. **Verify per file:** run the toolchain check (`npx tsc`, `go build`) after
-   each file edit, never batch compiles; after `npm link`/global install,
-   rebuild and smoke-test before using new commands. _(absorbs 007S, 008L)_
+3. **Batch per file, verify per file:** collect all changes _to one file_
+   into a single edit pass, then run the toolchain check (`npx tsc`,
+   `go build`) after each file — never batch compiles across files; after
+   `npm link`/global install, rebuild and smoke-test before using new
+   commands. _(absorbs 007S, 008L; T2 precedence decided 2026-07-06 —
+   batching granularity and verification granularity are both the file)_
 4. **Retry discipline:** the same tool call failing twice identically means
-   change approach, not retry. Extension: re-reading content already in
-   context is retry-waste too — but see contradictions T1 for precedence
-   against rule 1's re-read clause. _(absorbs 009S, 040)_
+   change approach, not retry. Extension: trust content already in context by
+   default — re-reading it is retry-waste — with exactly two exceptions:
+   context compaction occurred (rule 1's re-read clause), or the file has
+   been touched 3+ times this session (LEARN-012S). _(absorbs 009S, 040; T1
+   precedence decided 2026-07-06)_
 
 ## Trigger table
 
@@ -46,6 +51,7 @@ compaction protocol.
 | Feature complete / 5+ files touched | 2    |
 | Any file edit (toolchain projects)  | 3    |
 | Identical tool failure ×2           | 4    |
+| Same file touched 3+ times          | 4 (re-read exception) |
 
 ## Mechanical candidates
 

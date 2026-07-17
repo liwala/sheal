@@ -193,12 +193,16 @@ program
   .option("--global", "Consolidate the global store instead of project", false)
   .option("-f, --format <format>", "Output format: pretty (writes dated file) | json (stdout)", "pretty")
   .option("--prompt", "Print the LLM judgment-stage prompt instead (pipe to any agent CLI)", false)
+  .option("--decisions <file>", "Apply-stage decisions file (JSON); dry-runs unless --apply is passed")
+  .option("--apply", "Execute the decisions file against the store (with --decisions)", false)
   .option("-p, --project <path>", "Project root path", process.cwd())
   .action(async (opts) => {
     await runConsolidate({
       global: opts.global,
       format: opts.format,
       prompt: opts.prompt,
+      decisions: opts.decisions,
+      apply: opts.apply,
       projectRoot: opts.project,
     });
   });

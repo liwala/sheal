@@ -36,4 +36,9 @@ export interface LearningFile {
   sessionId?: string;
   /** Where this learning was loaded from (set at runtime, not persisted) */
   source?: "global" | "project";
+  /**
+   * Frontmatter keys this version doesn't know about, preserved verbatim so
+   * store mutations (review, consolidate apply) never strip them.
+   */
+  extra?: Record<string, string>;
 }

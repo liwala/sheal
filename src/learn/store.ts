@@ -62,9 +62,12 @@ export function slugify(title: string): string {
 /**
  * Render a LearningFile to its markdown string (frontmatter + body).
  */
-function renderLearning(learning: LearningFile): string {
+export function renderLearning(learning: LearningFile): string {
   const tags = `[${learning.tags.join(", ")}]`;
   const sessionLine = learning.sessionId ? `\nsession-id: ${learning.sessionId}` : "";
+  const extraLines = Object.entries(learning.extra ?? {})
+    .map(([key, value]) => `\n${key}: ${value}`)
+    .join("");
   return `---
 id: ${learning.id}
 title: ${learning.title}
@@ -72,7 +75,7 @@ date: ${learning.date}
 tags: ${tags}
 category: ${learning.category}
 severity: ${learning.severity}
-status: ${learning.status}${sessionLine}
+status: ${learning.status}${sessionLine}${extraLines}
 ---
 
 ${learning.body.trim()}
@@ -159,6 +162,12 @@ export function parseLearningContent(content: string): LearningFile {
     ? tagsMatch[1].split(",").map((t) => t.trim()).filter(Boolean)
     : [];
 
+  const knownKeys = new Set(["id", "title", "date", "tags", "category", "severity", "status", "session-id"]);
+  const extra: Record<string, string> = {};
+  for (const [key, value] of Object.entries(meta)) {
+    if (!knownKeys.has(key)) extra[key] = value;
+  }
+
   return {
     id: meta["id"] ?? "",
     title: meta["title"] ?? "",
@@ -169,6 +178,7 @@ export function parseLearningContent(content: string): LearningFile {
     status: (meta["status"] ?? "active") as LearningStatus,
     body,
     ...(meta["session-id"] ? { sessionId: meta["session-id"] } : {}),
+    ...(Object.keys(extra).length > 0 ? { extra } : {}),
   };
 }
 

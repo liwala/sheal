@@ -18,10 +18,14 @@ milestone; producing it is the contract for `sheal consolidate`
   compaction") and LEARN-012S ("re-read after 3+ edits"). Proposed precedence:
   trust context _by default_; re-read only on the two named triggers
   (compaction occurred, or file touched 3+ times). No file states this today.
+  **Decided 2026-07-06 (Luisa): adopted as proposed.** Precedence now stated
+  in [working-session-cadence](working-session-cadence.md) rule 4.
 - **T2 — verify-per-edit vs. batch-into-one-edit.** LEARN-016/007S ("compile
   after each file, never batch") pulls against LEARN-023/010S/027 ("collect
   changes into a single edit pass"). Proposed resolution: batch all changes
   _to one file_ into one edit; verify after each _file_.
+  **Decided 2026-07-06 (Luisa): adopted as proposed.** Stated in
+  [working-session-cadence](working-session-cadence.md) rule 3.
 - **T3 (soft) — incrementalism vs. batching in UI work.** LEARN-014L ("one
   screen before adding more") vs. LEARN-010S ("all UI states in one edit").
   Compatible if scoped: increment at screen level, batch at state level.
@@ -59,6 +63,20 @@ milestone; producing it is the contract for `sheal consolidate`
 - **LEARN-037** (propose non-destructive alternatives, don't execute) and
   **LEARN-041** (user says "no, it was X" → pivot, don't defend): a coherent
   conversational-repair pair. A page materializes if a third arrives.
+
+## No-trigger dispositions (decided 2026-07-07, Luisa)
+
+Both flagged rewrite-or-retire by `sheal consolidate`; both **rewritten with
+a checkable trigger** rather than retired:
+
+- **LEARN-031** → "When adding filter/search/sort over a collection in UI
+  code, apply it in the data/query layer, not in the render path." Trigger:
+  adding filtering logic to a component.
+- **LEARN-043** → "When a command fails due to environment state (blocked
+  host, missing tool, sandbox quirk) and the workaround isn't derivable from
+  the repo, record it (memory / `.self-heal.local.json`) before moving on."
+  Trigger: environment-caused failure with a non-obvious workaround. Holds
+  the slot until the `sheal capture` crisis verb (mechanical table) lands.
 
 ## Mechanical compilation targets (12)
 
