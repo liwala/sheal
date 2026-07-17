@@ -1,5 +1,7 @@
 ---
-status: todo
+status: done
+started: 2026-07-17
+closed: 2026-07-17
 type: task
 id: T22
 deliverable: P0
@@ -7,6 +9,8 @@ autonomy: auto
 created: 2026-07-07
 links:
   - docs/adr/0001-validation/2026-07-06-change-set.md
+  - https://github.com/liwala/sheal/pull/49
+output: src/retro/completeness.ts, src/commands/retro.ts, test/retro-completeness.test.ts
 ---
 
 # T22. Validate checkpoint completeness inside `sheal retro`
