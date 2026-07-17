@@ -1,5 +1,5 @@
 ---
-status: todo
+status: blocked
 type: task
 id: T20
 deliverable: P0
@@ -44,3 +44,13 @@ src/learn/lint.ts.
 ## Dependencies
 
 PR #47 merged.
+
+## Blocker
+
+Blocked by the ship-task Step 0 readiness gate (unattended run, 2026-07-17):
+the body names an unresolved security-semantics decision — "decide whether
+strict should report (or refuse) skipped checkers" — and the related
+`strictOk` summary-field call from the PR #46 QA advisory. Unattended runs
+never guess security decisions. Decisions captured as
+Q8 (Strict-mode semantics: how do skips and the summary interact?); unblock
+by answering Q8 (or split the three mechanical bypasses into their own task).
