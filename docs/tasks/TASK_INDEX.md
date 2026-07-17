@@ -45,6 +45,7 @@
 - [x] [T23. Preserve unknown frontmatter through learnings-store round-trips](t23-preserve-unknown-frontmatter-in-store.md) — `done` → src/learn/store.ts, test/store-frontmatter.test.ts
 - [ ] [T24. Retro extractor: branch "product feedback vs. learning"](t24-retro-extractor-product-feedback-branch.md) — `todo`
 - [ ] [T25. Share the file-modifying-tools list between agent-sessions and retro completeness](t25-shared-file-modifying-tools-constant.md) — `todo`
+- [ ] [T26. Reject path traversal in session-id → file resolution (native loaders)](t26-session-id-path-traversal-in-native-loaders.md) — `todo`
 
 ## Open questions
 
