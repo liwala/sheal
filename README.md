@@ -133,6 +133,13 @@ sheal retro --format json          # JSON output
 
 The `--enrich` flag invokes an agent CLI to perform deep analysis on top of the static retro. The agent extracts rules and offers to save them as learnings. Results are cached at `.sheal/retros/`.
 
+Before analysis, the retro validates checkpoint completeness: missing
+assistant messages, truncated tool call/result pairs, blank conversational
+entries, or absent `filesTouched` despite file-modifying activity are
+reported as an `inputGaps` list (JSON) and an "Input Gaps — Analysis
+Degraded" section (pretty output). Gaps never change the exit code;
+malformed session data produces a clean error naming the checkpoint.
+
 ### `sheal ask <question>`
 
 Query across your session transcripts using natural language. Uses a 3-phase pipeline:
