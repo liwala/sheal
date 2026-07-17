@@ -104,6 +104,8 @@ export interface CoordinationIssue {
  * The full retrospective report for a session.
  */
 export interface Retrospective {
+  /** Gaps in checkpoint input that degrade analysis quality */
+  inputGaps?: string[];
   /** Checkpoint ID analyzed */
   checkpointId: string;
   /** Session ID analyzed */

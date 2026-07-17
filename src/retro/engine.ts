@@ -6,6 +6,7 @@
 
 import type { Checkpoint } from "@liwala/agent-sessions";
 import type { Retrospective } from "./types.js";
+import { assessCompleteness } from "./completeness.js";
 import {
   analyzeEffort,
   analyzeHumanPatterns,
@@ -38,6 +39,7 @@ export function runRetrospective(
   const learnings = extractLearnings(effort, failureLoops, revertedWork, bashFailures);
   const healthScore = calculateHealthScore(failureLoops, revertedWork, bashFailures, effort);
   const coordinationIssues = detectCoordinationIssues(checkpoint);
+  const inputGaps = assessCompleteness(checkpoint);
 
   return {
     checkpointId: checkpoint.root.checkpointId,
@@ -51,6 +53,7 @@ export function runRetrospective(
     learnings,
     healthScore,
     humanPatterns,
+    ...(inputGaps.length > 0 ? { inputGaps } : {}),
     ...(coordinationIssues.length > 0 ? { coordinationIssues } : {}),
   };
 }
