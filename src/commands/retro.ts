@@ -359,6 +359,14 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
   const collectedRules: string[] = [];
   let lastEnrichedSessionId: string | undefined;
 
+  // Skip notices go to stderr in JSON mode so stdout stays parseable —
+  // silent skips would let a batch under-report without any trace.
+  const noteSkip = (id: string, reason: string): void => {
+    const line = chalk.gray(`Skipping ${id.slice(0, 12)} (${reason})`);
+    if (options.format === "json") console.error(line);
+    else console.log(line);
+  };
+
   for (const info of selected) {
     // Same crash contract as the single-session path: a malformed candidate
     // must skip cleanly, not abort the batch with a stack trace.
@@ -366,24 +374,22 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
     try {
       checkpoint = await loadSessionCandidate(repoPath, info);
     } catch (error: unknown) {
-      if (options.format !== "json") {
-        const reason = (error instanceof Error ? error.message : String(error)).split("\n")[0];
-        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (unreadable: ${reason})`));
-      }
+      const reason = (error instanceof Error ? error.message : String(error)).split("\n")[0];
+      noteSkip(info.id, `unreadable: ${reason}`);
+      continue;
+    }
+    if (checkpoint && !isCheckpoint(checkpoint)) {
+      noteSkip(info.id, "malformed checkpoint structure");
       continue;
     }
     if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
-      if (options.format !== "json") {
-        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (no transcript)`));
-      }
+      noteSkip(info.id, "no transcript");
       continue;
     }
 
     const skipReason = shouldSkipSession(checkpoint);
     if (skipReason) {
-      if (options.format !== "json") {
-        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (${skipReason})`));
-      }
+      noteSkip(info.id, skipReason);
       continue;
     }
 

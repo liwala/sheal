@@ -155,8 +155,9 @@ describe("retro checkpoint loading", () => {
     expect(result).toEqual({
       error: expect.stringContaining("broken-checkpoint.json"),
     });
-    expect(result.error).toContain("invalid JSON");
-    expect(result.error).not.toContain("at JSON.parse");
+    const error = "error" in result ? result.error : "";
+    expect(error).toContain("invalid JSON");
+    expect(error).not.toContain("at JSON.parse");
   });
 
   it("returns a clean named error for a checkpoint missing required structure", async () => {
@@ -167,7 +168,7 @@ describe("retro checkpoint loading", () => {
     expect(result).toEqual({
       error: expect.stringContaining("missing-root"),
     });
-    expect(result.error).toContain("missing required structure");
+    expect("error" in result ? result.error : "").toContain("missing required structure");
   });
 
   it("does not change the process exit code for input gaps", () => {
@@ -262,6 +263,23 @@ describe("sheal retro (CLI, truncated and corrupt fixtures)", () => {
     const combined = `${result.stdout}\n${result.stderr}`;
     expect(combined).not.toMatch(/^\s+at .+\(.+:\d+:\d+\)$/m);
     expect(combined.trim().length).toBeGreaterThan(0);
+  });
+
+  it("batch mode skips an unusable session visibly on stderr while JSON stdout stays parseable", () => {
+    const { home, projectRoot } = makeEnv();
+    plantSession(home, projectRoot, "good-session", [
+      userLine(projectRoot, "good-session", 1),
+      userLine(projectRoot, "good-session", 2),
+      userLine(projectRoot, "good-session", 3),
+    ]);
+    plantSession(home, projectRoot, "corrupt-session", ["garbage {{{ not json"]);
+
+    const result = runRetroCli(home, projectRoot, ["--last", "2", "-f", "json"]);
+    expect(result.status).toBe(0);
+    const reports = JSON.parse(result.stdout) as { inputGaps?: string[] }[];
+    expect(Array.isArray(reports)).toBe(true);
+    expect(result.stderr).toContain("Skipping");
+    expect(`${result.stdout}\n${result.stderr}`).not.toMatch(/^\s+at .+\(.+:\d+:\d+\)$/m);
   });
 });
 
