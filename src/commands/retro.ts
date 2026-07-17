@@ -77,9 +77,11 @@ export async function loadCheckpointForRetro(
     }
     return { checkpoint };
   } catch (error: unknown) {
+    // First line only: loader errors can be multiline/implementation-specific,
+    // and this string is the user-facing "clean error" contract.
     const reason = error instanceof SyntaxError
       ? "invalid JSON"
-      : error instanceof Error ? error.message : String(error);
+      : (error instanceof Error ? error.message : String(error)).split("\n")[0];
     return { error: `Failed to load checkpoint ${checkpointId}: ${reason}` };
   }
 }
@@ -358,7 +360,18 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
   let lastEnrichedSessionId: string | undefined;
 
   for (const info of selected) {
-    const checkpoint = await loadSessionCandidate(repoPath, info);
+    // Same crash contract as the single-session path: a malformed candidate
+    // must skip cleanly, not abort the batch with a stack trace.
+    let checkpoint: Checkpoint | null;
+    try {
+      checkpoint = await loadSessionCandidate(repoPath, info);
+    } catch (error: unknown) {
+      if (options.format !== "json") {
+        const reason = (error instanceof Error ? error.message : String(error)).split("\n")[0];
+        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (unreadable: ${reason})`));
+      }
+      continue;
+    }
     if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
       if (options.format !== "json") {
         console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (no transcript)`));

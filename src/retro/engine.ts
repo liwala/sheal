@@ -31,6 +31,7 @@ export function runRetrospective(
     throw new Error(`Session index ${sessionIndex} not found in checkpoint ${checkpoint.root.checkpointId}`);
   }
 
+  const inputGaps = assessCompleteness(checkpoint);
   const effort = analyzeEffort(session);
   const humanPatterns = analyzeHumanPatterns(session);
   const failureLoops = detectFailureLoops(session);
@@ -39,7 +40,6 @@ export function runRetrospective(
   const learnings = extractLearnings(effort, failureLoops, revertedWork, bashFailures);
   const healthScore = calculateHealthScore(failureLoops, revertedWork, bashFailures, effort);
   const coordinationIssues = detectCoordinationIssues(checkpoint);
-  const inputGaps = assessCompleteness(checkpoint);
 
   return {
     checkpointId: checkpoint.root.checkpointId,

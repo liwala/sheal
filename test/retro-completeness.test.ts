@@ -1,5 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import type { Checkpoint, SessionEntry } from "@liwala/agent-sessions";
+
+const repoRoot = process.cwd();
+const tsxLoader = join(repoRoot, "node_modules", "tsx", "dist", "loader.mjs");
 import { runRetrospective } from "../src/retro/engine.js";
 import { assessCompleteness } from "../src/retro/completeness.js";
 import { loadCheckpointForRetro, printRetro } from "../src/commands/retro.js";
@@ -20,9 +27,59 @@ describe("retro checkpoint completeness", () => {
       "No assistant messages were captured.",
       "Transcript contains an entry with missing content.",
       "Transcript contains a tool result without a recorded tool call.",
-      "No filesTouched data was captured.",
     ]);
     expect(report.inputGaps).toEqual(gaps);
+  });
+
+  it("reports a tool call whose result was never recorded (truncation)", () => {
+    const checkpoint = makeCheckpoint([
+      entry("user", "one"),
+      entry("assistant", "working"),
+      entry("tool", "Tool: Read", { toolName: "Read" }),
+    ]);
+
+    expect(assessCompleteness(checkpoint)).toContain(
+      "Transcript contains a tool call without a recorded result.",
+    );
+  });
+
+  it("does not flag blank content on tool entries that carry tool data (Gemini shape)", () => {
+    const checkpoint = makeCheckpoint([
+      entry("user", "one"),
+      entry("assistant", "working"),
+      entry("tool", "", { toolName: "run_shell", toolOutput: "ok" }),
+      entry("assistant", "done"),
+    ]);
+
+    expect(assessCompleteness(checkpoint)).not.toContain(
+      "Transcript contains an entry with missing content.",
+    );
+  });
+
+  it("does not flag missing filesTouched for a read-only session", () => {
+    const checkpoint = makeCheckpoint([
+      entry("user", "look at this"),
+      entry("assistant", "reading"),
+      entry("tool", "Tool: Read", { toolName: "Read", filesAffected: ["src/app.ts"] }),
+      entry("tool", "contents", { toolOutput: "contents" }),
+      entry("assistant", "here is what it says"),
+    ]);
+
+    expect(assessCompleteness(checkpoint)).toEqual([]);
+  });
+
+  it("flags missing filesTouched when file-modifying tools ran", () => {
+    const checkpoint = makeCheckpoint([
+      entry("user", "change it"),
+      entry("assistant", "editing"),
+      entry("tool", "Tool: Edit", { toolName: "Edit", filesAffected: ["src/app.ts"] }),
+      entry("tool", "ok", { toolOutput: "ok" }),
+      entry("assistant", "done"),
+    ]);
+
+    expect(assessCompleteness(checkpoint)).toEqual([
+      "No filesTouched data was captured despite file-modifying tool activity.",
+    ]);
   });
 
   it("reports no gaps for a complete checkpoint", () => {
@@ -127,6 +184,84 @@ describe("retro checkpoint loading", () => {
     } finally {
       process.exitCode = originalExitCode;
     }
+  });
+});
+
+describe("sheal retro (CLI, truncated and corrupt fixtures)", () => {
+  function plantSession(home: string, projectRoot: string, sessionId: string, lines: string[]): void {
+    const slug = projectRoot.replace(/[\\/: ]/g, "-");
+    const dir = join(home, ".claude", "projects", slug);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${sessionId}.jsonl`), lines.join("\n") + "\n", "utf-8");
+  }
+
+  function userLine(projectRoot: string, sessionId: string, n: number): string {
+    return JSON.stringify({
+      type: "user",
+      uuid: `u${n}`,
+      timestamp: `2026-07-17T10:0${n}:00.000Z`,
+      sessionId,
+      cwd: projectRoot,
+      message: { role: "user", content: [{ type: "text", text: `prompt ${n}` }] },
+    });
+  }
+
+  function runRetroCli(home: string, projectRoot: string, args: string[]) {
+    return spawnSync(
+      process.execPath,
+      ["--import", tsxLoader, join(repoRoot, "src", "index.ts"), "retro", "-p", projectRoot, ...args],
+      { encoding: "utf-8", env: { ...process.env, HOME: home } },
+    );
+  }
+
+  let tmp: string | undefined;
+
+  afterEach(() => {
+    if (tmp) {
+      rmSync(tmp, { recursive: true, force: true });
+      tmp = undefined;
+    }
+  });
+
+  function makeEnv(): { home: string; projectRoot: string } {
+    tmp = mkdtempSync(join(tmpdir(), "sheal-retro-cli-"));
+    const home = join(tmp, "home");
+    const projectRoot = join(tmp, "project");
+    mkdirSync(home, { recursive: true });
+    mkdirSync(projectRoot, { recursive: true });
+    spawnSync("git", ["init", "-q"], { cwd: projectRoot });
+    return { home, projectRoot };
+  }
+
+  it("reports input gaps for a truncated session and exits 0", () => {
+    const { home, projectRoot } = makeEnv();
+    const sessionId = "truncated-session";
+    plantSession(home, projectRoot, sessionId, [
+      userLine(projectRoot, sessionId, 1),
+      userLine(projectRoot, sessionId, 2),
+      userLine(projectRoot, sessionId, 3),
+    ]);
+
+    const result = runRetroCli(home, projectRoot, ["-c", sessionId]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Input Gaps");
+    expect(result.stdout).toContain("No assistant messages were captured.");
+
+    const json = runRetroCli(home, projectRoot, ["-c", sessionId, "-f", "json"]);
+    expect(json.status).toBe(0);
+    expect(JSON.parse(json.stdout).inputGaps).toContain("No assistant messages were captured.");
+  });
+
+  it("handles a corrupt session file without a stack trace", () => {
+    const { home, projectRoot } = makeEnv();
+    const sessionId = "corrupt-session";
+    plantSession(home, projectRoot, sessionId, ["this is not json {{{", "nor is this"]);
+
+    const result = runRetroCli(home, projectRoot, ["-c", sessionId]);
+    expect(result.status).toBe(0);
+    const combined = `${result.stdout}\n${result.stderr}`;
+    expect(combined).not.toMatch(/^\s+at .+\(.+:\d+:\d+\)$/m);
+    expect(combined.trim().length).toBeGreaterThan(0);
   });
 });
 
