@@ -63,6 +63,64 @@ interface RetroSessionCandidate {
 
 type RetroRegistryImportOfferResult = "not-needed" | "declined" | "imported";
 
+type RetroCheckpointLoadResult = { checkpoint: Checkpoint | null } | { error: string };
+
+export async function loadCheckpointForRetro(
+  checkpointId: string,
+  loader: () => Promise<Checkpoint | null>,
+): Promise<RetroCheckpointLoadResult> {
+  try {
+    const checkpoint: unknown = await loader();
+    if (checkpoint === null) return { checkpoint: null };
+    if (!isCheckpoint(checkpoint)) {
+      return { error: `Failed to load checkpoint ${checkpointId}: missing required structure.` };
+    }
+    return { checkpoint };
+  } catch (error: unknown) {
+    // First line only: loader errors can be multiline/implementation-specific,
+    // and this string is the user-facing "clean error" contract.
+    const reason = error instanceof SyntaxError
+      ? "invalid JSON"
+      : (error instanceof Error ? error.message : String(error)).split("\n")[0];
+    return { error: `Failed to load checkpoint ${checkpointId}: ${reason}` };
+  }
+}
+
+function isCheckpoint(value: unknown): value is Checkpoint {
+  if (!isRecord(value) || !isRecord(value.root) || !Array.isArray(value.sessions)) return false;
+  if (
+    typeof value.root.checkpointId !== "string" ||
+    typeof value.root.strategy !== "string" ||
+    typeof value.root.checkpointsCount !== "number" ||
+    !Array.isArray(value.root.filesTouched) ||
+    !Array.isArray(value.root.sessions)
+  ) return false;
+
+  return value.sessions.every((session) =>
+    isRecord(session) &&
+    isRecord(session.metadata) &&
+    typeof session.metadata.checkpointId === "string" &&
+    typeof session.metadata.sessionId === "string" &&
+    typeof session.metadata.strategy === "string" &&
+    typeof session.metadata.createdAt === "string" &&
+    typeof session.metadata.checkpointsCount === "number" &&
+    Array.isArray(session.metadata.filesTouched) &&
+    Array.isArray(session.transcript) &&
+    session.transcript.every((entry) =>
+      isRecord(entry) &&
+      typeof entry.uuid === "string" &&
+      typeof entry.type === "string" &&
+      typeof entry.content === "string"
+    ) &&
+    Array.isArray(session.prompts) &&
+    session.prompts.every((prompt) => typeof prompt === "string"),
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export interface RetroRegistryImportOfferOptions {
   projectRoot: string;
   checkpoint: Checkpoint;
@@ -143,7 +201,15 @@ export async function runRetro(options: RetroOptions): Promise<void> {
   // (Amp threads are only used when explicitly targeted by ID)
 
   // Try Entire.io first, fall back to native Claude Code transcripts
-  const checkpoint = await loadSession(repoPath, options.checkpointId);
+  const loaded = await loadCheckpointForRetro(
+    options.checkpointId ?? "latest session",
+    () => loadSession(repoPath, options.checkpointId),
+  );
+  if ("error" in loaded) {
+    console.error(chalk.red(loaded.error));
+    return;
+  }
+  const checkpoint = loaded.checkpoint;
   if (!checkpoint) return;
 
   await handleRetroRegistryImportOffer({
@@ -293,20 +359,37 @@ async function runBatchRetro(options: RetroOptions): Promise<void> {
   const collectedRules: string[] = [];
   let lastEnrichedSessionId: string | undefined;
 
+  // Skip notices go to stderr in JSON mode so stdout stays parseable —
+  // silent skips would let a batch under-report without any trace.
+  const noteSkip = (id: string, reason: string): void => {
+    const line = chalk.gray(`Skipping ${id.slice(0, 12)} (${reason})`);
+    if (options.format === "json") console.error(line);
+    else console.log(line);
+  };
+
   for (const info of selected) {
-    const checkpoint = await loadSessionCandidate(repoPath, info);
+    // Same crash contract as the single-session path: a malformed candidate
+    // must skip cleanly, not abort the batch with a stack trace.
+    let checkpoint: Checkpoint | null;
+    try {
+      checkpoint = await loadSessionCandidate(repoPath, info);
+    } catch (error: unknown) {
+      const reason = (error instanceof Error ? error.message : String(error)).split("\n")[0];
+      noteSkip(info.id, `unreadable: ${reason}`);
+      continue;
+    }
+    if (checkpoint && !isCheckpoint(checkpoint)) {
+      noteSkip(info.id, "malformed checkpoint structure");
+      continue;
+    }
     if (!checkpoint || checkpoint.sessions.length === 0 || checkpoint.sessions[0].transcript.length === 0) {
-      if (options.format !== "json") {
-        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (no transcript)`));
-      }
+      noteSkip(info.id, "no transcript");
       continue;
     }
 
     const skipReason = shouldSkipSession(checkpoint);
     if (skipReason) {
-      if (options.format !== "json") {
-        console.log(chalk.gray(`Skipping ${info.id.slice(0, 12)} (${skipReason})`));
-      }
+      noteSkip(info.id, skipReason);
       continue;
     }
 
@@ -674,7 +757,7 @@ function loadCachedEnrichments(projectRoot: string, checkpointId: string): Cache
   return results;
 }
 
-function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): void {
+export function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): void {
   console.log();
   console.log(chalk.bold("Session Retrospective"));
   console.log(chalk.gray("═".repeat(50)));
@@ -685,6 +768,14 @@ function printRetro(retro: Retrospective, enrichments?: CachedEnrichment[]): voi
   console.log(`  Session: ${retro.sessionId}`);
   console.log(`  Created: ${retro.createdAt}`);
   console.log();
+
+  if (retro.inputGaps && retro.inputGaps.length > 0) {
+    console.log(chalk.yellow.bold("  Input Gaps — Analysis Degraded:"));
+    for (const gap of retro.inputGaps) {
+      console.log(chalk.yellow(`    ! ${gap}`));
+    }
+    console.log();
+  }
 
   // Health score
   const scoreColor = retro.healthScore >= 80 ? chalk.green : retro.healthScore >= 50 ? chalk.yellow : chalk.red;

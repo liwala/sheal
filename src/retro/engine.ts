@@ -6,6 +6,7 @@
 
 import type { Checkpoint } from "@liwala/agent-sessions";
 import type { Retrospective } from "./types.js";
+import { assessCompleteness } from "./completeness.js";
 import {
   analyzeEffort,
   analyzeHumanPatterns,
@@ -30,6 +31,7 @@ export function runRetrospective(
     throw new Error(`Session index ${sessionIndex} not found in checkpoint ${checkpoint.root.checkpointId}`);
   }
 
+  const inputGaps = assessCompleteness(checkpoint);
   const effort = analyzeEffort(session);
   const humanPatterns = analyzeHumanPatterns(session);
   const failureLoops = detectFailureLoops(session);
@@ -51,6 +53,7 @@ export function runRetrospective(
     learnings,
     healthScore,
     humanPatterns,
+    ...(inputGaps.length > 0 ? { inputGaps } : {}),
     ...(coordinationIssues.length > 0 ? { coordinationIssues } : {}),
   };
 }
